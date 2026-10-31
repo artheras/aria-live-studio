@@ -503,7 +503,7 @@ export function RoundControl({ round, settings, me, api, clockOffset, onConnectA
       <div className="panel__body">
         <div className="round-title">
           <h2 id="round-h">{title}</h2>
-          <span className={`phase-tag phase-tag--${phase}`}>{PHASE_LABEL[phase]}</span>
+          <span className={`phase-tag phase-tag--${phase}`}>{phase === "awaiting_approval" && task?.status === "approved" ? "Ready to build" : PHASE_LABEL[phase]}</span>
         </div>
         {body}
       </div>

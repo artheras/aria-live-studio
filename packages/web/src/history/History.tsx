@@ -40,7 +40,7 @@ export function HistoryCard({ r }: { r: RoundSummary }) {
           <div>
             <p>{r.winner.text}</p>
             <p className="muted">
-              @{r.winner.author.displayName || r.winner.author.login} · {r.winner.votes} votes
+              @{r.winner.author.displayName || r.winner.author.login} · {r.winner.votes} {r.winner.votes === 1 ? "vote" : "votes"}
             </p>
           </div>
         </div>
@@ -53,7 +53,7 @@ export function HistoryCard({ r }: { r: RoundSummary }) {
           <div className="task__badges">
             <SizeBadge size={r.task.size} />
             <SourceBadge task={{ source: r.task.source, model: null }} />
-            <span className={`badge badge--status-${r.task.status}`}>{r.task.status}</span>
+            <span className={`badge badge--status-${r.task.status}`}>{r.task.status[0]!.toUpperCase() + r.task.status.slice(1)}</span>
           </div>
         </div>
       )}
