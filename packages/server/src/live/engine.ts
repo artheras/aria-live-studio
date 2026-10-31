@@ -442,7 +442,7 @@ export class RoundEngine {
     this.lastIdeaAt.set(user.id, now);
     this.participate(user);
     this.s.stats.ideas++;
-    this.activity("idea", `Idea #${idea.number} from @${user.login}: ${text}`, user);
+    this.activity("idea", `Idea #${idea.number}: ${text}`, user);
     this.changed();
     return { ok: true, kind: "added", idea };
   }
@@ -518,7 +518,7 @@ export class RoundEngine {
     if (prev === undefined) this.s.stats.votes++;
     this.participate(user);
     this.recount(r);
-    this.activity("vote", `@${user.login} ${prev ? "changed vote to" : "voted"} #${ballotNumber}`, user);
+    this.activity("vote", `${prev ? "changed vote to" : "voted"} #${ballotNumber}`, user);
     this.changed();
     return { ok: true, ballotNumber, ideaId: tally.ideaId, changed: prev !== undefined, unchanged: false };
   }
@@ -693,7 +693,7 @@ export class RoundEngine {
     };
     r.execution = ex;
     r.phase = "executing";
-    this.activity("execution", `Execution started (${executor})`);
+    this.activity("execution", `Build started: ${executorLabel(executor)}`);
     this.changed();
     return ex;
   }
@@ -749,4 +749,14 @@ function cleanList(v: unknown): string[] {
     .map((x) => streamSafeLine(x, 400))
     .filter(Boolean)
     .slice(0, 20);
+}
+
+/** "mcp:codex" → "Codex via MCP", "aria-code" → "Aria Code in an isolated worktree". */
+export function executorLabel(executor: string): string {
+  const names: Record<string, string> = { codex: "Codex", "claude-code": "Claude Code", "aria-code": "Aria Code" };
+  if (executor.startsWith("mcp:")) {
+    const id = executor.slice(4);
+    return `${names[id] ?? id} via MCP`;
+  }
+  return `${names[executor] ?? executor} in an isolated worktree`;
 }

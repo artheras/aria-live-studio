@@ -835,7 +835,7 @@ async function phaseB() {
     const tallies = Object.fromEntries(s.round.tallies.map((t) => [t.number, t.votes]));
     check(tallies[1] === 4 && tallies[2] === 2 && tallies[3] === 0 && tallies[quinnN] === 1, "tallies: #1=4, #2=2, #3=0 (vote changed), pause=1", tallies);
     check(s.round.voters === 7 && s.stats.votes === 7, "7 voters; invalid votes (9, banana) not counted", { voters: s.round.voters, votes: s.stats.votes });
-    check(s.activity.some((a) => /nova_kid changed vote to #1/.test(a.text)), "activity records the vote change");
+    check(s.activity.some((a) => a.user?.login === "nova_kid" && /^changed vote to #1$/.test(a.text)), "activity records the vote change");
     await sleep(300);
     ov = overlay.last();
     check(ov.round.phase === "voting" && ov.round.tallies.length === 5, "overlay shows the live ballot");
@@ -1124,7 +1124,12 @@ async function main() {
     if (PHASES.has("A")) await phaseA();
     if (PHASES.has("C")) shots = await phaseCStart();
     if (PHASES.has("B") || PHASES.has("C")) await phaseB();
-    if (shots) check(shots.consoleErrors.length === 0, "no browser console errors", shots.consoleErrors);
+    if (shots) {
+      // The script restarts the server on purpose; an open overlay logs one
+      // refused WebSocket connection before it reconnects. Anything else fails.
+      const unexpected = shots.consoleErrors.filter((e) => !/WebSocket connection to '[^']*\/ws\?role=[^']*' failed: .*ERR_CONNECTION_REFUSED/.test(e));
+      check(unexpected.length === 0, "no browser console errors (beyond the deliberate restart)", unexpected);
+    }
   } catch (err) {
     failures++;
     log(`\n${C.r}${err instanceof Fatal ? "stopped" : "crashed"}: ${err.stack ?? err}${C.x}`);
