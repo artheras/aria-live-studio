@@ -1,0 +1,8 @@
+# Add to ~/.codex/config.toml (replace the path and paste the agent token from
+# the Aria Live dashboard → "Connect a coding agent"):
+[mcp_servers.aria-live]
+command = "node"
+args = ["/ABSOLUTE/PATH/TO/aria-live-studio/plugin/mcp/aria-live-mcp.mjs"]
+env = { ARIA_LIVE_URL = "http://localhost:3000", ARIA_LIVE_TOKEN = "PASTE_AGENT_TOKEN" }
+# Long-polling for the approved task can take up to 10 minutes:
+tool_timeout_sec = 660

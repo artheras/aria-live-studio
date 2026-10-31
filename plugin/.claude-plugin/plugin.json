@@ -1,0 +1,10 @@
+{
+  "name": "aria-live",
+  "version": "0.1.0",
+  "description": "Build what your Twitch chat votes for: wait for the streamer-approved task, claim it, report progress to the stream overlay and finish it.",
+  "author": { "name": "Xindi Wang" },
+  "homepage": "https://github.com/artheras/aria-live-studio",
+  "repository": "https://github.com/artheras/aria-live-studio",
+  "license": "Apache-2.0",
+  "keywords": ["twitch", "live", "streaming", "mcp", "community"]
+}

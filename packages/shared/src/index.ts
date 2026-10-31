@@ -237,6 +237,14 @@ export const Api = {
   rejectTask: "POST /api/task/reject", // { note?: string }
   startExecution: "POST /api/execution/start", // {}
   cancelExecution: "POST /api/execution/cancel", // {}
+  // Coding-agent API (MCP bridge for Codex / Claude Code / Aria Code).
+  // Authorization: Bearer AGENT_TOKEN. Agents can read, claim an APPROVED
+  // task, report progress and finish it — never approve, reject or vote.
+  agentStatus: "GET /api/agent/status", // -> AgentStatus
+  agentWait: "GET /api/agent/task?wait=SECONDS", // long-poll (<= 60s) until a task is approved and unclaimed -> AgentTask | 204
+  agentClaim: "POST /api/agent/claim", // { taskId, client } -> AgentTask (409 if not approved / already running)
+  agentProgress: "POST /api/agent/progress", // { taskId, kind: ExecutionStepKind, text } -> 204
+  agentComplete: "POST /api/agent/complete", // { taskId, status: "succeeded"|"failed"|"cancelled", summary?, changedFiles?, branch?, error? } -> 204
   login: "GET /auth/twitch/login",
   callback: "GET /auth/twitch/callback",
   logout: "POST /auth/logout",
@@ -247,6 +255,32 @@ export interface ApiError {
   error: string;
   /** Machine-readable reason, e.g. "wrong_phase", "not_broadcaster". */
   code: string;
+}
+
+// ── Coding-agent API payloads ─────────────────────────────────────────────
+
+export interface AgentStatus {
+  connected: boolean; // Twitch EventSub connected
+  channel: string | null;
+  phase: RoundPhase | "none";
+  roundIndex: number | null;
+  prompt: string | null;
+  ballot: { number: number; text: string; votes: number }[];
+  winner: { number: number; text: string; votes: number } | null;
+  task: { id: string; title: string; status: TaskStatus } | null;
+  execution: { status: ExecutionStatus; executor: string } | null;
+}
+
+/** An approved task as handed to a coding agent. Viewer text is untrusted. */
+export interface AgentTask {
+  taskId: string;
+  roundIndex: number;
+  idea: { text: string; author: string; votes: number };
+  task: Pick<Task, "title" | "summary" | "userStory" | "acceptanceCriteria" | "steps" | "risks" | "size">;
+  projectBrief: string;
+  /** Ready-to-use instructions; the idea is quoted inside an untrusted block. */
+  instructions: string;
+  claimed: boolean;
 }
 
 // ── Chat commands ────────────────────────────────────────────────────────

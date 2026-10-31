@@ -1,0 +1,27 @@
+{
+  "name": "@aria-live/mcp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MCP bridge: lets Codex, Claude Code or Aria Code pick up the task a Twitch community voted for and report progress to the stream.",
+  "type": "module",
+  "bin": {
+    "aria-live-mcp": "dist/index.js"
+  },
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "esbuild src/index.ts --bundle --platform=node --format=esm --target=node20 --packages=external --outfile=dist/index.js --banner:js=\"#!/usr/bin/env node\"",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p .",
+    "build:plugin": "esbuild src/index.ts --bundle --platform=node --format=esm --target=node20 --outfile=../../plugin/mcp/aria-live-mcp.mjs --banner:js=\"#!/usr/bin/env node\nimport { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);\""
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8",
+    "esbuild": "^0.28.2"
+  }
+}

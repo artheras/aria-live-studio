@@ -1,0 +1,15 @@
+{
+  "servers": [
+    {
+      "name": "aria-live",
+      "command": "node",
+      "args": ["/ABSOLUTE/PATH/TO/aria-live-studio/plugin/mcp/aria-live-mcp.mjs"],
+      "env": {
+        "ARIA_LIVE_URL": "http://localhost:3000",
+        "ARIA_LIVE_TOKEN": "PASTE_AGENT_TOKEN"
+      },
+      "enabled": true,
+      "description": "Aria Live Studio: build the task a Twitch community voted for and report progress to the stream."
+    }
+  ]
+}

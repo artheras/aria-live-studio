@@ -1,0 +1,14 @@
+{
+  "name": "aria-live-studio",
+  "owner": {
+    "name": "Xindi Wang"
+  },
+  "plugins": [
+    {
+      "name": "aria-live",
+      "source": "./plugin",
+      "description": "Build what your Twitch chat votes for, live on stream."
+    }
+  ],
+  "description": "Aria Live Studio: Twitch viewers propose and vote; your coding agent builds the winner live on stream."
+}

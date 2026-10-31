@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "aria-live": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/aria-live-mcp.mjs"],
+      "env": {
+        "ARIA_LIVE_URL": "${ARIA_LIVE_URL:-http://localhost:3000}",
+        "ARIA_LIVE_TOKEN": "${ARIA_LIVE_TOKEN}"
+      }
+    }
+  }
+}
