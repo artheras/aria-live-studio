@@ -5,7 +5,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { AgentStatus, AgentTask } from "@aria-live/shared";
 import { LiveClient } from "../src/client.ts";
-import { createServer } from "../src/server.ts";
+import { agentLabel, createServer } from "../src/server.ts";
 
 const TOKEN = "agent-secret";
 
@@ -151,7 +151,7 @@ describe("aria-live MCP server", () => {
     });
     const bodies = recorded.map((r) => [r.path, r.body]);
     expect(bodies).toEqual([
-      ["/api/agent/claim", { taskId: "t1", client: "Claude Code" }],
+      ["/api/agent/claim", { taskId: "t1", client: "claude-code" }],
       ["/api/agent/progress", { taskId: "t1", kind: "status", text: "Added Boss class" }],
       [
         "/api/agent/complete",
@@ -191,5 +191,16 @@ describe("aria-live MCP server", () => {
     });
     expect(result.isError).toBe(true);
     expect(recorded).toHaveLength(0);
+  });
+});
+
+describe("agentLabel", () => {
+  it("maps the names MCP hosts report to the ids the stream understands", () => {
+    expect(agentLabel("codex-mcp-client")).toBe("codex");
+    expect(agentLabel("claude-code")).toBe("claude-code");
+    expect(agentLabel("Claude Code")).toBe("claude-code");
+    expect(agentLabel("aria-code")).toBe("aria-code");
+    expect(agentLabel("my<script>agent")).toBe("myscriptagent");
+    expect(agentLabel(undefined)).toBe("agent");
   });
 });

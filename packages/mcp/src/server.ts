@@ -62,6 +62,20 @@ export function describeTask(task: AgentTask): string {
   ].join("\n");
 }
 
+/**
+ * The label the stream shows for the agent. MCP hosts report implementation
+ * names such as "codex-mcp-client" or "claude-code"; map the known ones to
+ * the ids the dashboard and overlay understand.
+ */
+export function agentLabel(name: string | undefined): string {
+  const raw = (name ?? "").replace(/[^\w .-]/g, "").trim();
+  const n = raw.toLowerCase();
+  if (n.includes("codex")) return "codex";
+  if (n.includes("claude")) return "claude-code";
+  if (n.includes("aria")) return "aria-code";
+  return raw.slice(0, 32) || "agent";
+}
+
 export interface CreateServerOptions {
   client: LiveClient;
   /** Fallback client label when the host does not identify itself. */
@@ -79,8 +93,7 @@ export function createServer({ client, clientName }: CreateServerOptions): McpSe
     },
   );
 
-  const hostName = (): string =>
-    (server.server.getClientVersion()?.name ?? clientName ?? "agent").replace(/[^\w .-]/g, "").slice(0, 32) || "agent";
+  const hostName = (): string => agentLabel(server.server.getClientVersion()?.name ?? clientName);
 
   server.registerTool(
     "live_status",
