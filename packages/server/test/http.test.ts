@@ -239,6 +239,25 @@ describe("full loop through chat + REST", () => {
     expect(hist[0]!.execution.status).toBe("succeeded");
   });
 
+  it("shows refused ideas (link, too long) in the activity feed and stays quiet outside the round", async () => {
+    h = await startHarness();
+    h.service.handleChat(chatEvent("!idea see https://spam.example.com", { login: "early" }));
+    expect(h.service.engine.state.activity.some((a) => a.kind === "rejected")).toBe(false);
+    await h.api("POST", "/api/round/open", {});
+    h.service.handleChat(chatEvent("!idea see https://spam.example.com", { login: "spammer" }));
+    h.service.handleChat(chatEvent(`!idea ${"x".repeat(200)}`, { login: "wordy" }));
+    h.service.handleChat(chatEvent("!vote 1", { login: "eager" }));
+    const refused = h.service.engine.state.activity.filter((a) => a.kind === "rejected");
+    expect(refused.map((a) => a.text)).toEqual([
+      "Idea from @spammer rejected: links are not allowed",
+      "Idea from @wordy rejected: ideas are max 140 characters",
+    ]);
+    expect(refused[0]!.user?.login).toBe("spammer");
+    await waitFor(() => h!.twitch.chatMessages().length >= 1);
+    expect(h.twitch.chatMessages()[0]).toBe("[Aria] @spammer links are not allowed");
+    expect(h.twitch.chatMessages().some((m) => m.includes("@early") || m.includes("@eager"))).toBe(false);
+  });
+
   it("refuses execution when the executor is disabled or unavailable, and cancel aborts", async () => {
     h = await startHarness();
     const eng = h.service.engine;

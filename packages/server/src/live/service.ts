@@ -190,9 +190,17 @@ export class LiveService {
     const { command: c, user } = p;
     const r = this.engine.round;
     switch (c.kind) {
-      case "invalid":
+      case "invalid": {
+        // Only answer while the command could have counted; otherwise stay quiet like for valid commands.
+        const live = c.command === "idea" ? r?.phase === "collecting" : r?.phase === "voting";
+        if (!live) return;
+        if (c.command === "idea") {
+          // Refused before reaching the engine (link, too long): still show it to the streamer.
+          this.engine.note("rejected", `Idea from @${user.login} rejected: ${c.reason}`, user);
+        }
         this.reply(`@${user.login} ${c.reason}`, p.messageId);
         return;
+      }
       case "help":
         this.reply(
           "Propose with !idea <your idea>, vote with !vote <number> once voting opens, !ideas lists them. The streamer approves what gets built.",
