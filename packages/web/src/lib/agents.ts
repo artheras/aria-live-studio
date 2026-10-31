@@ -92,6 +92,16 @@ const KNOWN: Record<string, string> = {
   ariacode: "Aria Code",
 };
 
+/** Known client from a host-reported name ("codex-mcp-client", "Claude Code", …). */
+function knownClient(id: string): string | undefined {
+  const n = id.toLowerCase();
+  if (KNOWN[n]) return KNOWN[n];
+  if (n.includes("codex")) return "Codex";
+  if (n.includes("claude")) return "Claude Code";
+  if (n.includes("aria")) return "Aria Code";
+  return undefined;
+}
+
 function titleCase(s: string): string {
   return s
     .split(/[-_\s]+/)
@@ -105,7 +115,7 @@ export function executorInfo(executor: string | null | undefined): { label: stri
   const raw = (executor ?? "").trim();
   if (raw.toLowerCase().startsWith("mcp:")) {
     const id = raw.slice(4).trim();
-    const client = KNOWN[id.toLowerCase()] ?? (id ? titleCase(id) : "a coding agent");
+    const client = knownClient(id) ?? (id ? titleCase(id) : "a coding agent");
     return { label: client, viaMcp: true, client };
   }
   const base = KNOWN[raw.toLowerCase()] ?? (raw ? titleCase(raw) : "Aria");

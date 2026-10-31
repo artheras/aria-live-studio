@@ -100,7 +100,20 @@ export function createApi(getCsrf: () => string | null) {
     agentConnection: async (): Promise<AgentConnection> => {
       const data = await request<unknown>("GET", "/api/agent-connection");
       if (isRecord(data) && typeof data.token === "string" && typeof data.mcpUrl === "string") {
-        return { token: data.token, mcpUrl: data.mcpUrl.startsWith("/") ? window.location.origin + data.mcpUrl : data.mcpUrl };
+        const conn: AgentConnection = {
+          token: data.token,
+          mcpUrl: data.mcpUrl.startsWith("/") ? window.location.origin + data.mcpUrl : data.mcpUrl,
+        };
+        const cmd = data.mcpCommand;
+        if (
+          isRecord(cmd) &&
+          typeof cmd.command === "string" &&
+          Array.isArray(cmd.args) &&
+          cmd.args.every((a) => typeof a === "string")
+        ) {
+          conn.mcpCommand = { command: cmd.command, args: cmd.args as string[] };
+        }
+        return conn;
       }
       throw new ApiRequestError(200, "Server did not return agent connection details", "bad_response", data);
     },
