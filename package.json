@@ -20,5 +20,8 @@
     "start": "npm run start --workspace @aria-live/server",
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.56.1"
   }
 }

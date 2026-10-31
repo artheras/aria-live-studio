@@ -38,14 +38,21 @@ which is what the overlay shows.
 
 ## Local e2e with the Twitch CLI mock EventSub server
 
+`node scripts/e2e-local.mjs` (repo root) runs this process against the CLI
+mock and a fake of the Twitch auth/Helix endpoints; see the root README
+("Local end-to-end test"). By hand:
+
 ```
 twitch event websocket start-server          # ws://127.0.0.1:8080/ws, subscriptions at http://127.0.0.1:8080/eventsub/subscriptions
 EVENTSUB_WS_URL=ws://127.0.0.1:8080/ws TWITCH_API_BASE=http://127.0.0.1:8080 npm run dev
 ```
 
-Login still goes to the real `id.twitch.tv` (use your app credentials); after
-that the EventSub socket and the subscription request go to the mock. Use the
-CLI to fire events / test resilience, e.g.
-`twitch event trigger channel.chat.message --transport=websocket` and
-`twitch event websocket reconnect`. Chat replies (`POST /chat/messages`) are
-not served by the mock; they fail and are dropped with a log line.
+`TWITCH_AUTH_BASE` (default `https://id.twitch.tv/oauth2`) can point login at a
+fake too. Caveats of the CLI (v1.1.x): its subscription endpoint rejects
+`channel.chat.message` (400 "combination of values in the type and version
+fields is not valid"), and `twitch event trigger` cannot send chat messages,
+so with the CLI alone the server only gets as far as the subscribe step.
+The CLI is still the reference for `twitch event websocket reconnect`,
+`close --reason=4006` and `keepalive --enabled=false`. Chat replies
+(`POST /chat/messages`) are not served by the CLI; they fail and are dropped
+with a log line.
