@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Execution, Round, Settings } from "@aria-live/shared";
 import type { AriaApi, Me } from "../lib/api";
 import { ApiRequestError } from "../lib/api";
-import { PHASE_LABEL, STEPS, isExecutionActive, stepIndex, totalVotes, winnerIdea } from "../lib/round";
+import { PHASE_LABEL, STEPS, ballotNumber, isExecutionActive, stepIndex, totalVotes, winnerIdea } from "../lib/round";
 import { clock, duration, useNow } from "../lib/time";
 import { executorInfo } from "../lib/agents";
 import { Btn, Spinner, useActions } from "./actions";
@@ -273,7 +273,7 @@ export function RoundControl({ round, settings, me, api, clockOffset, onConnectA
     body = winner ? (
       <>
         <div className="winner">
-          <span className="winner__num">#{winner.number}</span>
+          <span className="winner__num">#{ballotNumber(round, winner.id)}</span>
           <div>
             <p className="winner__text">{winner.text}</p>
             <p className="muted">
@@ -313,7 +313,7 @@ export function RoundControl({ round, settings, me, api, clockOffset, onConnectA
         <Spinner />
         <div>
           <p className="lede">
-            Turning {winner ? <strong>#{winner.number} “{winner.text}”</strong> : "the winning idea"} into a task…
+            Turning {winner ? <strong>#{ballotNumber(round, winner.id)} “{winner.text}”</strong> : "the winning idea"} into a task…
           </p>
           <p className="muted">
             {me.planner.kind === "model" ? `Model: ${me.planner.model ?? "configured"}` : "Template planner"}

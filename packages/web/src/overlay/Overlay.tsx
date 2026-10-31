@@ -2,7 +2,7 @@ import { useEffect, useMemo } from "react";
 import type { LiveState, Round } from "@aria-live/shared";
 import { COMMANDS } from "@aria-live/shared";
 import { executorInfo } from "../lib/agents";
-import { computeBallot, winnerIdea } from "../lib/round";
+import { ballotNumber, computeBallot, winnerIdea } from "../lib/round";
 import { duration, truncate, useNow } from "../lib/time";
 import { useLive } from "../lib/useLive";
 import "../styles/overlay.css";
@@ -130,7 +130,7 @@ function OverlayCard({ state, now }: { state: LiveState; now: number }) {
           <Header round={round} label="Chat has spoken" />
           <p className="ov-kicker ov-kicker--gold">Winner</p>
           <h1 className="ov-title ov-winner">
-            <span className="ov-num ov-num--gold">{w.number}</span> {truncate(w.text, 80)}
+            <span className="ov-num ov-num--gold">{ballotNumber(round, w.id)}</span> {truncate(w.text, 80)}
           </h1>
           <p className="ov-sub">
             by @{w.author.displayName || w.author.login} · {votes} {votes === 1 ? "vote" : "votes"}

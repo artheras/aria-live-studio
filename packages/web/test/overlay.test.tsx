@@ -19,6 +19,18 @@ describe("overlay", () => {
     expect(container.textContent).not.toContain("SECRET_ACTIVITY_TEXT");
   });
 
+  it("announces the winner with the ballot number chat voted with, not the submission number", () => {
+    const round = makeRound("decided", {
+      candidates: ["i2", "i1"],
+      tallies: [
+        { ideaId: "i2", number: 1, votes: 3 },
+        { ideaId: "i1", number: 2, votes: 1 },
+      ],
+    });
+    const { container } = render(<OverlayView state={makeState(round)} connected />);
+    expect(container.querySelector(".ov-num--gold")?.textContent).toBe("1");
+  });
+
   it("renders nothing before the first snapshot", () => {
     const { container } = render(<OverlayView state={null} connected={false} />);
     expect(container.innerHTML).toBe("");

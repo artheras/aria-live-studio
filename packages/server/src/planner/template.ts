@@ -18,7 +18,7 @@ export class TemplatePlanner implements Planner {
     const title = truncate(idea.charAt(0).toUpperCase() + idea.slice(1), 80);
     return {
       title,
-      summary: truncate(`${TEMPLATE_LABEL} Build the community's winning idea #${input.idea.number}: "${idea}".`, 300),
+      summary: truncate(`${TEMPLATE_LABEL} Build the idea chat voted for: "${idea}".`, 300),
       userStory: truncate(`As a viewer, I want "${short}" so that the stream gets the feature chat voted for.`, 400),
       acceptanceCriteria: [
         `The feature described in "${short}" works in the running app.`,

@@ -94,3 +94,8 @@ export function isExecutionActive(round: Round | null): boolean {
   const s = round?.execution?.status;
   return s === "queued" || s === "running";
 }
+
+/** The number viewers voted with (ballot number); the submission number before voting. */
+export function ballotNumber(round: Round, ideaId: string): number {
+  return round.tallies.find((t) => t.ideaId === ideaId)?.number ?? round.ideas.find((i) => i.id === ideaId)?.number ?? 0;
+}
