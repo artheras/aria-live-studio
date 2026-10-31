@@ -21734,15 +21734,15 @@ function createServer({ client: client2, clientName }) {
     "live_wait_for_task",
     {
       title: "Wait for the approved task",
-      description: "Waits until the streamer approves the task the community voted for, then returns it with build instructions. Returns immediately if one is already approved and unclaimed.",
+      description: "Waits (45 s by default) until the streamer approves the task the community voted for, then returns it with build instructions. Returns at once if one is already approved and unclaimed; if none arrives in time, call it again.",
       inputSchema: {
-        timeout_seconds: external_exports.number().int().min(0).max(600).optional().describe("How long to wait (default 120, max 600). 0 checks once.")
+        timeout_seconds: external_exports.number().int().min(0).max(600).optional().describe("How long to wait in this call (default 45, max 600). 0 checks once. Call again to keep waiting.")
       },
       annotations: { readOnlyHint: true }
     },
     async ({ timeout_seconds }, extra) => {
       try {
-        const task = await client2.waitForTask(timeout_seconds ?? 120, extra.signal);
+        const task = await client2.waitForTask(timeout_seconds ?? 45, extra.signal);
         if (!task) {
           const status = await client2.status();
           return text(`No approved task yet.

@@ -22,7 +22,8 @@ export type ChatRole = "broadcaster" | "moderator" | "vip" | "subscriber" | "vie
 
 export interface Idea {
   id: string;
-  /** Number viewers vote with: `!vote 3`. Stable within a round. */
+  /** Submission order within the round (#1, #2 …). Votes use the ballot
+   *  number instead (`Tally.number`), assigned when voting starts. */
   number: number;
   text: string;
   author: TwitchUser;

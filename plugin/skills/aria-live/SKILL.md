@@ -15,9 +15,10 @@ Tool names may carry your host's MCP prefix (for example `mcp__aria-live__live_s
 ## Loop
 
 1. `live_status` — see the round, ballot and whether a task is approved.
-2. `live_wait_for_task` — blocks until the streamer approves the winning task
-   (default 120 s, up to 600 s). If nothing is approved yet, say so and wait
-   again only if the streamer asks you to.
+2. `live_wait_for_task` — waits up to 45 s for the streamer to approve the
+   winning task. If nothing is approved yet, tell the streamer where the round
+   stands (from the returned status) and call it again while they are running
+   the vote.
 3. `live_claim_task` with the task id, **before** you change any file. The
    overlay now shows that you are building it.
 4. Implement the task in this repository:
