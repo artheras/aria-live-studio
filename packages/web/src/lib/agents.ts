@@ -3,10 +3,14 @@
  * package invocation can be changed in one place.
  */
 
-/** How agents launch the Aria Live MCP bridge. Change here if it moves (e.g. a local path). */
+/**
+ * Fallback launch command when the server does not report one. The server
+ * normally returns the absolute path of the bundled bridge
+ * (plugin/mcp/aria-live-mcp.mjs) as `mcpCommand`.
+ */
 export const MCP_LAUNCH = {
-  command: "npx",
-  args: ["-y", "@aria-live/mcp"],
+  command: "node",
+  args: ["/path/to/aria-live-studio/plugin/mcp/aria-live-mcp.mjs"],
 } as const;
 
 export const MCP_SERVER_NAME = "aria-live";
@@ -14,6 +18,8 @@ export const MCP_SERVER_NAME = "aria-live";
 export interface AgentConnection {
   token: string;
   mcpUrl: string;
+  /** Exact command to start the MCP bridge on this machine. */
+  mcpCommand?: { command: string; args: string[] };
 }
 
 export interface AgentSnippet {
@@ -24,17 +30,19 @@ export interface AgentSnippet {
   text: string;
 }
 
-const launch = () => [MCP_LAUNCH.command, ...MCP_LAUNCH.args].join(" ");
+const shellQuote = (a: string) => (/^[\w@%+=:,./-]+$/.test(a) ? a : `'${a.replace(/'/g, `'\\''`)}'`);
 
-export function agentSnippets({ token, mcpUrl }: AgentConnection): AgentSnippet[] {
-  const argsToml = `[${MCP_LAUNCH.args.map((a) => JSON.stringify(a)).join(", ")}]`;
+export function agentSnippets({ token, mcpUrl, mcpCommand }: AgentConnection): AgentSnippet[] {
+  const cmd = mcpCommand ?? MCP_LAUNCH;
+  const launch = [cmd.command, ...cmd.args].map(shellQuote).join(" ");
+  const argsToml = `[${cmd.args.map((a) => JSON.stringify(a)).join(", ")}]`;
   return [
     {
       id: "claude-code",
       client: "Claude Code",
-      where: "Run in your project terminal",
-      note: "or use the .mcp.json in the repo",
-      text: `claude mcp add ${MCP_SERVER_NAME} --env ARIA_LIVE_URL=${mcpUrl} --env ARIA_LIVE_TOKEN=${token} -- ${launch()}`,
+      where: "Run in your game's repository",
+      note: "or install the plugin: claude plugin marketplace add artheras/aria-live-studio",
+      text: `claude mcp add ${MCP_SERVER_NAME} -e ARIA_LIVE_URL=${mcpUrl} -e ARIA_LIVE_TOKEN=${token} -- ${launch}`,
     },
     {
       id: "codex",
@@ -42,16 +50,29 @@ export function agentSnippets({ token, mcpUrl }: AgentConnection): AgentSnippet[
       where: "Add to ~/.codex/config.toml",
       text: [
         `[mcp_servers.${MCP_SERVER_NAME}]`,
-        `command = ${JSON.stringify(MCP_LAUNCH.command)}`,
+        `command = ${JSON.stringify(cmd.command)}`,
         `args = ${argsToml}`,
         `env = { ARIA_LIVE_URL = ${JSON.stringify(mcpUrl)}, ARIA_LIVE_TOKEN = ${JSON.stringify(token)} }`,
+        `tool_timeout_sec = 660`,
       ].join("\n"),
+      note: "and copy plugin/skills/aria-live to ~/.codex/skills/",
     },
     {
       id: "aria-code",
       client: "Aria Code",
-      where: "Run inside Aria Code",
-      text: `/mcp add ${MCP_SERVER_NAME} ${launch()}\n# env: ARIA_LIVE_URL=${mcpUrl}  ARIA_LIVE_TOKEN=${token}`,
+      where: "Add to ~/.aria-code/mcp_servers.json → servers",
+      note: "and copy plugin/skills/aria-live into your Aria skills folder",
+      text: JSON.stringify(
+        {
+          name: MCP_SERVER_NAME,
+          command: cmd.command,
+          args: cmd.args,
+          env: { ARIA_LIVE_URL: mcpUrl, ARIA_LIVE_TOKEN: token },
+          enabled: true,
+        },
+        null,
+        2,
+      ),
     },
   ];
 }
