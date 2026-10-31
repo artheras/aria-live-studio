@@ -14,7 +14,7 @@ import { createReadStream, existsSync, statSync } from "node:fs";
 import { extname, join, normalize, resolve, sep } from "node:path";
 import type { AddressInfo } from "node:net";
 import type { ApiError, ClientRole } from "@aria-live/shared";
-import type { Config } from "../config.ts";
+import { REPO_ROOT, type Config } from "../config.ts";
 import { AgentError } from "../live/agent.ts";
 import { EngineError } from "../live/engine.ts";
 import { ServiceError, type LiveService } from "../live/service.ts";
@@ -202,7 +202,11 @@ export function createApp(deps: AppDeps): App {
   route("GET /api/overlay-url", "session", () => ({
     url: `${config.publicUrl}/overlay?key=${encodeURIComponent(config.overlayKey)}`,
   }));
-  route("GET /api/agent-connection", "session", () => ({ token: config.agentToken, mcpUrl: config.publicUrl }));
+  route("GET /api/agent-connection", "session", () => ({
+    token: config.agentToken,
+    mcpUrl: config.publicUrl,
+    mcpCommand: { command: "node", args: [join(REPO_ROOT, "plugin/mcp/aria-live-mcp.mjs")] },
+  }));
   route("PATCH /api/settings", "session", ({ body }) => engine.updateSettings(body));
   route("POST /api/round/open", "session", ({ body }) => {
     if (body.prompt !== undefined && typeof body.prompt !== "string") {
