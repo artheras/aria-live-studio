@@ -1,0 +1,23 @@
+{
+  "name": "aria-live-studio",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Twitch viewers propose and vote on what gets built; Aria turns the winner into a task the streamer approves and runs live.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "workspaces": [
+    "packages/shared",
+    "packages/server",
+    "packages/web"
+  ],
+  "engines": {
+    "node": ">=20.11"
+  },
+  "scripts": {
+    "dev": "npm run dev --workspace @aria-live/server & npm run dev --workspace @aria-live/web",
+    "build": "npm run build --workspaces --if-present",
+    "start": "npm run start --workspace @aria-live/server",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  }
+}
