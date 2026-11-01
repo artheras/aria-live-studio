@@ -1,0 +1,18 @@
+{
+  "schema_version": "aria.skills-lock.v1",
+  "organization": "artheras",
+  "repository": "https://github.com/artheras/aria-live-studio",
+  "catalog_version": "0.1.0",
+  "skills": {
+    "aria-live:aria-live": {
+      "path": "skills/aria-live",
+      "sha256": "15b60ede6c59eb8d2b95dfd1ccf76968332a35852b4d96904c57702cb91a524c",
+      "version": "0.1.0"
+    },
+    "aria-live:aria-live-cohost": {
+      "path": "skills/aria-live-cohost",
+      "sha256": "357c25fc43aab0aa010186be57135d51e3cb70deab5ad257df3aa0f5187c8755",
+      "version": "0.1.0"
+    }
+  }
+}

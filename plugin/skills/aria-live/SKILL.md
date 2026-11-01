@@ -1,6 +1,6 @@
 ---
 name: aria-live
-description: Build the feature a Twitch community voted for, live on stream, through the Aria Live Studio MCP tools. Trigger for "build what chat voted for", "pick up the Aria Live task", "start the live build", "wait for the approved task", "直播投票的功能", "开始直播开发", or when the aria-live MCP tools are connected and the user is streaming. Do NOT trigger for ordinary coding requests that do not mention the stream, chat votes or Aria Live.
+description: Build the feature a Twitch community voted for, live on stream, through the Aria Live Studio MCP tools. Trigger for "build what chat voted for", "pick up the Aria Live task", "start the live build", "wait for the approved task", "直播投票的功能", "开始直播开发", or when the aria-live MCP tools are connected and the user is streaming. Do NOT trigger for ordinary coding requests that do not mention the stream, chat votes or Aria Live, or for summarising the round, framing the vote or writing recaps without building (use `aria-live-cohost`).
 ---
 
 # Aria Live: build what chat voted for

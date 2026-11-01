@@ -1,14 +1,25 @@
 {
   "name": "aria-live-studio",
   "owner": {
-    "name": "Xindi Wang"
+    "name": "Xindi Wang",
+    "url": "https://github.com/artheras"
+  },
+  "metadata": {
+    "description": "Aria Live Studio: Twitch viewers propose and vote; your coding agent builds the winner live on stream, and a chat assistant co-hosts the round.",
+    "version": "0.1.0"
   },
   "plugins": [
     {
       "name": "aria-live",
       "source": "./plugin",
-      "description": "Build what your Twitch chat votes for, live on stream."
+      "version": "0.1.0",
+      "description": "Build what your Twitch chat votes for, live on stream, and co-host the round from a chat assistant.",
+      "homepage": "https://github.com/artheras/aria-live-studio",
+      "repository": "https://github.com/artheras/aria-live-studio",
+      "skills": [
+        "./skills/aria-live",
+        "./skills/aria-live-cohost"
+      ]
     }
-  ],
-  "description": "Aria Live Studio: Twitch viewers propose and vote; your coding agent builds the winner live on stream."
+  ]
 }

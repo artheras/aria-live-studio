@@ -12,7 +12,8 @@
     "build": "esbuild src/index.ts --bundle --platform=node --format=esm --target=node20 --packages=external --outfile=dist/index.js --banner:js=\"#!/usr/bin/env node\"",
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p .",
-    "build:plugin": "esbuild src/index.ts --bundle --platform=node --format=esm --target=node20 --outfile=../../plugin/mcp/aria-live-mcp.mjs --banner:js=\"#!/usr/bin/env node\nimport { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);\""
+    "build:plugin": "esbuild src/index.ts --bundle --platform=node --format=esm --target=node20 --outfile=../../plugin/mcp/aria-live-mcp.mjs --banner:js=\"#!/usr/bin/env node\nimport { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);\"",
+    "build:proxy": "esbuild src/proxy-main.ts --bundle --platform=node --format=esm --target=node20 --outfile=dist/aria-live-proxy.mjs --banner:js=\"#!/usr/bin/env node\nimport { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);\""
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.2",
@@ -26,6 +27,7 @@
   },
   "exports": {
     ".": "./dist/index.js",
-    "./server": "./src/server.ts"
+    "./server": "./src/server.ts",
+    "./proxy": "./src/proxy.ts"
   }
 }

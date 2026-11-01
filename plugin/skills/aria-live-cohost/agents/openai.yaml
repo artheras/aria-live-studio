@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aria Live co-host"
+  short_description: "Summarise what chat wants, frame the vote and draft stream recaps"
+  default_prompt: "Use $aria-live-cohost to summarise what chat wants in the current round."

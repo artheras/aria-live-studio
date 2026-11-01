@@ -1,0 +1,59 @@
+name: Package
+# Skills (Aria Code / Claude Code / Claude.ai), the Claude Code plugin and the
+# Claude Desktop bundle. Artifacts on every run; attached to the GitHub release
+# on a v* tag.
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  skills-and-plugin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Skills are valid, plugin/skills mirrors skills/, skills.lock.json is current
+        run: node scripts/package-skills.mjs --check
+      - name: Claude Code validates the marketplace and the plugin
+        run: |
+          npx -y @anthropic-ai/claude-code@2 plugin validate .
+          npx -y @anthropic-ai/claude-code@2 plugin validate plugin
+
+  bundles:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: skills-and-plugin
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Claude Desktop bundle (build proxy, smoke test, mcpb validate + pack)
+        run: node scripts/package-claude-desktop.mjs
+      - name: Claude.ai skill uploads
+        run: node scripts/package-claude-skill.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aria-live-packages
+          path: |
+            dist/aria-live.mcpb
+            dist/aria-live-cohost.zip
+            dist/aria-live.zip
+          if-no-files-found: error
+      - name: Attach to the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --generate-notes
+          gh release upload "$GITHUB_REF_NAME" dist/aria-live.mcpb dist/aria-live-cohost.zip dist/aria-live.zip --clobber

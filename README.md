@@ -133,8 +133,9 @@ ready-to-paste snippets. The agent uses five MCP tools:
 | `live_report_progress` | one line per milestone, shown on stream |
 | `live_complete_task` | finishes with a summary and the changed files |
 
-The `aria-live` skill (`plugin/skills/aria-live/SKILL.md`) teaches the agent
-this loop and its rules.
+The `aria-live` skill (`skills/aria-live/SKILL.md`) teaches the agent
+this loop and its rules. Per-app install steps, including the co-host skill,
+are in [Install in Aria Code, Claude and ChatGPT](#install-in-aria-code-claude-and-chatgpt).
 
 **Claude Code** installs the plugin from this repository:
 
@@ -149,11 +150,11 @@ Or add only the MCP server:
 
 **Codex**: append [`plugin/codex.toml`](plugin/codex.toml) to `~/.codex/config.toml`
 (fix the path and token), and copy the skill:
-`cp -r plugin/skills/aria-live ~/.codex/skills/`.
+`cp -r skills/aria-live ~/.codex/skills/`.
 
-**Aria Code**: merge [`plugin/mcp.json`](plugin/mcp.json) into
-`~/.aria-code/mcp_servers.json` (fix the path and token), and copy
-`plugin/skills/aria-live` into your skills folder.
+**Aria Code**: `/skills add artheras/aria-live-studio`, then merge
+[`plugin/mcp.json`](plugin/mcp.json) into `~/.aria-code/mcp_servers.json`
+(details in [Aria Code](#aria-code) below).
 
 **Remote (URL), no local bridge.** The server also speaks MCP over Streamable
 HTTP at `PUBLIC_URL/mcp`, with the agent token as a bearer token (the panel's
@@ -210,6 +211,119 @@ cannot change anything, but it does show idea texts and author names. To revoke
 it, set a new `COHOST_KEY`, or delete `cohostKey` from `DATA_DIR/secrets.json`
 and restart.
 
+## Install in Aria Code, Claude and ChatGPT
+
+Two skills ship from [`skills/`](skills): **`aria-live`** (the coding agent
+builds the approved task) and **`aria-live-cohost`** (a chat assistant reads
+the round, summarises what chat wants, suggests how to frame the vote and
+drafts recaps and posts, and never approves). Every app talks to the same
+server with one of three roles. Copy each URL, key and token from the dashboard
+(**Connect a coding agent**):
+
+| Role | Endpoint | Tools |
+|---|---|---|
+| agent | `PUBLIC_URL/mcp` + `Authorization: Bearer <agent token>`, or the stdio bridge | wait, claim, report progress, complete, status |
+| cohost | `PUBLIC_URL/mcp/cohost/<key>` | read-only: status, ideas, history, digest |
+| streamer | `PUBLIC_URL/mcp/streamer/<key>` | co-host tools plus round controls. No approving, running or cancelling builds. |
+
+| App | Install | Role and URL | What it can do |
+|---|---|---|---|
+| **Aria Code** | `/skills add artheras/aria-live-studio`, plus the MCP server in `mcp_servers.json` | agent, through the stdio bridge (`ARIA_LIVE_TOKEN`) | build what chat voted for. Both skills are installed and integrity-verified. |
+| **Claude Code** | `claude plugin install aria-live@aria-live-studio` | agent, through the stdio bridge, or `--transport http` to `/mcp` | build, with the progress hook. The co-host skill is included. |
+| **Claude Desktop** | `aria-live.mcpb` (double-click), plus optionally the skill zip | cohost (default), streamer or agent, set in the bundle's settings | co-host, round controls (streamer), or build (agent) |
+| **Claude.ai / Claude mobile** | custom connector, plus upload `aria-live-cohost.zip` | co-host or streamer URL on a public HTTPS `PUBLIC_URL` | co-host from the browser. The mobile apps use the connectors and skills of your account. |
+| **ChatGPT** | developer-mode connector | co-host or streamer URL on a public HTTPS `PUBLIC_URL` | co-host |
+| **Codex** | [`plugin/codex.toml`](plugin/codex.toml), plus `cp -r skills/aria-live ~/.codex/skills/` | agent, through the stdio bridge, or `url` + `bearer_token_env_var` to `/mcp` | build |
+
+Claude.ai, mobile and ChatGPT connect from the internet, so they need a public
+HTTPS address for the server. See
+[Hosting for ChatGPT and Claude](#hosting-for-chatgpt-and-claude). Claude
+Desktop, Claude Code, Codex and Aria Code also work with `http://localhost:3000`.
+
+### Aria Code
+
+```text
+/skills add artheras/aria-live-studio
+```
+
+This clones the repository into `~/.aria-code/skill-catalogs/artheras/aria-live-studio`
+(`$ARIA_SKILL_CATALOG_HOME` overrides it) and installs `aria-live:aria-live` and
+`aria-live:aria-live-cohost`. Aria Code refuses a catalog whose skills do not
+match [`.claude-plugin/skills.lock.json`](.claude-plugin/skills.lock.json). Add
+`--ref v0.1.0` to pin a tag. To update, delete that folder and run the command
+again.
+
+Aria Code has no `/mcp add` command. Add the server yourself: merge
+[`plugin/mcp.json`](plugin/mcp.json) into the `servers` list of
+`~/.aria-code/mcp_servers.json`. If you set `$ARIA_HOME`, the file is in that
+folder. Older installs keep it in `~/.arthera`. Its `args` already point at the
+bridge inside the installed catalog. Then:
+
+```sh
+export ARIA_LIVE_TOKEN=<agent token>   # Aria Code expands ${ARIA_LIVE_TOKEN}; edit ARIA_LIVE_URL in the file if needed
+```
+
+Run `/mcp reload`, then `/mcp tools`, which should list the five `live_*` tools.
+
+### Claude Code
+
+```sh
+export ARIA_LIVE_TOKEN=<agent token>
+claude plugin marketplace add artheras/aria-live-studio
+claude plugin install aria-live@aria-live-studio
+```
+
+This installs the stdio bridge, the progress hook and both skills.
+
+### Claude Desktop
+
+1. Get `aria-live.mcpb`. Download it from the latest release, or from the
+   **Package** workflow's artifacts, or build it with
+   `node scripts/package-claude-desktop.mjs` (writes `dist/aria-live.mcpb`).
+2. Double-click it, or drag it onto Settings → Extensions in Claude Desktop.
+   Then fill in:
+   - **Aria Live URL**: `http://localhost:3000` or your `PUBLIC_URL`. You can
+     also paste the full co-host or streamer URL here.
+   - **Role**: `cohost`, `streamer` or `agent`.
+   - **Co-host or streamer key**: the last part of that URL.
+   - **Agent token**: only for `agent`.
+3. Optional: upload the `aria-live-cohost` skill, as described for Claude.ai below.
+
+The bundle runs a small local proxy (`packages/mcp/src/proxy.ts`) that
+forwards tools, resources and prompts to the server's remote MCP endpoint for
+that role. It forwards annotations and `_meta` unchanged and adds no tools of
+its own. A wrong key or token, or a server that is not running, shows up as a
+plain error in the tool result.
+
+### Claude.ai and the Claude mobile apps
+
+1. **Connector**: Settings → Connectors → Add custom connector. Paste the
+   co-host URL, or the streamer URL to get the round controls.
+2. **Skill**: build `dist/aria-live-cohost.zip` with
+   `node scripts/package-claude-skill.mjs`, or download it from the release.
+   Then go to Settings → Capabilities → Skills → Upload skill. Skills need code
+   execution turned on in the same settings page.
+3. Ask *"summarise what chat wants"*, *"frame the vote"* or *"stream recap for
+   tonight"*.
+
+### ChatGPT
+
+Settings → Connectors → Developer mode → Create connector. Paste the co-host
+(or streamer) URL and choose no authentication. ChatGPT does not load
+`SKILL.md` files. The server's own tool descriptions and instructions carry the
+same rules.
+
+### For maintainers
+
+`skills/` is the source of truth. `plugin/skills/` is a byte-identical copy,
+because Claude Code loads skills from the plugin folder. After you edit a
+skill, run:
+
+```sh
+node scripts/package-skills.mjs          # validate, sync plugin/skills, rebuild skills.lock.json
+node scripts/package-skills.mjs --check  # what CI runs: fails on drift or a stale lock
+```
+
 ## Local end-to-end test
 
 `scripts/e2e-local.mjs` runs the real server, the real MCP bridge and a real
@@ -258,8 +372,11 @@ npm run typecheck
 | `packages/shared` | the protocol: state, REST actions, agent API types |
 | `packages/server` | Twitch OAuth + EventSub, round engine, planner, executors, REST/WebSocket API |
 | `packages/web` | streamer dashboard, OBS overlay, session history (React + Vite) |
-| `packages/mcp` | MCP bridge for coding agents |
-| `plugin/` | Claude Code plugin + marketplace, Codex and Aria Code configs, the `aria-live` skill |
+| `packages/mcp` | MCP bridge for coding agents, and the stdio ↔ remote proxy for the Claude Desktop bundle |
+| `skills/` | the `aria-live` and `aria-live-cohost` skills (canonical) |
+| `plugin/` | Claude Code plugin (skills mirrored from `skills/`), Codex and Aria Code configs |
+| `.claude-plugin/` | marketplace for Claude Code and Aria Code, and the Aria skills lock |
+| `bundles/claude-desktop/` | `.mcpb` manifest. `scripts/package-*.mjs` build the bundle and the skill zips into `dist/`. |
 
 ## License
 

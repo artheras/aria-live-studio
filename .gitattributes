@@ -1,0 +1,3 @@
+skills/** text eol=lf
+plugin/skills/** text eol=lf
+.claude-plugin/*.json text eol=lf

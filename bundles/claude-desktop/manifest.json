@@ -1,0 +1,72 @@
+{
+  "manifest_version": "0.3",
+  "name": "aria-live",
+  "display_name": "Aria Live Studio",
+  "version": "0.1.0",
+  "description": "Co-host your Twitch build stream: read what chat proposes and votes for, or build the approved task as the coding agent.",
+  "long_description": "Connects Claude Desktop to your Aria Live Studio server, where Twitch viewers propose features with !idea, vote with !vote, and a coding agent builds the winner after you approve it on the dashboard.\n\nChoose a role:\n\n- **cohost** (default): read-only. Summarise what chat wants, frame the vote, draft recaps and social posts.\n- **streamer**: co-host tools plus round controls (open a round, start or close the vote). Approving, running and cancelling builds stay on the dashboard.\n- **agent**: the five coding-agent tools (wait for the approved task, claim it, report progress, complete it).\n\nCopy the key or token from the dashboard: Connect a coding agent → Remote (URL). This bundle is a small local proxy to the server's remote MCP endpoint; it adds no tools or permissions of its own. Viewer text is always marked as untrusted input.",
+  "author": {
+    "name": "Xindi Wang",
+    "url": "https://github.com/artheras"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/artheras/aria-live-studio"
+  },
+  "homepage": "https://github.com/artheras/aria-live-studio",
+  "documentation": "https://github.com/artheras/aria-live-studio#install-in-aria-code-claude-and-chatgpt",
+  "support": "https://github.com/artheras/aria-live-studio/issues",
+  "license": "Apache-2.0",
+  "keywords": ["twitch", "live", "streaming", "community", "vote", "co-host"],
+  "server": {
+    "type": "node",
+    "entry_point": "server/aria-live-proxy.mjs",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server/aria-live-proxy.mjs"],
+      "env": {
+        "ARIA_LIVE_URL": "${user_config.aria_live_url}",
+        "ARIA_LIVE_ROLE": "${user_config.role}",
+        "ARIA_LIVE_KEY": "${user_config.access_key}",
+        "ARIA_LIVE_TOKEN": "${user_config.agent_token}"
+      }
+    }
+  },
+  "tools_generated": true,
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "node": ">=20.11.0"
+    }
+  },
+  "user_config": {
+    "aria_live_url": {
+      "type": "string",
+      "title": "Aria Live URL",
+      "description": "Address of your Aria Live server (PUBLIC_URL), for example http://localhost:3000 or your tunnel URL. You can also paste the full co-host or streamer URL from the dashboard here and leave the key empty.",
+      "default": "http://localhost:3000",
+      "required": true
+    },
+    "role": {
+      "type": "string",
+      "title": "Role: cohost, streamer or agent",
+      "description": "cohost = read-only co-host tools; streamer = co-host tools plus round controls; agent = coding-agent tools (claim, progress, complete). Type one of the three words.",
+      "default": "cohost",
+      "required": true
+    },
+    "access_key": {
+      "type": "string",
+      "title": "Co-host or streamer key",
+      "description": "For the cohost or streamer role: the last part of the co-host or streamer URL on the dashboard (…/mcp/cohost/<key>). Leave empty for the agent role.",
+      "sensitive": true,
+      "required": false
+    },
+    "agent_token": {
+      "type": "string",
+      "title": "Agent token",
+      "description": "For the agent role only: the agent token from the dashboard (Connect a coding agent). Leave empty for cohost and streamer.",
+      "sensitive": true,
+      "required": false
+    }
+  }
+}

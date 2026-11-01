@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aria Live: build what chat voted for"
+  short_description: "Wait for the streamer-approved task, claim it, build it and report progress to the stream"
+  default_prompt: "Use $aria-live to build what chat voted for."
