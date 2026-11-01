@@ -16,6 +16,7 @@ import type { AddressInfo } from "node:net";
 import type { ApiError, ClientRole } from "@aria-live/shared";
 import { REPO_ROOT, type Config } from "../config.ts";
 import { AgentError } from "../live/agent.ts";
+import { choosePlanner } from "../planner/index.ts";
 import { EngineError } from "../live/engine.ts";
 import { ServiceError, type LiveService } from "../live/service.ts";
 import type { Store } from "../live/store.ts";
@@ -191,7 +192,7 @@ export function createApp(deps: AppDeps): App {
       user: session.user,
       csrf: session.csrf,
       executor: { kind: config.executor.kind, ok: ex.ok, reason: ex.reason ?? null },
-      planner: { kind: config.planner.apiKey ? "model" : "template", model: config.planner.apiKey ? config.planner.model : null },
+      planner: (({ label, model }) => ({ kind: label, model }))(choosePlanner(config)),
     };
   });
   route("GET /api/state", "session", () => engine.state);

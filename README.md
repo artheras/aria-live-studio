@@ -78,10 +78,20 @@ Requires Node.js 20.11+ (22 recommended) and a Twitch account.
 
 ### Planning with a model
 
-Set `OPENAI_API_KEY` (any OpenAI-compatible endpoint via `OPENAI_BASE_URL`, model
-via `ARIA_LIVE_MODEL`). Aria then writes the task's user story, acceptance
-criteria, steps and risks. Without a key, a deterministic template plan is used,
-and it is labelled as such on the dashboard and overlay.
+Aria writes the task's user story, acceptance criteria, steps and risks with:
+
+- **Claude** when `ANTHROPIC_API_KEY` is set (default `claude-opus-5-5`; override
+  with `ANTHROPIC_MODEL`, and `ANTHROPIC_EFFORT`, default `medium`). The answer is
+  constrained to the task schema with structured outputs, and a declined request
+  is re-run server-side on Anthropic's recommended fallback model.
+- **An OpenAI-compatible model** when `OPENAI_API_KEY` is set (`OPENAI_BASE_URL`,
+  `ARIA_LIVE_MODEL`).
+- Otherwise a deterministic **template plan**, labelled as such on the dashboard
+  and overlay.
+
+`ARIA_LIVE_PLANNER=anthropic|openai|template` forces a choice. Every plan, from
+any source, is validated against the same limits before the streamer sees it,
+and viewer text is always quoted as untrusted input.
 
 ## Chat commands
 
