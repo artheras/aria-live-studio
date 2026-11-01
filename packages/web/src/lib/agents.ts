@@ -20,6 +20,8 @@ export interface AgentConnection {
   mcpUrl: string;
   /** Exact command to start the MCP bridge on this machine. */
   mcpCommand?: { command: string; args: string[] };
+  /** Remote MCP (Streamable HTTP) endpoints on this server. */
+  remote?: { agentUrl: string; cohostUrl: string };
 }
 
 export interface AgentSnippet {
@@ -75,6 +77,37 @@ export function agentSnippets({ token, mcpUrl, mcpCommand }: AgentConnection): A
       ),
     },
   ];
+}
+
+/** Snippets for connecting a coding agent to the server's remote MCP URL (no local bridge). */
+export function remoteSnippets(token: string, agentUrl: string): AgentSnippet[] {
+  return [
+    {
+      id: "claude-code",
+      client: "Claude Code",
+      where: "Run in your game's repository",
+      note: "Install the plugin too for the progress hook; it reads ARIA_LIVE_TOKEN (and ARIA_LIVE_URL) from your shell.",
+      text: `claude mcp add --transport http ${MCP_SERVER_NAME} ${shellQuote(agentUrl)} --header ${shellQuote(`Authorization: Bearer ${token}`)}`,
+    },
+    {
+      id: "codex",
+      client: "Codex",
+      where: "Add to ~/.codex/config.toml, then export ARIA_LIVE_TOKEN",
+      note: "Requires a Codex version with streamable HTTP MCP support (older ones also need experimental_use_rmcp_client = true at the top level).",
+      text: [
+        `# export ARIA_LIVE_TOKEN=${token}`,
+        `[mcp_servers.${MCP_SERVER_NAME}]`,
+        `url = ${JSON.stringify(agentUrl)}`,
+        `bearer_token_env_var = "ARIA_LIVE_TOKEN"`,
+        `tool_timeout_sec = 660`,
+      ].join("\n"),
+    },
+  ];
+}
+
+/** Mask the secret path segment of the co-host URL (…/mcp/cohost/KEY). */
+export function maskCohostUrl(url: string): string {
+  return url.replace(/(\/mcp\/cohost\/)([^/?#]+)/, (_m, p: string, key: string) => p + maskToken(key));
 }
 
 export function maskToken(token: string): string {

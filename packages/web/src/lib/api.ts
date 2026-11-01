@@ -113,6 +113,11 @@ export function createApi(getCsrf: () => string | null) {
         ) {
           conn.mcpCommand = { command: cmd.command, args: cmd.args as string[] };
         }
+        const remote = data.remote;
+        if (isRecord(remote) && typeof remote.agentUrl === "string" && typeof remote.cohostUrl === "string") {
+          const abs = (u: string) => (u.startsWith("/") ? window.location.origin + u : u);
+          conn.remote = { agentUrl: abs(remote.agentUrl), cohostUrl: abs(remote.cohostUrl) };
+        }
         return conn;
       }
       throw new ApiRequestError(200, "Server did not return agent connection details", "bad_response", data);
