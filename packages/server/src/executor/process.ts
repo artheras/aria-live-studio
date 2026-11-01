@@ -25,12 +25,14 @@ export interface RunProcessOptions {
 }
 
 /** Server-side secrets the agent has no business seeing. */
-const HIDDEN_ENV = /^(TWITCH_|SESSION_SECRET$|OVERLAY_KEY$)/;
+const HIDDEN_ENV = /^(TWITCH_|SESSION_SECRET$|OVERLAY_KEY$|AGENT_TOKEN$|COHOST_KEY$|STREAMER_KEY$|ARIA_LIVE_TOKEN$)/i;
 
 export function childEnv(extra: Record<string, string> = {}): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {};
-  for (const [k, v] of Object.entries(process.env)) if (!HIDDEN_ENV.test(k)) env[k] = v;
-  return { ...env, NO_COLOR: "1", ...extra };
+  for (const [k, v] of Object.entries({ ...process.env, NO_COLOR: "1", ...extra })) {
+    if (!HIDDEN_ENV.test(k)) env[k] = v;
+  }
+  return env;
 }
 
 function killTree(child: ChildProcess, sig: NodeJS.Signals): void {
