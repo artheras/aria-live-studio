@@ -1,5 +1,6 @@
 /**
- * MCP tools for the coding agent on stream (Codex, Claude Code, Aria Code).
+ * MCP tools for the coding agent on stream (Codex, Claude Code, Aria Code),
+ * and a read-only "co-host" tool set for chat assistants (ChatGPT, Claude.ai).
  *
  * The loop the agent follows: wait for the streamer to approve the task the
  * community voted for → claim it → implement it in the current repository,
@@ -9,20 +10,25 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
-import type { AgentStatus, AgentTask } from "@aria-live/shared";
-import { LiveClient, LiveError } from "./client.ts";
+import type { AgentStatus, AgentTask, ExecutionStepKind } from "@aria-live/shared";
+import { LiveError } from "./client.ts";
+import { type CohostApi, registerCohostTools, COHOST_INSTRUCTIONS } from "./cohost.ts";
+
+export { LiveError } from "./client.ts";
+export type { CohostApi, CohostIdea, CohostIdeas, CohostRound, CohostDigest } from "./cohost.ts";
+export { UNTRUSTED_TAG, untrusted } from "./cohost.ts";
 
 export const SERVER_NAME = "aria-live";
 export const SERVER_VERSION = "0.1.0";
 
-function text(body: string, structured?: Record<string, unknown>): CallToolResult {
+export function text(body: string, structured?: Record<string, unknown>): CallToolResult {
   return {
     content: [{ type: "text", text: body }],
     ...(structured ? { structuredContent: structured } : {}),
   };
 }
 
-function failure(error: unknown): CallToolResult {
+export function failure(error: unknown): CallToolResult {
   if (error instanceof LiveError && error.code === "cancelled") {
     return {
       isError: true,
@@ -76,13 +82,47 @@ export function agentLabel(name: string | undefined): string {
   return raw.slice(0, 32) || "agent";
 }
 
-export interface CreateServerOptions {
-  client: LiveClient;
-  /** Fallback client label when the host does not identify itself. */
-  clientName?: string;
+/**
+ * What the agent tools need from Aria Live. `LiveClient` implements it over
+ * HTTP (stdio bridge); the server implements it in-process (remote MCP).
+ * Errors are `LiveError`s; code "cancelled" means the streamer cancelled.
+ */
+export interface AgentApi {
+  status(): Promise<AgentStatus>;
+  waitForTask(totalSeconds: number, signal?: AbortSignal): Promise<AgentTask | null>;
+  claim(taskId: string, client: string): Promise<AgentTask>;
+  progress(taskId: string, kind: ExecutionStepKind, text: string): Promise<void>;
+  complete(input: {
+    taskId: string;
+    status: "succeeded" | "failed" | "cancelled";
+    summary?: string;
+    changedFiles?: string[];
+    branch?: string;
+    error?: string;
+  }): Promise<void>;
 }
 
-export function createServer({ client, clientName }: CreateServerOptions): McpServer {
+export type Role = "agent" | "cohost";
+
+export type CreateServerOptions =
+  | {
+      role?: "agent";
+      client: AgentApi;
+      /** Fallback client label when the host does not identify itself. */
+      clientName?: string;
+    }
+  | { role: "cohost"; client: CohostApi };
+
+export function createServer(options: CreateServerOptions): McpServer {
+  if (options.role === "cohost") {
+    const server = new McpServer({ name: SERVER_NAME, version: SERVER_VERSION }, { instructions: COHOST_INSTRUCTIONS });
+    registerCohostTools(server, options.client);
+    return server;
+  }
+  return createAgentServer(options.client, options.clientName);
+}
+
+function createAgentServer(client: AgentApi, clientName: string | undefined): McpServer {
   const server = new McpServer(
     { name: SERVER_NAME, version: SERVER_VERSION },
     {
