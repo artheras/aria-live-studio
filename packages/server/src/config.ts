@@ -26,8 +26,10 @@ export interface Config {
   dataDir: string;
   sessionSecret: string;
   overlayKey: string;
-  /** Bearer token for the coding-agent API (/api/agent/*). */
+  /** Bearer token for the coding-agent API (/api/agent/*) and remote MCP (/mcp). */
   agentToken: string;
+  /** Secret path segment of the read-only co-host MCP endpoint (/mcp/cohost/KEY). */
+  cohostKey: string;
   projectBrief: string;
   allowedLogins: string[] | undefined;
   planner: {
@@ -70,6 +72,7 @@ interface Secrets {
   sessionSecret?: string;
   overlayKey?: string;
   agentToken?: string;
+  cohostKey?: string;
 }
 
 type SecretName = keyof Secrets;
@@ -77,6 +80,7 @@ const SECRET_ENV: Record<SecretName, [string, number]> = {
   sessionSecret: ["SESSION_SECRET", 32],
   overlayKey: ["OVERLAY_KEY", 18],
   agentToken: ["AGENT_TOKEN", 32],
+  cohostKey: ["COHOST_KEY", 18],
 };
 
 /** Read dataDir/secrets.json, filling in (and persisting, 0600) any secret not given in env. */
@@ -119,7 +123,7 @@ export function loadConfig(env: Env = process.env): Config {
   const publicUrl = stripSlash(str(env, "PUBLIC_URL") ?? `http://localhost:${port}`);
   const webDevUrl = str(env, "WEB_DEV_URL");
   const dataDir = resolve(str(env, "DATA_DIR") ?? join(REPO_ROOT, "data"));
-  const { sessionSecret, overlayKey, agentToken } = loadSecrets(dataDir, env);
+  const { sessionSecret, overlayKey, agentToken, cohostKey } = loadSecrets(dataDir, env);
   const allowed = str(env, "ALLOWED_LOGINS")
     ?.split(",")
     .map((s) => s.trim().toLowerCase())
@@ -143,6 +147,7 @@ export function loadConfig(env: Env = process.env): Config {
     sessionSecret,
     overlayKey,
     agentToken,
+    cohostKey,
     projectBrief: str(env, "PROJECT_BRIEF") ?? "",
     allowedLogins: allowed && allowed.length ? allowed : undefined,
     planner: {

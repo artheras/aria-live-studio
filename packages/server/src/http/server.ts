@@ -7,6 +7,8 @@
  *   GET /api/me answers without a session too, so the dashboard can show
  *   "not configured" / "log in".
  * - /api/agent/*: `Authorization: Bearer AGENT_TOKEN` only (no cookie, no csrf).
+ * - /mcp: remote MCP (Streamable HTTP), agent bearer token; /mcp/cohost/COHOST_KEY:
+ *   read-only co-host tools (see ../mcp/http.ts).
  * - /ws?role=dashboard: session cookie; /ws?role=overlay&key=OVERLAY_KEY.
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
@@ -15,11 +17,12 @@ import { extname, join, normalize, resolve, sep } from "node:path";
 import type { AddressInfo } from "node:net";
 import type { ApiError, ClientRole } from "@aria-live/shared";
 import { REPO_ROOT, type Config } from "../config.ts";
-import { AgentError } from "../live/agent.ts";
+import { AGENT_EXECUTOR_PREFIX, AgentError } from "../live/agent.ts";
 import { choosePlanner } from "../planner/index.ts";
 import { EngineError } from "../live/engine.ts";
 import { ServiceError, type LiveService } from "../live/service.ts";
 import type { Store } from "../live/store.ts";
+import { createMcpHttp } from "../mcp/http.ts";
 import { AuthError, safeEqual, type Session, type TwitchAuth } from "../twitch/auth.ts";
 import { WsHub } from "./ws.ts";
 
@@ -207,6 +210,10 @@ export function createApp(deps: AppDeps): App {
     token: config.agentToken,
     mcpUrl: config.publicUrl,
     mcpCommand: { command: "node", args: [join(REPO_ROOT, "plugin/mcp/aria-live-mcp.mjs")] },
+    remote: {
+      agentUrl: `${config.publicUrl}/mcp`,
+      cohostUrl: `${config.publicUrl}/mcp/cohost/${encodeURIComponent(config.cohostKey)}`,
+    },
   }));
   route("PATCH /api/settings", "session", ({ body }) => engine.updateSettings(body));
   route("POST /api/round/open", "session", ({ body }) => {
@@ -286,11 +293,25 @@ export function createApp(deps: AppDeps): App {
     res.writeHead(204).end();
     return undefined;
   });
+  // Progress for "whatever task an MCP agent is running now" (Claude Code hook).
+  route("POST /api/agent/progress/current", "agent", ({ body, res }) => {
+    const r = engine.round;
+    const ex = r?.execution;
+    if (!r || r.phase !== "executing" || !ex || ex.status !== "running" || !ex.executor.startsWith(AGENT_EXECUTOR_PREFIX)) {
+      throw new HttpError(409, "no_task", "No task is currently claimed by an agent");
+    }
+    if (!progressLimiter.take()) throw new HttpError(429, "rate_limited", "Too many progress reports; max 5 per second");
+    service.agent.progress(ex.taskId, body.kind ?? "tool", body.text);
+    res.writeHead(204).end();
+    return undefined;
+  });
   route("POST /api/agent/complete", "agent", ({ body, res }) => {
     service.agent.complete(body);
     res.writeHead(204).end();
     return undefined;
   });
+
+  const mcp = createMcpHttp({ config, service, store, allowedOrigins, takeProgress: () => progressLimiter.take() });
 
   // ── helpers ──
 
@@ -424,6 +445,7 @@ export function createApp(deps: AppDeps): App {
     const handle = async () => {
       if (url.pathname === "/healthz") return sendJson(res, 200, { ok: true, version: engine.state.version });
       if (url.pathname.startsWith("/api/")) return handleApi(req, res, url);
+      if (await mcp.handle(req, res, url)) return;
       if (url.pathname.startsWith("/auth/")) return handleAuth(req, res, url);
       return serveStatic(req, res, url);
     };
@@ -482,8 +504,9 @@ export function createApp(deps: AppDeps): App {
         });
       });
     },
-    close() {
+    async close() {
       offChange();
+      await mcp.close();
       hub.close();
       return new Promise<void>((ok) => {
         server.close(() => ok());
