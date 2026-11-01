@@ -866,6 +866,8 @@ input[type="checkbox"] {
 }
 .badge--ai { background: var(--accent-soft); border-color: rgba(145, 70, 255, 0.45); color: var(--accent-2); }
 .badge--agent { background: var(--info-soft); border-color: rgba(92, 184, 255, 0.45); color: var(--info); }
+.badge--elig { background: var(--accent-soft); border-color: rgba(145, 70, 255, 0.45); color: var(--accent-2); }
+.round-badges { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; }
 .badge--template { background: var(--warn-soft); border-color: rgba(245, 185, 66, 0.4); color: var(--warn); }
 .badge--size-S { color: var(--good); }
 .badge--size-M { color: var(--info); }
@@ -1056,6 +1058,8 @@ input[type="checkbox"] {
 }
 .commands > div { display: flex; flex-direction: column; gap: 2px; }
 .commands dd { margin: 0; color: var(--muted); font-size: 12.5px; }
+.commands__sub { margin: 0; padding: 4px 16px 0; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.commands__note { margin: 0; padding: 0 16px 14px; font-size: 12px; }
 
 /* ── Drawer, popover, toasts ───────────────────────────────────────────── */
 .drawer-root { position: fixed; inset: 0; z-index: 50; }

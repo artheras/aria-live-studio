@@ -253,6 +253,8 @@
   color: #efe6ff;
   text-shadow: none;
 }
+.ov-badge--only { background: rgba(255, 200, 87, 0.22); border-color: rgba(255, 200, 87, 0.6); color: #fff1cf; }
+.ov-cta__alt { color: rgba(255, 255, 255, 0.7); font-size: 20px; }
 .ov-badge--agent { background: rgba(92, 184, 255, 0.25); border-color: rgba(92, 184, 255, 0.6); color: #dff0ff; }
 .ov-ticker {
   list-style: none;

@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from "react";
-import type { LiveState, Round } from "@aria-live/shared";
+import type { Eligibility, LiveState, Round } from "@aria-live/shared";
 import { COMMANDS } from "@aria-live/shared";
 import { executorInfo } from "../lib/agents";
 import { ballotNumber, computeBallot, winnerIdea } from "../lib/round";
@@ -31,7 +31,14 @@ function Ring({ endsAt, totalSec, now }: { endsAt: number; totalSec: number; now
   );
 }
 
-function Header({ round, label }: { round: Round; label: string }) {
+const ONLY: Record<Eligibility, string | null> = {
+  everyone: null,
+  subscribers: "Subscribers only",
+  vip_mod: "VIPs & mods only",
+};
+
+function Header({ round, label, only }: { round: Round; label: string; only?: Eligibility }) {
+  const badge = only ? ONLY[only] : null;
   return (
     <div className="ov-head">
       <span className="ov-brand">Aria Live</span>
@@ -39,6 +46,7 @@ function Header({ round, label }: { round: Round; label: string }) {
       <span className="ov-kicker">
         Round {round.index} · {label}
       </span>
+      {badge && <span className="ov-badge ov-badge--only">{badge}</span>}
     </div>
   );
 }
@@ -65,10 +73,15 @@ function OverlayCard({ state, now }: { state: LiveState; now: number }) {
       const last = [...visible].sort((a, b) => b.createdAt - a.createdAt).slice(0, 5);
       return (
         <div className="ov-card" data-phase="collecting">
-          <Header round={round} label="Ideas open" />
+          <Header round={round} label="Ideas open" only={state.settings.ideaEligibility} />
           <h1 className="ov-title">{round.prompt ? truncate(round.prompt, 70) : "What should we build next?"}</h1>
           <p className="ov-cta">
             Type <b>{COMMANDS.idea} &lt;your idea&gt;</b> in chat
+            {visible.length > 0 && (
+              <span className="ov-cta__alt">
+                {" "}· <b>{COMMANDS.idea} +&lt;n&gt;</b> to +1
+              </span>
+            )}
           </p>
           <ul className="ov-ideas">
             {last.map((i) => (
@@ -91,7 +104,7 @@ function OverlayCard({ state, now }: { state: LiveState; now: number }) {
         <div className="ov-card" data-phase="voting">
           <div className="ov-row">
             <div className="ov-grow">
-              <Header round={round} label="Vote now" />
+              <Header round={round} label="Vote now" only={state.settings.voteEligibility} />
               <h1 className="ov-title">
                 Type <b>{COMMANDS.vote} &lt;number&gt;</b>
               </h1>

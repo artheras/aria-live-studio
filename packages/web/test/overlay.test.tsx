@@ -19,6 +19,13 @@ describe("overlay", () => {
     expect(container.textContent).not.toContain("SECRET_ACTIVITY_TEXT");
   });
 
+  it("labels a subscriber-only vote, and shows nothing extra when open to everyone", () => {
+    const state = makeState(makeRound("voting"));
+    expect(render(<OverlayView state={state} connected />).container.textContent).not.toContain("only");
+    state.settings.voteEligibility = "subscribers";
+    expect(render(<OverlayView state={state} connected />).container.textContent).toContain("Subscribers only");
+  });
+
   it("announces the winner with the ballot number chat voted with, not the submission number", () => {
     const round = makeRound("decided", {
       candidates: ["i2", "i1"],

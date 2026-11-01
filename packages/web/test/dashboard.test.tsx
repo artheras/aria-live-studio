@@ -37,6 +37,21 @@ describe("Dashboard phases", () => {
     expect(screen.getByLabelText(/time left/i).textContent).toMatch(/^0:4\d$/);
   });
 
+  it("voting with subscriber-only votes → badge and ineligible counter in the round header", () => {
+    const state = makeState(makeRound("voting", { ineligible: 3 }));
+    state.settings.voteEligibility = "subscribers";
+    render(<DashboardView state={state} live="open" me={me} api={api} />);
+    expect(screen.getByText("Subscribers vote")).toBeTruthy();
+    expect(screen.getByText("3 ineligible")).toBeTruthy();
+  });
+
+  it("help box lists +1 by number and the moderator commands", () => {
+    renderRound(makeRound("collecting"));
+    expect(screen.getByText("!idea +<n> · !+1 <n>")).toBeTruthy();
+    expect(screen.getByText("!aria hide <n>")).toBeTruthy();
+    expect(screen.getByText(/ballot #n while voting/)).toBeTruthy();
+  });
+
   it("decided → Plan with Aria + Reset; no-vote message when there is no winner", () => {
     const { unmount } = renderRound(makeRound("decided"));
     expect(button(/plan with aria/i)).toBeTruthy();

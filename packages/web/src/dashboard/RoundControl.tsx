@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { Execution, Round, Settings } from "@aria-live/shared";
+import type { Eligibility, Execution, Round, Settings } from "@aria-live/shared";
 import type { AriaApi, Me } from "../lib/api";
 import { ApiRequestError } from "../lib/api";
 import { PHASE_LABEL, STEPS, ballotNumber, isExecutionActive, stepIndex, totalVotes, winnerIdea } from "../lib/round";
@@ -156,6 +156,35 @@ function Outcome({ execution }: { execution: Execution }) {
         </ul>
       )}
     </div>
+  );
+}
+
+const VOTE_BADGE: Record<Exclude<Eligibility, "everyone">, string> = {
+  subscribers: "Subscribers vote",
+  vip_mod: "VIPs & mods vote",
+};
+const IDEA_BADGE: Record<Exclude<Eligibility, "everyone">, string> = {
+  subscribers: "Subscriber ideas",
+  vip_mod: "VIP & mod ideas",
+};
+
+/** Eligibility badges and the ineligible-attempt counter for the round header. */
+function EligibilityBadges({ round, settings }: { round: Round | null; settings: Settings }) {
+  if (!round || (round.phase !== "collecting" && round.phase !== "voting")) return null;
+  const idea = round.phase === "collecting" && settings.ideaEligibility !== "everyone" ? IDEA_BADGE[settings.ideaEligibility] : null;
+  const vote = settings.voteEligibility !== "everyone" ? VOTE_BADGE[settings.voteEligibility] : null;
+  const ineligible = round.ineligible ?? 0;
+  if (!idea && !vote && !ineligible) return null;
+  return (
+    <span className="round-badges">
+      {idea && <span className="badge badge--elig">{idea}</span>}
+      {vote && <span className="badge badge--elig">{vote}</span>}
+      {ineligible > 0 && (
+        <span className="muted num" title="!idea / !vote attempts refused by the eligibility settings this round">
+          {ineligible} ineligible
+        </span>
+      )}
+    </span>
   );
 }
 
@@ -503,6 +532,7 @@ export function RoundControl({ round, settings, me, api, clockOffset, onConnectA
       <div className="panel__body">
         <div className="round-title">
           <h2 id="round-h">{title}</h2>
+          <EligibilityBadges round={round} settings={settings} />
           <span className={`phase-tag phase-tag--${phase}`}>{phase === "awaiting_approval" && task?.status === "approved" ? "Ready to build" : PHASE_LABEL[phase]}</span>
         </div>
         {body}

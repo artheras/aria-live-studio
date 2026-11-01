@@ -73,6 +73,7 @@ export function makeRound(phase: RoundPhase, extra: Partial<Round> = {}): Round 
       : [],
     voters: voting ? 4 : 0,
     votingEndsAt: phase === "voting" ? Date.now() + 45_000 : null,
+    ineligible: 0,
     winnerId: ["voting", "collecting"].includes(phase) ? null : "i2",
     task: ["awaiting_approval", "executing", "done", "rejected"].includes(phase) ? { ...task } : null,
     execution: null,
@@ -100,6 +101,8 @@ export function makeState(round: Round | null, extra: Partial<LiveState> = {}): 
       voteDurationSec: 60,
       chatReplies: true,
       executorEnabled: true,
+      voteEligibility: "everyone",
+      ideaEligibility: "everyone",
     },
     round,
     activity: [

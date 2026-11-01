@@ -1,5 +1,5 @@
 import type { Activity, LiveState } from "@aria-live/shared";
-import { COMMANDS } from "@aria-live/shared";
+import { COMMANDS, EXTEND_MAX_SEC, EXTEND_MIN_SEC, MOD_COMMANDS } from "@aria-live/shared";
 import { clock } from "../lib/time";
 
 const KIND: Record<Activity["kind"], { label: string; icon: string }> = {
@@ -72,9 +72,16 @@ export function StatsStrip({ stats }: { stats: LiveState["stats"] }) {
 export function CommandHelp() {
   const rows: [string, string][] = [
     [`${COMMANDS.idea} <your idea>`, "Submit an idea while a round is collecting"],
+    [`${COMMANDS.idea} +<n> · ${COMMANDS.plusOne} <n>`, "+1 idea #n (once per idea, not your own)"],
     [`${COMMANDS.vote} <number>`, "Vote for a ballot entry"],
     [COMMANDS.ideas, "Aria lists the current ideas / ballot"],
     [COMMANDS.help, "How to play"],
+  ];
+  const modRows: [string, string][] = [
+    [`${MOD_COMMANDS.open} [theme]`, "Open a round (when none is running)"],
+    [`${MOD_COMMANDS.vote} · ${MOD_COMMANDS.close}`, "Start / close the vote"],
+    [`${MOD_COMMANDS.extend} <${EXTEND_MIN_SEC}-${EXTEND_MAX_SEC}>`, "Add seconds to a timed vote"],
+    [`${MOD_COMMANDS.hide} <n>`, "Hide idea #n while collecting, ballot #n while voting"],
   ];
   return (
     <section className="panel panel--help" aria-labelledby="help-h">
@@ -91,6 +98,18 @@ export function CommandHelp() {
           </div>
         ))}
       </dl>
+      <h3 className="commands__sub">Moderators &amp; you</h3>
+      <dl className="commands">
+        {modRows.map(([cmd, desc]) => (
+          <div key={cmd}>
+            <dt>
+              <code>{cmd}</code>
+            </dt>
+            <dd>{desc}</dd>
+          </div>
+        ))}
+      </dl>
+      <p className="muted commands__note">Planning, approving and running builds happen only here on the dashboard.</p>
     </section>
   );
 }

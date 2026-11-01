@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { Settings } from "@aria-live/shared";
+import { ELIGIBILITY_LABEL, type Eligibility, type Settings } from "@aria-live/shared";
 import type { AriaApi, Me } from "../lib/api";
 import { Btn, useActions } from "./actions";
 
@@ -12,6 +12,17 @@ const FIELDS: { key: NumKey; label: string; hint: string; min: number; max: numb
   { key: "maxCandidates", label: "Ballot size", hint: "Ideas that go to the vote", min: 2, max: 20 },
   { key: "voteDurationSec", label: "Vote duration (s)", hint: "0 = close by hand", min: 0, max: 3600 },
 ];
+
+const ELIGIBILITY_FIELDS: { key: "ideaEligibility" | "voteEligibility"; label: string; hint: string }[] = [
+  { key: "ideaEligibility", label: "Who can submit ideas", hint: "!idea and +1s, from chat badges" },
+  { key: "voteEligibility", label: "Who can vote", hint: "!vote, from chat badges" },
+];
+
+const ELIGIBILITY_HINT: Record<Eligibility, string> = {
+  everyone: "Everyone in chat",
+  subscribers: "Subscribers and founders (VIPs, mods and you always can)",
+  vip_mod: "VIPs and moderators only (and you)",
+};
 
 export function SettingsForm({ settings, me, api, onDone }: { settings: Settings; me: Me; api: AriaApi; onDone: () => void }) {
   const { run, isPending } = useActions();
@@ -45,6 +56,21 @@ export function SettingsForm({ settings, me, api, onDone }: { settings: Settings
             onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value === "" ? NaN : Number(e.target.value) })}
           />
           <small className="muted">{f.hint}</small>
+        </label>
+      ))}
+      {ELIGIBILITY_FIELDS.map((f) => (
+        <label key={f.key} className="field">
+          <span>{f.label}</span>
+          <select value={draft[f.key]} onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value as Eligibility })}>
+            {(Object.keys(ELIGIBILITY_LABEL) as Eligibility[]).map((e) => (
+              <option key={e} value={e}>
+                {ELIGIBILITY_LABEL[e]}
+              </option>
+            ))}
+          </select>
+          <small className="muted">
+            {f.hint} · {ELIGIBILITY_HINT[draft[f.key]]}
+          </small>
         </label>
       ))}
       <label className="switch switch--row">
