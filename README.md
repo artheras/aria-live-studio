@@ -72,7 +72,8 @@ Requires Node.js 20.11+ (22 recommended) and a Twitch account.
    For development with hot reload, run `npm run dev` with
    `WEB_DEV_URL=http://localhost:5173` in `.env`.
 3. **Sign in** at <http://localhost:3000> with the Twitch account you stream
-   from. Aria subscribes to your channel's chat (`channel.chat.message`).
+   from. Aria subscribes to your channel's chat (`channel.chat.message`); see
+   [Twitch integration](#twitch-integration) for the scopes it asks for.
 4. **Add the overlay to OBS.** On the dashboard, click **Overlay URL**, then in
    OBS add a *Browser Source*, paste the URL, and set it to 1920 × 1080. The
    background is transparent.
@@ -410,6 +411,51 @@ Then ask, e.g., "What's the ballot looking like?" or "Start the vote".
 - Only the dashboard needs your Twitch login; restrict it with
   `ALLOWED_LOGINS=<your_login>` on a public deploy.
 
+## Twitch integration
+
+Aria uses only the official Twitch APIs: EventSub (WebSocket) for chat and
+Helix for everything it writes. At login it asks for:
+
+| Scope | Why |
+|---|---|
+| `user:read:chat` | read your channel's chat (`channel.chat.message`): `!idea`, `!vote`, mod commands |
+| `user:write:chat` | short, rate-limited replies in chat (and the clip link), sent as you |
+| `channel:manage:broadcast` | set the stream title while a task is built, and add stream markers |
+| `clips:edit` | clip the last ~30 s when a build succeeds |
+
+What it does with them (each one can be switched off under **Settings → Twitch**):
+
+- **Stream title.** When you approve a task, Aria reads your title
+  (`GET /channels`), remembers it (it survives a server restart) and sets
+  `Building live: <task title> · voted by chat` (`PATCH /channels`, trimmed to
+  140 characters). When the round closes, the next round opens or you log out,
+  it puts your title back, but only if Twitch still shows the one Aria set: a
+  title you changed yourself in the meantime is left alone.
+- **Stream markers** (`POST /streams/markers`) at round open, vote start, winner,
+  build start and build end, stored on the round with the position Twitch
+  reports. At round end Aria looks up your past broadcast
+  (`GET /videos?type=archive`) and History shows each marker as a chip that
+  opens the VOD at that moment (`…/videos/<id>?t=1h2m3s`).
+- **Clip** (`POST /clips`) when a build succeeds. Twitch creates clips
+  asynchronously, so Aria polls `GET /clips` for up to 15 s and only then shows
+  it: a link on the dashboard and in History, "Clip saved" on the overlay, and
+  `[Aria] Built live: <task> — clip: <url>` in chat when chat replies are on.
+
+**Offline.** Markers and clips need a live broadcast. When you are offline,
+Twitch refuses them; Aria writes one activity line per round ("Markers skipped:
+the channel is offline", "No clip: the channel is offline") and stops trying for
+that round. The title works offline too. None of this ever blocks the round:
+every Twitch failure becomes an activity line, and nothing is shown unless
+Twitch confirmed it.
+
+**Reconnect banner.** A login from before these scopes keeps working (chat,
+votes, builds); the extras that need a missing scope are skipped and their
+toggles are disabled. The dashboard shows *Reconnect Twitch to enable stream
+title, markers and clips*; the button signs you in again with Twitch's consent
+screen forced (`force_verify=true`) so you can grant the new scopes. Nothing
+changes in the Twitch developer console: scopes are requested at login, not
+registered with the app.
+
 ## Local end-to-end test
 
 `scripts/e2e-local.mjs` runs the real server, the real MCP bridge and a real
@@ -441,7 +487,9 @@ node scripts/e2e-local.mjs --phases=A       # or any of A,B,C; --skip-build, --k
   the built-in executor with a fake `aria-code` in a temporary git repository,
   and a round driven through the streamer MCP URL (open, vote, extend, close,
   plan; no approve tool; the round card resources; the co-host still cannot
-  control anything).
+  control anything). The fake Helix also simulates a live channel, so phase B
+  checks the stream title is set and restored, the markers, the clip (chat,
+  overlay, history), the VOD deep links, and an offline round.
 - **C: screenshots.** `npm run build`, then Chromium (via `playwright-core`;
   set `CHROMIUM_PATH` if no Playwright browser is installed) saves the
   dashboard, overlay, history and login screens to `docs/screenshots/`.
@@ -466,6 +514,22 @@ npm run typecheck
 | `plugin/` | Claude Code plugin (skills mirrored from `skills/`), Codex and Aria Code configs |
 | `.claude-plugin/` | marketplace for Claude Code and Aria Code, and the Aria skills lock |
 | `bundles/claude-desktop/` | `.mcpb` manifest. `scripts/package-*.mjs` build the bundle and the skill zips into `dist/`. |
+
+## Roadmap
+
+- **Twitch Extension panel**: click-to-vote on a panel or overlay extension
+  instead of typing `!vote`, starting as a Hosted Test, then Twitch review.
+- **Channel Points boosts** (Affiliate and Partner channels): redeem points to
+  +1 an idea or add weight to a vote, through EventSub
+  `channel.channel_points_custom_reward_redemption.add`.
+- **Dedicated bot account**: replies from a separate bot user with
+  `user:bot` / `channel:bot`, so chat replies are not sent as the streamer.
+- **Stream events on the overlay**: raids, follows and subs celebrated on the
+  overlay; open a round automatically on `stream.online`.
+- **More channels through a channel-agnostic Live Collaboration Runtime**: the
+  round engine already knows nothing about Twitch; adapters for YouTube Live and
+  Bilibili chat, Feishu and Slack for team rounds, and research reviews where a
+  group votes on what an agent investigates next.
 
 ## License
 
