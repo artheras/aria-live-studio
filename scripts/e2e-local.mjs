@@ -11,7 +11,14 @@
  *   node scripts/e2e-local.mjs --phases=B      # just the chat flow
  *   node scripts/e2e-local.mjs --phases=B,C --skip-build --keep
  *
- * Options: --phases=A,B,C  --skip-build (phase C uses the existing
+ *   node scripts/e2e-local.mjs --phases=R      # a real Claude Code agent (opt-in)
+ *
+ * Phase R needs the `claude` CLI, signed in: it runs a round against the fake
+ * Twitch and lets Claude Code, with plugin/ loaded, wait for the approved
+ * task, claim it, change a small repo, report progress and complete it.
+ * --agent-timeout=SECONDS (default 420).
+ *
+ * Options: --phases=A,B,C,R  --skip-build (phase C uses the existing
  * packages/web/dist)  --keep (keep the temp dir with logs)  --twitch-cli=PATH
  * (default: $TWITCH_CLI, /tmp/gobin/twitch-cli or `twitch` on PATH).
  * Screenshots go to docs/screenshots/.
@@ -1402,6 +1409,95 @@ async function phaseCStart() {
   return s;
 }
 
+// ── Phase R: a real coding agent (Claude Code + plugin/) ─────────────────────
+
+async function phaseR() {
+  section("Phase R — real Claude Code agent with the aria-live plugin");
+  const claudeBin = spawnSync("claude", ["--version"], { encoding: "utf8" });
+  must(claudeBin.status === 0, "claude CLI available", claudeBin.stderr || claudeBin.error?.message);
+  const es = await startFakeEventSub();
+  const twitch = await startFakeTwitch({ local: es.subscribe });
+  const aria = await startAria("server-r", {
+    TWITCH_CLIENT_ID: CLIENT_ID,
+    TWITCH_CLIENT_SECRET: "e2e-secret",
+    TWITCH_AUTH_BASE: twitch.authBase,
+    TWITCH_API_BASE: twitch.apiBase,
+    EVENTSUB_WS_URL: es.url,
+  });
+  const session = await login(aria.base);
+  const api = apiClient(aria.base, session);
+  await waitFor("EventSub connected", async () => (await api.state()).connection.state === "connected");
+  const chat = (login, text) => must(es.chat(CHATTERS[login], text) === 1, `chat delivered: ${login}: ${text}`);
+
+  // The repo the agent works in.
+  const repo = join(TMP, "agent-repo");
+  mkdirSync(join(repo, "src"), { recursive: true });
+  writeFileSync(join(repo, "README.md"), "# Tiny platformer\n\nRun `node src/game.js`.\n");
+  writeFileSync(
+    join(repo, "src/game.js"),
+    "export const game = { paused: false, score: 0 };\n\nexport function onKey(key) {\n  if (key === \"ArrowUp\") game.score += 1;\n}\n",
+  );
+  const git = (...a) => execFileSync("git", ["-C", repo, ...a], { encoding: "utf8" });
+  execFileSync("git", ["init", "-q", "-b", "main", repo]);
+  git("add", ".");
+  git("-c", "user.name=e2e", "-c", "user.email=e2e@example.invalid", "commit", "-qm", "init");
+
+  await api.post("/api/round/open", { prompt: "What should the game get next?" });
+  chat("quietquinn", "!idea Pause the game when the player presses P");
+  chat("bytebard", "!idea Double jump");
+  await waitFor("2 ideas", async () => (await api.state()).round.ideas.length === 2);
+  await api.post("/api/round/vote");
+  chat("pixelpatty", "!vote 1");
+  chat("jumpjules", "!vote 1");
+  chat("nova_kid", "!vote 2");
+  await waitFor("3 votes", async () => (await api.state()).round.voters === 3);
+  await api.post("/api/round/close");
+  const task = await api.post("/api/task/plan");
+  check(/pause/i.test(task.title), "plan for the winning idea (pause)", task.title);
+  await api.post("/api/task/approve");
+  const conn = await api.get("/api/agent-connection");
+
+  const allowed = [
+    "mcp__plugin_aria-live_aria-live",
+    "mcp__aria-live",
+    "Read", "Edit", "Write", "Glob", "Grep", "Bash(node:*)", "Bash(git status:*)", "Bash(git diff:*)",
+  ].join(",");
+  const prompt =
+    "You are building live on a Twitch stream with the aria-live tools. Call live_wait_for_task with timeout_seconds 60, " +
+    "claim the task with live_claim_task, implement it in this repository (keep the change small, plain JavaScript, no new dependencies), " +
+    "report two or three short milestones with live_report_progress, then call live_complete_task with status succeeded, a one-sentence summary " +
+    "and the changed files. Do not commit.";
+  const timeout = Number(opt("agent-timeout") ?? 420) * 1000;
+  const agent = start("claude-agent", "claude", ["-p", prompt, "--plugin-dir", join(ROOT, "plugin"), "--allowedTools", allowed, "--output-format", "json"], {
+    cwd: repo,
+    env: { ARIA_LIVE_URL: aria.base, ARIA_LIVE_TOKEN: conn.token },
+  });
+  const ended = await Promise.race([agent.exited, sleep(timeout).then(() => null)]);
+  if (!ended) {
+    await agent.stop();
+    check(false, `agent finished within ${timeout / 1000}s`);
+  }
+  let result = null;
+  try {
+    result = JSON.parse(agent.output().trim().split("\n").filter((l) => l.startsWith("{")).pop() ?? "null");
+  } catch {
+    /* reported below */
+  }
+  check(ended?.code === 0 && result && !result.is_error, "claude exited cleanly", { code: ended?.code, result: result?.result?.slice?.(0, 400) });
+
+  const s = await api.state();
+  const ex = s.round.execution;
+  check(s.round.phase === "done" && ex?.status === "succeeded", "round done: the agent completed the task", { phase: s.round.phase, status: ex?.status, error: ex?.error });
+  check(ex?.executor === "mcp:claude-code", "stream shows the agent as Claude Code", ex?.executor);
+  check((ex?.steps ?? []).length >= 2, "agent progress reached the overlay", ex?.steps?.map((x) => x.text));
+  check(typeof ex?.summary === "string" && ex.summary.length > 10, "completion summary for viewers", ex?.summary);
+  const diff = git("status", "--porcelain");
+  check(diff.trim().length > 0, "the agent changed the repository", diff);
+  check(git("log", "--oneline").trim().split("\n").length === 1, "the agent did not commit");
+  log(`${C.d}agent summary: ${ex?.summary}\nchanged: ${diff.trim().replace(/\n/g, ", ")}\nsteps: ${(ex?.steps ?? []).map((x) => x.text).join(" | ")}${C.x}`);
+  await agent.stop();
+}
+
 // ── main ────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -1410,6 +1506,7 @@ async function main() {
     if (PHASES.has("A")) await phaseA();
     if (PHASES.has("C")) shots = await phaseCStart();
     if (PHASES.has("B") || PHASES.has("C")) await phaseB();
+    if (PHASES.has("R")) await phaseR();
     if (shots) {
       // The script restarts the server on purpose; an open overlay logs one
       // refused WebSocket connection before it reconnects. Anything else fails.

@@ -456,6 +456,22 @@ screen forced (`force_verify=true`) so you can grant the new scopes. Nothing
 changes in the Twitch developer console: scopes are requested at login, not
 registered with the app.
 
+**Check it on your channel before streaming.** Once you have logged in on the
+dashboard:
+
+```sh
+npm run verify:twitch                    # read-only: token, scopes, channel, live state, past broadcasts
+npm run verify:twitch -- --write         # also sets and restores the title, adds a marker, makes a clip
+npm run verify:twitch -- --write --chat  # and posts one "[Aria] Aria Live self-test ✓" line
+```
+
+Run `--write` once while live (a test or unlisted stream is fine) and once
+offline. Each check prints PASS / WARN / FAIL. For markers and clips it also
+prints exactly what Twitch answered and whether Aria recognizes that answer.
+The command reads `data/tokens.json` but never refreshes or rewrites it, so the
+server can keep running. It saves `data/verify-twitch-report.json`, which
+contains no tokens, so you can share it when something is off.
+
 ## Local end-to-end test
 
 `scripts/e2e-local.mjs` runs the real server, the real MCP bridge and a real
@@ -466,6 +482,7 @@ product has no mock mode):
 npm install
 node scripts/e2e-local.mjs                  # phases A, B and C (~2 min)
 node scripts/e2e-local.mjs --phases=A       # or any of A,B,C; --skip-build, --keep
+node scripts/e2e-local.mjs --phases=R       # opt-in: a real Claude Code agent (~2-5 min)
 ```
 
 - **A: official Twitch CLI mock.** Starts `twitch event websocket start-server
@@ -493,6 +510,15 @@ node scripts/e2e-local.mjs --phases=A       # or any of A,B,C; --skip-build, --k
 - **C: screenshots.** `npm run build`, then Chromium (via `playwright-core`;
   set `CHROMIUM_PATH` if no Playwright browser is installed) saves the
   dashboard, overlay, history and login screens to `docs/screenshots/`.
+
+- **R: a real agent (opt-in).** Needs the `claude` CLI, signed in. It runs a
+  round on the fake Twitch (ideas, votes, plan, approve), then starts `claude
+  -p` with `--plugin-dir plugin` in a small git repository. Claude Code has
+  to wait for the task, claim it, implement it, report progress (its own
+  `live_report_progress` calls plus the plugin's hook) and complete it. The
+  phase then checks the round finished as succeeded under "Claude Code", the
+  overlay got the steps and the repository changed without a commit.
+  `--agent-timeout=SECONDS` (default 420).
 
 Requires the [Twitch CLI](https://dev.twitch.tv/docs/cli/) for phase A (`twitch`
 on `PATH`, or `--twitch-cli=PATH`).
