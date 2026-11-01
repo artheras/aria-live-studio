@@ -1,0 +1,17 @@
+{
+  "description": "Aria Live: post a one-line progress note to the stream overlay after edits and commands, while a task is claimed.",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/report-progress.mjs\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

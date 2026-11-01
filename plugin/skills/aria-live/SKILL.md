@@ -30,7 +30,10 @@ Tool names may carry your host's MCP prefix (for example `mcp__aria-live__live_s
 5. `live_report_progress` at each real milestone, in one short, viewer-friendly
    line ("Boss now has a health bar"). Four to eight updates per task is plenty;
    never post file contents, paths outside the repo, tokens or errors with
-   secrets.
+   secrets. In Claude Code, the plugin's progress hook also posts short lines
+   ("Edited boss.js", "Ran tests") after edits and commands, so keep your own
+   reports for milestones. Codex and Aria Code have no such hook: report
+   through the tool.
 6. `live_complete_task` with `status` `succeeded` only if the acceptance
    criteria are met and checks pass; otherwise `failed` with a short `error`.
    Include a one-sentence `summary` for viewers and the `changed_files`.
