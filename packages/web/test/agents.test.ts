@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createApi } from "../src/lib/api";
-import { agentSnippets, executorInfo, maskCohostUrl, remoteSnippets } from "../src/lib/agents";
+import { agentSnippets, executorInfo, maskCohostUrl, maskStreamerUrl, remoteSnippets } from "../src/lib/agents";
 
 describe("agent connection", () => {
   it("keeps the bridge command the server reports, so snippets carry the real path", async () => {
@@ -23,7 +23,11 @@ describe("remote MCP", () => {
     const body = {
       token: "tok",
       mcpUrl: "https://live.example",
-      remote: { agentUrl: "https://live.example/mcp", cohostUrl: "https://live.example/mcp/cohost/KEY123456789" },
+      remote: {
+        agentUrl: "https://live.example/mcp",
+        cohostUrl: "https://live.example/mcp/cohost/KEY123456789",
+        streamerUrl: "https://live.example/mcp/streamer/STREAMKEY98765",
+      },
     };
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify(body), { status: 200 }));
     const conn = await createApi(() => null).agentConnection();
@@ -34,6 +38,7 @@ describe("remote MCP", () => {
     expect(codex!.text).toContain(`bearer_token_env_var = "ARIA_LIVE_TOKEN"`);
     expect(maskCohostUrl(body.remote.cohostUrl)).not.toContain("KEY123456789");
     expect(maskCohostUrl(body.remote.cohostUrl)).toMatch(/^https:\/\/live\.example\/mcp\/cohost\/KEY1•+89$/);
+    expect(maskStreamerUrl(body.remote.streamerUrl)).toMatch(/^https:\/\/live\.example\/mcp\/streamer\/STRE•+65$/);
   });
 });
 

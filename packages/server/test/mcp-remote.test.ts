@@ -44,6 +44,7 @@ async function connect(hh: Harness, path: string, opts: { token?: string; name?:
 
 const agent = (hh: Harness) => connect(hh, "/mcp", { token: hh.config.agentToken });
 const cohost = (hh: Harness) => connect(hh, `/mcp/cohost/${hh.config.cohostKey}`, { name: "openai-mcp" });
+const streamer = (hh: Harness) => connect(hh, `/mcp/streamer/${hh.config.streamerKey}`, { name: "claude-ai" });
 
 async function toDraft(hh: Harness) {
   const eng = hh.service.engine;
@@ -86,6 +87,21 @@ describe("remote MCP auth", () => {
     expect((await rawPost(h, `/mcp/cohost/${h.config.cohostKey}`)).status).toBe(200);
   });
 
+  it("streamer endpoint: wrong key or the co-host key is 404; assistant origins allowed", async () => {
+    h = await startHarness();
+    expect((await rawPost(h, "/mcp/streamer/wrong")).status).toBe(404);
+    expect((await rawPost(h, `/mcp/streamer/${h.config.cohostKey}`)).status).toBe(404);
+    expect((await rawPost(h, `/mcp/cohost/${h.config.streamerKey}`)).status).toBe(404);
+    expect((await rawPost(h, `/mcp/streamer/${h.config.streamerKey}`, { origin: "http://evil.example" })).status).toBe(403);
+    expect((await rawPost(h, `/mcp/streamer/${h.config.streamerKey}`, { origin: "https://claude.ai" })).status).toBe(200);
+    const r = await rawPost(h, `/mcp/streamer/${h.config.streamerKey}`);
+    expect(r.status).toBe(200);
+    const sid = r.headers.get("mcp-session-id")!;
+    const list = { jsonrpc: "2.0", id: 2, method: "tools/list" };
+    // a streamer session is not valid on the co-host endpoint
+    expect((await rawPost(h, `/mcp/cohost/${h.config.cohostKey}`, { "mcp-session-id": sid }, list)).status).toBe(404);
+  });
+
   it("a co-host session cannot be used on the agent endpoint", async () => {
     h = await startHarness();
     const r = await rawPost(h, `/mcp/cohost/${h.config.cohostKey}`);
@@ -98,8 +114,13 @@ describe("remote MCP auth", () => {
 
   it("agent-connection reports the remote URLs", async () => {
     h = await startHarness();
-    const conn = (await (await h.api("GET", "/api/agent-connection")).json()) as { remote: { agentUrl: string; cohostUrl: string } };
-    expect(conn.remote).toEqual({ agentUrl: `${PUBLIC_URL}/mcp`, cohostUrl: `${PUBLIC_URL}/mcp/cohost/${h.config.cohostKey}` });
+    const conn = (await (await h.api("GET", "/api/agent-connection")).json()) as { remote: Record<string, string> };
+    expect(conn.remote).toEqual({
+      agentUrl: `${PUBLIC_URL}/mcp`,
+      cohostUrl: `${PUBLIC_URL}/mcp/cohost/${h.config.cohostKey}`,
+      streamerUrl: `${PUBLIC_URL}/mcp/streamer/${h.config.streamerKey}`,
+    });
+    expect(h.config.streamerKey).not.toBe(h.config.cohostKey);
     expect((await h.agent("GET", "/api/agent-connection")).status).toBe(401);
   });
 });
@@ -201,6 +222,139 @@ describe("remote MCP tools", () => {
     const hist = await c.call("live_history");
     expect(hist.text).toMatch(/Round #1 .* theme: boss fight — 2 idea\(s\), 1 voter\(s\)/);
     expect(hist.text).toMatch(/winner #1: add a \[removed\]/);
+  });
+});
+
+describe("remote MCP streamer role", () => {
+  it("lists read tools + round control, never approve/reject/run/cancel", async () => {
+    h = await startHarness();
+    const st = await streamer(h);
+    const tools = (await st.client.listTools()).tools;
+    expect(tools.map((t) => t.name).sort()).toEqual([
+      "live_activity_digest",
+      "live_close_vote",
+      "live_extend_vote",
+      "live_hide_idea",
+      "live_history",
+      "live_ideas",
+      "live_open_round",
+      "live_plan_task",
+      "live_start_vote",
+      "live_status",
+    ]);
+    expect(tools.some((t) => /approve|reject|run|cancel|claim|complete/.test(t.name))).toBe(false);
+    for (const t of tools.filter((x) => !["live_status", "live_ideas", "live_history", "live_activity_digest"].includes(x.name))) {
+      expect(t.annotations, t.name).toMatchObject({ readOnlyHint: false, destructiveHint: false, openWorldHint: false });
+      expect(t.description, t.name).toMatch(/approval happens on the Aria Live dashboard/i);
+    }
+    expect(tools.find((t) => t.name === "live_hide_idea")!.annotations?.idempotentHint).toBe(true);
+    expect(st.client.getInstructions()).toMatch(/cannot approve, reject, run or cancel/);
+    expect(st.client.getInstructions()).toMatch(/untrusted_viewer_input/);
+  });
+
+  it("drives a round like the dashboard, attributed to the chat app; errors are tool errors", async () => {
+    h = await startHarness();
+    const eng = h.service.engine;
+    eng.updateSettings({ ideaCooldownSec: 0, voteDurationSec: 60 });
+    const st = await streamer(h);
+    const opened = await st.call("live_open_round", { prompt: "boss fight" });
+    expect(opened.isError).toBeFalsy();
+    expect(eng.round).toMatchObject({ phase: "collecting", prompt: "boss fight" });
+    expect(opened.structuredContent).toMatchObject({ phase: "collecting", roundIndex: 1, message: expect.stringMatching(/Round #1 is open/) });
+    expect(eng.state.activity.at(-1)!.text).toBe("Round 1 opened from the chat app: boss fight");
+    expect(eng.state.activity.at(-1)!.user).toBeUndefined();
+
+    const again = await st.call("live_open_round", {});
+    expect(again.isError).toBe(true);
+    expect(again.text).toMatch(/Cannot open a new round while the current one is collecting/);
+    expect((await st.call("live_start_vote")).text).toMatch(/No ideas to vote on yet/);
+
+    eng.submitIdea(user("alice"), "dragon boss");
+    eng.submitIdea(user("carol"), "spam spam");
+    eng.submitIdea(user("dave"), "boss reacts to chat");
+    const hid = await st.call("live_hide_idea", { number: 2, hidden: true });
+    expect(hid.isError).toBeFalsy();
+    expect(eng.round!.ideas[1]!.hidden).toBe(true);
+    expect(eng.state.activity.at(-1)!.text).toBe("Idea #2 hidden from the chat app");
+    expect((await st.call("live_hide_idea", { number: 9, hidden: true })).text).toMatch(/No idea #9/);
+
+    const vote = await st.call("live_start_vote");
+    expect(vote.isError).toBeFalsy();
+    expect(eng.round!.phase).toBe("voting");
+    expect(vote.structuredContent).toMatchObject({ phase: "voting", ballot: [{ number: 1 }, { number: 2 }], voters: 0 });
+    expect(typeof vote.structuredContent!.votingEndsAt).toBe("number");
+    const ends = eng.round!.votingEndsAt!;
+    expect((await st.call("live_extend_vote", { seconds: 2 })).isError).toBe(true); // schema: 5–300
+    expect((await st.call("live_extend_vote", { seconds: 30 })).isError).toBeFalsy();
+    expect(eng.round!.votingEndsAt).toBe(ends + 30_000);
+    eng.castVote(user("bob"), 2);
+    const closed = await st.call("live_close_vote");
+    expect(closed.isError).toBeFalsy();
+    expect(eng.round!.phase).toBe("decided");
+    expect(closed.text).toMatch(/Winner: ballot #2/);
+    expect(eng.state.activity.some((a) => a.text === "Voting closed from the chat app")).toBe(true);
+
+    const plan = await st.call("live_plan_task");
+    expect(plan.isError).toBeFalsy();
+    expect(eng.round!.phase).toBe("awaiting_approval");
+    expect(eng.round!.task!.status).toBe("draft");
+    expect(plan.structuredContent).toMatchObject({ phase: "awaiting_approval", plan: { status: "draft" }, task: { status: "draft" } });
+    expect(plan.text).toMatch(/approve or reject it on the Aria Live dashboard/);
+    expect(plan.text.match(/<\/untrusted_viewer_input>/g)!.length).toBeGreaterThanOrEqual(1);
+    expect(eng.state.activity.some((a) => /Aria is planning idea #\d+ from the chat app/.test(a.text))).toBe(true);
+
+    // no tool can approve; the dashboard still can
+    expect((await st.call("live_claim_task", { task_id: eng.round!.task!.id })).isError).toBe(true);
+    expect(eng.round!.task!.status).toBe("draft");
+    expect((await h.api("POST", "/api/task/approve", {})).status).toBe(200);
+  });
+
+  it("co-host cannot call the control tools", async () => {
+    h = await startHarness();
+    const c = await cohost(h);
+    for (const name of ["live_open_round", "live_start_vote", "live_close_vote", "live_extend_vote", "live_hide_idea", "live_plan_task"]) {
+      const r = await c.call(name, { seconds: 30, number: 1, hidden: true });
+      expect(r.isError, name).toBe(true);
+    }
+    expect(h.service.engine.round).toBeNull();
+  });
+});
+
+describe("round card widget (OpenAI Apps SDK + MCP Apps)", () => {
+  it("live_status carries both UI metadata conventions; resources list and read the HTML", async () => {
+    h = await startHarness();
+    for (const conn of [await cohost(h), await streamer(h)]) {
+      const tools = (await conn.client.listTools()).tools;
+      for (const name of ["live_status", ...(tools.some((t) => t.name === "live_start_vote") ? ["live_start_vote", "live_plan_task"] : [])]) {
+        const meta = tools.find((t) => t.name === name)!._meta!;
+        expect(meta, name).toMatchObject({
+          ui: { resourceUri: "ui://aria-live/round.html" },
+          "ui/resourceUri": "ui://aria-live/round.html",
+          "openai/outputTemplate": "ui://widget/aria-live-round.html",
+          "openai/widgetAccessible": false,
+        });
+        expect(typeof meta["openai/toolInvocation/invoking"]).toBe("string");
+        expect(typeof meta["openai/toolInvocation/invoked"]).toBe("string");
+      }
+      const listed = (await conn.client.listResources()).resources;
+      expect(listed.map((r) => [r.uri, r.mimeType]).sort()).toEqual([
+        ["ui://aria-live/round.html", "text/html;profile=mcp-app"],
+        ["ui://widget/aria-live-round.html", "text/html+skybridge"],
+      ]);
+      for (const r of listed) {
+        const read = await conn.client.readResource({ uri: r.uri });
+        const c = read.contents[0] as { uri: string; mimeType: string; text: string };
+        expect(c.mimeType).toBe(r.mimeType);
+        expect(c.text).toMatch(/^<!doctype html>/);
+        expect(c.text).not.toMatch(/https?:\/\//); // self-contained: no network
+      }
+      const status = await conn.call("live_status");
+      expect(status.structuredContent).toMatchObject({ phase: "none", voters: 0, ideaCount: 0 });
+      expect(status.text).toMatch(/Round: none/);
+    }
+    // the agent role has no widget resources
+    const a = await agent(h);
+    await expect(a.client.listResources()).rejects.toThrow();
   });
 });
 

@@ -21,6 +21,10 @@ async function main(): Promise<void> {
 
   const port = await app.listen(config.port);
   console.log(`Aria Live Studio server on http://localhost:${port} (public URL ${config.publicUrl})`);
+  const pub = new URL(config.publicUrl);
+  if (pub.protocol !== "https:" && !["localhost", "127.0.0.1", "[::1]"].includes(pub.hostname)) {
+    console.warn(`PUBLIC_URL ${config.publicUrl} is not HTTPS: ChatGPT and Claude connectors need a public https:// URL (see "Hosting for ChatGPT and Claude" in the README).`);
+  }
   if (!twitchConfigured(config)) console.log("Twitch is not configured: set TWITCH_CLIENT_ID / TWITCH_CLIENT_SECRET.");
   console.log(`Planner: ${planner.name} · Executor: ${config.executor.kind}`);
   if (auth.user) {

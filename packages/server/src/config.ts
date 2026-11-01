@@ -30,6 +30,10 @@ export interface Config {
   agentToken: string;
   /** Secret path segment of the read-only co-host MCP endpoint (/mcp/cohost/KEY). */
   cohostKey: string;
+  /** Secret path segment of the streamer MCP endpoint (/mcp/streamer/KEY): co-host tools + round control, no approval. */
+  streamerKey: string;
+  /** Trust X-Forwarded-Proto from a TLS-terminating reverse proxy (TRUST_PROXY=1). */
+  trustProxy: boolean;
   projectBrief: string;
   allowedLogins: string[] | undefined;
   planner: {
@@ -73,6 +77,7 @@ interface Secrets {
   overlayKey?: string;
   agentToken?: string;
   cohostKey?: string;
+  streamerKey?: string;
 }
 
 type SecretName = keyof Secrets;
@@ -81,6 +86,7 @@ const SECRET_ENV: Record<SecretName, [string, number]> = {
   overlayKey: ["OVERLAY_KEY", 18],
   agentToken: ["AGENT_TOKEN", 32],
   cohostKey: ["COHOST_KEY", 18],
+  streamerKey: ["STREAMER_KEY", 24],
 };
 
 /** Read dataDir/secrets.json, filling in (and persisting, 0600) any secret not given in env. */
@@ -123,7 +129,8 @@ export function loadConfig(env: Env = process.env): Config {
   const publicUrl = stripSlash(str(env, "PUBLIC_URL") ?? `http://localhost:${port}`);
   const webDevUrl = str(env, "WEB_DEV_URL");
   const dataDir = resolve(str(env, "DATA_DIR") ?? join(REPO_ROOT, "data"));
-  const { sessionSecret, overlayKey, agentToken, cohostKey } = loadSecrets(dataDir, env);
+  const { sessionSecret, overlayKey, agentToken, cohostKey, streamerKey } = loadSecrets(dataDir, env);
+  const trustProxy = ["1", "true", "yes"].includes((str(env, "TRUST_PROXY") ?? "").toLowerCase());
   const allowed = str(env, "ALLOWED_LOGINS")
     ?.split(",")
     .map((s) => s.trim().toLowerCase())
@@ -148,6 +155,8 @@ export function loadConfig(env: Env = process.env): Config {
     overlayKey,
     agentToken,
     cohostKey,
+    streamerKey,
+    trustProxy,
     projectBrief: str(env, "PROJECT_BRIEF") ?? "",
     allowedLogins: allowed && allowed.length ? allowed : undefined,
     planner: {

@@ -1101,6 +1101,7 @@ input[type="checkbox"] {
 .settings .field small { font-size: 12px; }
 
 .agent-panel .lede { margin-top: 0; }
+.agent-panel__sub { margin: 18px 0 4px; font-size: 14px; }
 .agent-panel__meta {
   display: flex;
   align-items: center;

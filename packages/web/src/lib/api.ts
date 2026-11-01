@@ -117,6 +117,7 @@ export function createApi(getCsrf: () => string | null) {
         if (isRecord(remote) && typeof remote.agentUrl === "string" && typeof remote.cohostUrl === "string") {
           const abs = (u: string) => (u.startsWith("/") ? window.location.origin + u : u);
           conn.remote = { agentUrl: abs(remote.agentUrl), cohostUrl: abs(remote.cohostUrl) };
+          if (typeof remote.streamerUrl === "string") conn.remote.streamerUrl = abs(remote.streamerUrl);
         }
         return conn;
       }

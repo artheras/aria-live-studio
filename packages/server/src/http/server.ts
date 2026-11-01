@@ -8,7 +8,12 @@
  *   "not configured" / "log in".
  * - /api/agent/*: `Authorization: Bearer AGENT_TOKEN` only (no cookie, no csrf).
  * - /mcp: remote MCP (Streamable HTTP), agent bearer token; /mcp/cohost/COHOST_KEY:
- *   read-only co-host tools (see ../mcp/http.ts).
+ *   read-only co-host tools; /mcp/streamer/STREAMER_KEY: co-host tools + round
+ *   control, never approval (see ../mcp/http.ts).
+ *
+ * Behind a TLS-terminating proxy set PUBLIC_URL=https://… (cookies get Secure,
+ * the OAuth redirect and MCP URLs use it). X-Forwarded-Proto is only believed
+ * with TRUST_PROXY=1.
  * - /ws?role=dashboard: session cookie; /ws?role=overlay&key=OVERLAY_KEY.
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
@@ -156,6 +161,18 @@ function htmlPage(res: ServerResponse, status: number, title: string, message: s
   res.end(html);
 }
 
+/**
+ * Whether the client connection was HTTPS. X-Forwarded-Proto is set by any
+ * client, so it only counts when the operator says a proxy sets it (TRUST_PROXY=1).
+ */
+export function forwardedHttps(req: IncomingMessage, trustProxy: boolean): boolean {
+  if ((req.socket as { encrypted?: boolean }).encrypted) return true;
+  if (!trustProxy) return false;
+  const h = req.headers["x-forwarded-proto"];
+  const first = (Array.isArray(h) ? h[0] : h)?.split(",")[0]?.trim().toLowerCase();
+  return first === "https";
+}
+
 /** Sliding one-second window limiter. */
 class PerSecond {
   private hits: number[] = [];
@@ -213,6 +230,7 @@ export function createApp(deps: AppDeps): App {
     remote: {
       agentUrl: `${config.publicUrl}/mcp`,
       cohostUrl: `${config.publicUrl}/mcp/cohost/${encodeURIComponent(config.cohostKey)}`,
+      streamerUrl: `${config.publicUrl}/mcp/streamer/${encodeURIComponent(config.streamerKey)}`,
     },
   }));
   route("PATCH /api/settings", "session", ({ body }) => engine.updateSettings(body));
@@ -320,6 +338,9 @@ export function createApp(deps: AppDeps): App {
     return !origin || allowedOrigins.has(origin);
   };
 
+  /** The browser reached us over HTTPS: a TLS socket, or a trusted proxy saying so. */
+  const viaHttps = (req: IncomingMessage): boolean => forwardedHttps(req, config.trustProxy);
+
   const agentAuthorized = (req: IncomingMessage): boolean => {
     const h = req.headers.authorization ?? "";
     const m = /^Bearer\s+(.+)$/i.exec(h);
@@ -380,7 +401,7 @@ export function createApp(deps: AppDeps): App {
     if (url.pathname === "/auth/twitch/callback" && method === "GET") {
       try {
         const session = await auth.completeLogin(url.searchParams);
-        res.setHeader("Set-Cookie", auth.sessionCookie(session.id));
+        res.setHeader("Set-Cookie", auth.sessionCookie(session.id, viaHttps(req)));
         res.writeHead(302, { Location: `${appUrl}/`, "Cache-Control": "no-store" });
         res.end();
         service.connectChat();
@@ -400,7 +421,7 @@ export function createApp(deps: AppDeps): App {
         await service.logout();
         hub.closeRole("dashboard");
       }
-      res.setHeader("Set-Cookie", auth.clearCookie());
+      res.setHeader("Set-Cookie", auth.clearCookie(viaHttps(req)));
       return sendJson(res, 200, { ok: true });
     }
     return sendError(res, 404, "not_found", "No such endpoint");

@@ -246,9 +246,9 @@ export class RoundEngine {
 
   // ── helpers ────────────────────────────────────────────────────────────
 
-  private activity(kind: ActivityKind, text: string, user?: TwitchUser): void {
+  private activity(kind: ActivityKind, text: string, user?: Actor): void {
     const a: Activity = { id: this.deps.id(), at: this.deps.now(), kind, text: streamSafeLine(text, 300) };
-    if (user) a.user = user;
+    if (user && !isApp(user)) a.user = user;
     this.s.activity.push(a);
     if (this.s.activity.length > ACTIVITY_LIMIT) this.s.activity.splice(0, this.s.activity.length - ACTIVITY_LIMIT);
   }
@@ -325,7 +325,7 @@ export class RoundEngine {
   // ── rounds ─────────────────────────────────────────────────────────────
 
   /** `by`: the moderator who opened it from chat (dashboard actions pass nothing). */
-  openRound(prompt = "", by?: TwitchUser): Round {
+  openRound(prompt = "", by?: Actor): Round {
     const cur = this.s.round;
     if (cur && ["collecting", "voting", "planning", "executing"].includes(cur.phase)) {
       throw new EngineError("wrong_phase", `Cannot open a new round while the current one is ${cur.phase}`);
@@ -512,7 +512,7 @@ export class RoundEngine {
    * Hide by the number chat sees: the submission number while collecting,
    * the ballot number while voting.
    */
-  hideIdeaByNumber(n: number, by?: TwitchUser): Idea {
+  hideIdeaByNumber(n: number, by?: Actor): Idea {
     const r = this.requirePhase("collecting", "voting");
     const id =
       r.phase === "voting"
@@ -525,7 +525,7 @@ export class RoundEngine {
     return this.hideIdea(idea.id, true, by);
   }
 
-  hideIdea(id: string, hidden: boolean, by?: TwitchUser): Idea {
+  hideIdea(id: string, hidden: boolean, by?: Actor): Idea {
     const r = this.requireRound();
     const idea = this.ideaById(r, id);
     if (!idea) throw new EngineError("not_found", "No such idea in this round");
@@ -549,7 +549,7 @@ export class RoundEngine {
   // ── voting ─────────────────────────────────────────────────────────────
 
   /** Freeze the ballot. Also re-opens a vote that ended with no votes. */
-  startVote(by?: TwitchUser): Round {
+  startVote(by?: Actor): Round {
     const r = this.requireRound();
     const reopen = r.phase === "decided" && r.winnerId === null;
     if (r.phase !== "collecting" && !reopen) {
@@ -615,7 +615,7 @@ export class RoundEngine {
   }
 
   /** Add time to a timed vote (a moderator's `!aria extend 30`). */
-  extendVote(seconds: number, by?: TwitchUser): Round {
+  extendVote(seconds: number, by?: Actor): Round {
     if (!Number.isInteger(seconds) || seconds < EXTEND_MIN_SEC || seconds > EXTEND_MAX_SEC) {
       throw new EngineError("bad_input", `seconds must be an integer between ${EXTEND_MIN_SEC} and ${EXTEND_MAX_SEC}`);
     }
@@ -628,7 +628,7 @@ export class RoundEngine {
     return r;
   }
 
-  closeVote(by?: TwitchUser): Round {
+  closeVote(by?: Actor): Round {
     const r = this.requirePhase("voting");
     this.recount(r);
     const ideas = new Map(r.ideas.map((i) => [i.id, i]));
@@ -657,12 +657,12 @@ export class RoundEngine {
 
   // ── task ───────────────────────────────────────────────────────────────
 
-  beginPlanning(): { idea: Idea; round: Round } {
+  beginPlanning(by?: Actor): { idea: Idea; round: Round } {
     const r = this.requirePhase("decided", "awaiting_approval", "rejected");
     const idea = r.winnerId ? this.ideaById(r, r.winnerId) : undefined;
     if (!idea) throw new EngineError("no_winner", "There is no winning idea to plan");
     r.phase = "planning";
-    this.activity("task", `Aria is planning idea #${idea.number}`);
+    this.activity("task", `Aria is planning idea #${idea.number}${byMod(by)}`, by);
     this.changed();
     return { idea, round: r };
   }
@@ -827,9 +827,23 @@ export class RoundEngine {
   }
 }
 
-/** " by @mod" for activity lines of actions taken from chat. */
-function byMod(by?: TwitchUser): string {
-  return by ? ` by @${by.login}` : "";
+/**
+ * Who took an action that is not the dashboard's: a moderator in Twitch chat,
+ * or a chat app (ChatGPT / Claude) on the streamer MCP connection.
+ */
+export type Actor = TwitchUser | { app: string };
+
+/** The streamer MCP connection (ChatGPT / Claude): " from the chat app" in activity lines. */
+export const CHAT_APP: Actor = { app: "chat app" };
+
+function isApp(a: Actor): a is { app: string } {
+  return "app" in a;
+}
+
+/** " by @mod" / " from the chat app" for activity lines of actions not taken on the dashboard. */
+function byMod(by?: Actor): string {
+  if (!by) return "";
+  return isApp(by) ? ` from the ${by.app}` : ` by @${by.login}`;
 }
 
 function cleanMulti(s: unknown, max: number): string {

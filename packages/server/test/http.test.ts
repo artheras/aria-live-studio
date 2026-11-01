@@ -333,3 +333,20 @@ describe("static files", () => {
     expect((await rawGet(h.base, "/assets/missing.js")).status).toBe(404);
   });
 });
+
+describe("behind a TLS proxy", () => {
+  const logoutCookie = async (hh: Harness, headers: Record<string, string>) =>
+    (await fetch(`${hh.base}/auth/logout`, { method: "POST", headers })).headers.get("set-cookie") ?? "";
+
+  it("ignores X-Forwarded-Proto unless TRUST_PROXY=1", async () => {
+    h = await startHarness();
+    expect(h.config.trustProxy).toBe(false);
+    expect(await logoutCookie(h, { "x-forwarded-proto": "https" })).not.toMatch(/Secure/);
+    await h.close();
+    h = await startHarness({ TRUST_PROXY: "1" });
+    expect(h.config.trustProxy).toBe(true);
+    expect(await logoutCookie(h, { "x-forwarded-proto": "https, http" })).toMatch(/; Secure/);
+    expect(await logoutCookie(h, { "x-forwarded-proto": "http" })).not.toMatch(/Secure/);
+    expect(await logoutCookie(h, {})).not.toMatch(/Secure/);
+  });
+});

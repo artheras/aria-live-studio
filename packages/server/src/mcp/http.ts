@@ -4,12 +4,15 @@
  *   /mcp                 agent role: Authorization: Bearer AGENT_TOKEN; the
  *                        5 agent tools (wait, claim, progress, complete, status)
  *   /mcp/cohost/KEY      co-host role for chat assistants that cannot send
- *                        headers (ChatGPT / Claude.ai connectors): read-only tools
+ *                        headers (ChatGPT / Claude connectors): read-only tools
+ *   /mcp/streamer/KEY    streamer role for the same apps: the read-only tools
+ *                        plus round control (open, vote, extend, close, hide,
+ *                        plan). Never approve, reject, run or cancel.
  *
  * A session belongs to the role (and endpoint) that created it. The bearer
  * token is checked on every request, not just at initialize. Origin, when
  * sent, must be the app's own origin (DNS-rebinding protection); the co-host
- * endpoint also accepts the chat assistants' web origins.
+ * and streamer endpoints also accept the chat assistants' web origins.
  */
 import { randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
@@ -21,7 +24,7 @@ import type { Config } from "../config.ts";
 import type { LiveService } from "../live/service.ts";
 import type { Store } from "../live/store.ts";
 import { safeEqual } from "../twitch/auth.ts";
-import { agentApi, cohostApi } from "./adapter.ts";
+import { agentApi, cohostApi, streamerApi } from "./adapter.ts";
 
 export const MCP_BODY_LIMIT = 1024 * 1024;
 const IDLE_MS = 30 * 60 * 1000;
@@ -99,9 +102,9 @@ export function createMcpHttp(deps: McpHttpDeps): McpHttp {
   }
 
   function newServer(role: Role): McpServer {
-    return role === "cohost"
-      ? createMcpServer({ role: "cohost", client: cohostApi(service, store) })
-      : createMcpServer({ role: "agent", client: agentApi(service, deps.takeProgress) });
+    if (role === "cohost") return createMcpServer({ role: "cohost", client: cohostApi(service, store) });
+    if (role === "streamer") return createMcpServer({ role: "streamer", client: streamerApi(service, store) });
+    return createMcpServer({ role: "agent", client: agentApi(service, deps.takeProgress) });
   }
 
   function authorize(req: IncomingMessage, res: ServerResponse, url: URL): Role | null {
@@ -115,18 +118,19 @@ export function createMcpHttp(deps: McpHttpDeps): McpHttp {
       }
       return "agent";
     }
-    const m = /^\/mcp\/cohost\/([^/]+)$/.exec(url.pathname);
+    const m = /^\/mcp\/(cohost|streamer)\/([^/]+)$/.exec(url.pathname);
     let key = "";
     try {
-      key = m ? decodeURIComponent(m[1]!) : "";
+      key = m ? decodeURIComponent(m[2]!) : "";
     } catch {
       key = "";
     }
-    if (!m || !safeEqual(key, config.cohostKey)) {
+    const role = m?.[1] === "streamer" ? "streamer" : "cohost";
+    if (!m || !safeEqual(key, role === "streamer" ? config.streamerKey : config.cohostKey)) {
       rpcError(res, 404, -32001, "Not found");
       return null;
     }
-    return "cohost";
+    return role;
   }
 
   async function handle(req: IncomingMessage, res: ServerResponse, url: URL): Promise<boolean> {
@@ -134,7 +138,7 @@ export function createMcpHttp(deps: McpHttpDeps): McpHttp {
     const role = authorize(req, res, url);
     if (!role) return true;
     const origin = req.headers.origin;
-    if (origin && !(role === "cohost" ? cohostOrigins : deps.allowedOrigins).has(origin)) {
+    if (origin && !(role === "agent" ? deps.allowedOrigins : cohostOrigins).has(origin)) {
       rpcError(res, 403, -32000, "Origin not allowed");
       return true;
     }

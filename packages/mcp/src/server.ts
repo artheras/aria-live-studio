@@ -1,6 +1,7 @@
 /**
  * MCP tools for the coding agent on stream (Codex, Claude Code, Aria Code),
- * and a read-only "co-host" tool set for chat assistants (ChatGPT, Claude.ai).
+ * a read-only "co-host" tool set for chat assistants (ChatGPT, Claude), and a
+ * "streamer" tool set (co-host + round control, never approval) for the same apps.
  *
  * The loop the agent follows: wait for the streamer to approve the task the
  * community voted for → claim it → implement it in the current repository,
@@ -13,10 +14,14 @@ import { z } from "zod";
 import type { AgentStatus, AgentTask, ExecutionStepKind } from "@aria-live/shared";
 import { LiveError } from "./client.ts";
 import { type CohostApi, registerCohostTools, COHOST_INSTRUCTIONS } from "./cohost.ts";
+import { type StreamerApi, registerStreamerTools, STREAMER_INSTRUCTIONS } from "./streamer.ts";
 
 export { LiveError } from "./client.ts";
-export type { CohostApi, CohostIdea, CohostIdeas, CohostRound, CohostDigest } from "./cohost.ts";
+export type { CohostApi, CohostIdea, CohostIdeas, CohostRound, CohostDigest, CohostStatus } from "./cohost.ts";
 export { UNTRUSTED_TAG, untrusted } from "./cohost.ts";
+export type { StreamerApi, StreamerPlan } from "./streamer.ts";
+export { APPROVAL_ON_DASHBOARD } from "./streamer.ts";
+export * from "./widget.ts";
 
 export const SERVER_NAME = "aria-live";
 export const SERVER_VERSION = "0.1.0";
@@ -102,7 +107,7 @@ export interface AgentApi {
   }): Promise<void>;
 }
 
-export type Role = "agent" | "cohost";
+export type Role = "agent" | "cohost" | "streamer";
 
 export type CreateServerOptions =
   | {
@@ -111,9 +116,15 @@ export type CreateServerOptions =
       /** Fallback client label when the host does not identify itself. */
       clientName?: string;
     }
-  | { role: "cohost"; client: CohostApi };
+  | { role: "cohost"; client: CohostApi }
+  | { role: "streamer"; client: StreamerApi };
 
 export function createServer(options: CreateServerOptions): McpServer {
+  if (options.role === "streamer") {
+    const server = new McpServer({ name: SERVER_NAME, version: SERVER_VERSION }, { instructions: STREAMER_INSTRUCTIONS });
+    registerStreamerTools(server, options.client);
+    return server;
+  }
   if (options.role === "cohost") {
     const server = new McpServer({ name: SERVER_NAME, version: SERVER_VERSION }, { instructions: COHOST_INSTRUCTIONS });
     registerCohostTools(server, options.client);

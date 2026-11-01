@@ -100,39 +100,70 @@ export function AgentPanel({ api }: { api: AriaApi }) {
             The Claude Code progress hook (plugin) posts "Edited …" / "Ran tests" lines automatically; Codex and Aria Code
             report progress through the live_report_progress tool.
           </p>
-          <section className="snippet">
-            <header className="snippet__head">
-              <h3>Co-host (ChatGPT / Claude.ai)</h3>
-              <span className="muted">Read-only connector URL — no auth</span>
-              <Btn
-                size="sm"
-                variant="secondary"
-                className="push-right"
-                onClick={async () => {
-                  const ok = await copyText(remote.cohostUrl);
-                  toast(ok ? "success" : "error", ok ? "Co-host URL copied (secret)" : "Copy failed");
-                }}
-              >
-                Copy
-              </Btn>
-            </header>
-            <pre className="snippet__code">
-              <code>{reveal ? remote.cohostUrl : maskCohostUrl(remote.cohostUrl)}</code>
-            </pre>
-            <p className="muted snippet__note">
-              ChatGPT: Settings → Connectors → Developer mode → Create connector → paste the URL, no authentication.
-              <br />
-              Claude.ai: Settings → Connectors → Add custom connector → paste the URL.
-            </p>
-            <p className="muted snippet__note">
-              The URL must be public HTTPS: e.g. run <code>cloudflared tunnel --url http://localhost:3000</code> and set{" "}
-              <code>PUBLIC_URL</code> to the tunnel URL, then restart. The co-host can summarise chat and draft recaps but
-              cannot change anything; it does reveal idea texts, so treat the URL as a secret.
-            </p>
-          </section>
+          <h3 className="agent-panel__sub">Chat apps (ChatGPT / Claude)</h3>
+          <p className="muted">
+            Add one of these URLs as a custom connector. Each URL is a password: anyone who has it gets that role.
+          </p>
+          <ConnectorUrl
+            title="Co-host"
+            role="Read-only: reads the round, ideas, history and activity. Cannot change anything."
+            url={remote.cohostUrl}
+            reveal={reveal}
+            onCopied={(ok) => toast(ok ? "success" : "error", ok ? "Co-host URL copied (secret)" : "Copy failed")}
+          />
+          {remote.streamerUrl && (
+            <ConnectorUrl
+              title="Streamer"
+              role="Co-host tools plus round control: open a round, start, extend and close the vote, hide ideas, have Aria plan the winner. It can never approve, reject, run or cancel: approval happens here on the dashboard."
+              url={remote.streamerUrl}
+              reveal={reveal}
+              onCopied={(ok) => toast(ok ? "success" : "error", ok ? "Streamer URL copied (secret)" : "Copy failed")}
+            />
+          )}
+          <p className="muted snippet__note">
+            ChatGPT: Settings → Apps &amp; Connectors → Advanced settings → Developer mode, then Create → paste the URL, no
+            authentication.
+            <br />
+            Claude: Settings → Connectors → Add custom connector → paste the URL.
+          </p>
+          <p className="muted snippet__note">
+            The URL must be public HTTPS: e.g. run <code>cloudflared tunnel --url http://localhost:3000</code> and set{" "}
+            <code>PUBLIC_URL</code> to the tunnel URL, then restart (README: Hosting for ChatGPT and Claude). Idea texts and
+            author names are visible to the app, so keep both URLs off stream.
+          </p>
         </>
       )}
       <p className="muted">Keep the token off stream — it lets an agent act on approved tasks.</p>
     </div>
+  );
+}
+
+function ConnectorUrl({
+  title,
+  role,
+  url,
+  reveal,
+  onCopied,
+}: {
+  title: string;
+  role: string;
+  url: string;
+  reveal: boolean;
+  onCopied: (ok: boolean) => void;
+}) {
+  return (
+    <section className="snippet">
+      <header className="snippet__head">
+        <h3>{title}</h3>
+        <span className="muted">Connector URL, no auth</span>
+        <Btn size="sm" variant="secondary" className="push-right" onClick={async () => onCopied(await copyText(url))}>
+          Copy
+        </Btn>
+      </header>
+      <pre className="snippet__code">
+        <code>{reveal ? url : maskCohostUrl(url)}</code>
+      </pre>
+      <p className="muted snippet__note">{role}</p>
+    </section>
   );
 }

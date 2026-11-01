@@ -21,7 +21,7 @@ export interface AgentConnection {
   /** Exact command to start the MCP bridge on this machine. */
   mcpCommand?: { command: string; args: string[] };
   /** Remote MCP (Streamable HTTP) endpoints on this server. */
-  remote?: { agentUrl: string; cohostUrl: string };
+  remote?: { agentUrl: string; cohostUrl: string; streamerUrl?: string };
 }
 
 export interface AgentSnippet {
@@ -106,9 +106,12 @@ export function remoteSnippets(token: string, agentUrl: string): AgentSnippet[] 
 }
 
 /** Mask the secret path segment of the co-host URL (…/mcp/cohost/KEY). */
+/** Masks the secret key of a co-host or streamer connector URL. */
 export function maskCohostUrl(url: string): string {
-  return url.replace(/(\/mcp\/cohost\/)([^/?#]+)/, (_m, p: string, key: string) => p + maskToken(key));
+  return url.replace(/(\/mcp\/(?:cohost|streamer)\/)([^/?#]+)/, (_m, p: string, key: string) => p + maskToken(key));
 }
+
+export const maskStreamerUrl = maskCohostUrl;
 
 export function maskToken(token: string): string {
   if (token.length <= 8) return "•".repeat(Math.max(4, token.length));

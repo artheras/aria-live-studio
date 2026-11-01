@@ -2,23 +2,34 @@
  * In-process implementations of the MCP tool back ends for the remote MCP
  * endpoint: the agent tools call the AgentBridge directly (no loopback
  * HTTP) with the same rules and errors as /api/agent/*; the co-host tools
- * read the engine state and the history file.
+ * read the engine state and the history file; the streamer tools call the
+ * same LiveService / engine operations as the dashboard's REST routes, with
+ * activity attributed to the chat app.
  */
 import type { AgentTask } from "@aria-live/shared";
-import { LiveError, type AgentApi, type CohostApi, type CohostIdea } from "@aria-live/mcp/server";
+import {
+  LiveError,
+  type AgentApi,
+  type CohostApi,
+  type CohostIdea,
+  type CohostStatus,
+  type StreamerApi,
+} from "@aria-live/mcp/server";
 import { AgentError } from "../live/agent.ts";
-import { EngineError } from "../live/engine.ts";
-import type { LiveService } from "../live/service.ts";
+import { CHAT_APP, EngineError } from "../live/engine.ts";
+import { ServiceError, type LiveService } from "../live/service.ts";
 import type { Store } from "../live/store.ts";
 
 function asLive(err: unknown): unknown {
-  if (err instanceof AgentError || err instanceof EngineError) return new LiveError(err.message, err.status, err.code);
+  if (err instanceof AgentError || err instanceof EngineError || err instanceof ServiceError) {
+    return new LiveError(err.message, err.status, err.code);
+  }
   return err;
 }
 
-async function wrap<T>(fn: () => T): Promise<T> {
+async function wrap<T>(fn: () => T | Promise<T>): Promise<T> {
   try {
-    return fn();
+    return await fn();
   } catch (err) {
     throw asLive(err);
   }
@@ -83,7 +94,7 @@ export function cohostApi(service: LiveService, store: Store): CohostApi {
       });
   };
   return {
-    status: () => wrap(() => service.agent.status()),
+    status: () => wrap(() => roundStatus(service)),
     ideas: () =>
       wrap(() => {
         const r = engine.round;
@@ -121,6 +132,57 @@ export function cohostApi(service: LiveService, store: Store): CohostApi {
           voters: r?.voters ?? 0,
           topIdeas: top.map(({ number, text, plusOnes, votes }) => ({ number, text, plusOnes, votes })),
           totals: { ...st.stats },
+        };
+      }),
+  };
+}
+
+/** Agent status plus what the round card needs (voters, vote timer, idea count). */
+export function roundStatus(service: LiveService): CohostStatus {
+  const r = service.engine.round;
+  return {
+    ...service.agent.status(),
+    voters: r?.voters ?? 0,
+    votingEndsAt: r?.phase === "voting" ? r.votingEndsAt : null,
+    ideaCount: r ? r.ideas.filter((i) => !i.hidden).length : 0,
+  };
+}
+
+/**
+ * Round control for the streamer MCP role. Each call is the dashboard's REST
+ * action (same engine / service method, same validation and errors); there is
+ * no approve, reject, run or cancel.
+ */
+export function streamerApi(service: LiveService, store: Store): StreamerApi {
+  const engine = service.engine;
+  return {
+    ...cohostApi(service, store),
+    openRound: (prompt) => wrap(() => service.openRound(prompt, CHAT_APP)),
+    startVote: () => wrap(() => void engine.startVote(CHAT_APP)),
+    closeVote: () => wrap(() => void engine.closeVote(CHAT_APP)),
+    extendVote: (seconds) => wrap(() => void engine.extendVote(seconds, CHAT_APP)),
+    hideIdea: (number, hidden) =>
+      wrap(() => {
+        const r = engine.round;
+        if (!r) throw new EngineError("no_round", "No round is open");
+        const idea = r.ideas.find((i) => i.number === number);
+        if (!idea) throw new EngineError("not_found", `No idea #${number} in this round (use the idea number from live_ideas)`);
+        engine.hideIdea(idea.id, hidden, CHAT_APP);
+      }),
+    planTask: () =>
+      wrap(async () => {
+        const t = await service.planTask(CHAT_APP);
+        return {
+          title: t.title,
+          summary: t.summary,
+          userStory: t.userStory,
+          acceptanceCriteria: t.acceptanceCriteria,
+          steps: t.steps,
+          risks: t.risks,
+          size: t.size,
+          source: t.source,
+          model: t.model,
+          status: t.status,
         };
       }),
   };

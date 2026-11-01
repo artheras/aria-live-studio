@@ -34,8 +34,10 @@ result.**
 - **Agents cannot approve.** Coding agents use a separate agent token. With it
   they can read the round, claim an approved task, report progress and finish
   the task. There is no API or tool for approving, rejecting or voting.
-- **Chat assistants are read-only.** The co-host MCP URL (for ChatGPT or
-  Claude.ai) only has tools that read the round, its ideas and history.
+- **Chat apps never approve.** The co-host MCP URL (for ChatGPT or Claude) only
+  has tools that read the round, its ideas and history. The streamer URL adds
+  round control (open, vote, extend, close, hide, plan) but has no tool to
+  approve, reject, run or cancel: approval happens on the dashboard.
 - **Viewer text is untrusted.** Ideas are sanitised (no links, no control or
   bidi characters, length limits). In every prompt they are quoted as untrusted
   data, so "ignore your instructions…" in chat is built as text, not obeyed.
@@ -187,29 +189,36 @@ with `live_report_progress`.
 
 Then, in the agent, in your game's repository: *"Build what chat voted for."*
 
-## Use ChatGPT or Claude as a co-host
+## Use ChatGPT or Claude as a co-host or round assistant
 
-Give a chat assistant the **co-host URL** (dashboard → Connect a coding agent →
-Remote (URL) → Co-host). It is `PUBLIC_URL/mcp/cohost/<COHOST_KEY>` and needs no
-other auth.
+The dashboard (Connect a coding agent → **Remote (URL)**) shows two connector
+URLs for chat apps. Neither needs other auth; **each URL is a password**.
 
-- **ChatGPT**: Settings → Connectors → Developer mode → Create connector →
-  paste the URL, no authentication.
-- **Claude.ai**: Settings → Connectors → Add custom connector → paste the URL.
+| URL | Role | Tools |
+|---|---|---|
+| `PUBLIC_URL/mcp/cohost/<COHOST_KEY>` | co-host, read-only | `live_status`, `live_ideas` (every visible idea with ballot number, author, +1s and votes), `live_history` (recent rounds), `live_activity_digest` (counts, top ideas by +1s) |
+| `PUBLIC_URL/mcp/streamer/<STREAMER_KEY>` | streamer | the four read tools, plus `live_open_round {prompt?}`, `live_start_vote`, `live_extend_vote {seconds 5–300}`, `live_close_vote`, `live_hide_idea {number, hidden}` and `live_plan_task` (Aria drafts or re-drafts the task for the winner and returns it for review) |
 
-It has four read-only tools: `live_status`, `live_ideas` (every visible idea
-this round with ballot number, author, +1s and votes), `live_history` (recent
-rounds) and `live_activity_digest` (counts and the top ideas by +1s). Use it to
-summarise what chat wants, decide how to frame the vote and draft round recaps.
-It **cannot** open rounds, vote, hide ideas, approve tasks or run builds. Idea
-texts are marked as untrusted viewer input.
+Use the co-host to summarise what chat wants, spot duplicates, frame the vote
+and draft recaps. Use the streamer URL to drive the round by voice or text
+("open a round about the boss fight", "give them 30 more seconds", "close it
+and plan the winner"). Its actions run the same operations as the dashboard
+buttons (same rules, same errors) and show in the activity feed as
+"… from the chat app". **No connector can approve, reject, run or cancel a
+task: approval happens on the Aria Live dashboard.** Idea texts are marked as
+untrusted viewer input in every reply.
 
-The URL must be reachable from the internet over HTTPS. For a quick tunnel, run
-`cloudflared tunnel --url http://localhost:3000`, set `PUBLIC_URL` to the
-tunnel URL and restart the server. **Treat the co-host URL as a secret.** It
-cannot change anything, but it does show idea texts and author names. To revoke
-it, set a new `COHOST_KEY`, or delete `cohostKey` from `DATA_DIR/secrets.json`
-and restart.
+In apps that render MCP UIs, `live_status` and the control tools show an inline
+**round card** (phase, theme, ballot bars with votes and percentages, voters,
+winner, task status). It is one self-contained HTML resource, served both as
+an OpenAI Apps SDK template (`ui://widget/aria-live-round.html`,
+`text/html+skybridge`) and as an MCP App (`ui://aria-live/round.html`,
+`text/html;profile=mcp-app`). Every tool also returns structured content and a
+text answer, so apps without UI support work the same.
+
+Chat apps connect from the internet, so the server needs a public HTTPS URL:
+see the next section. To revoke a URL, set a new `COHOST_KEY` / `STREAMER_KEY`,
+or delete `cohostKey` / `streamerKey` from `DATA_DIR/secrets.json`, and restart.
 
 ## Install in Aria Code, Claude and ChatGPT
 
@@ -324,6 +333,83 @@ node scripts/package-skills.mjs          # validate, sync plugin/skills, rebuild
 node scripts/package-skills.mjs --check  # what CI runs: fails on drift or a stale lock
 ```
 
+## Hosting for ChatGPT and Claude
+
+ChatGPT and Claude (web, desktop and mobile) call MCP servers from their own
+cloud, so they cannot reach `localhost`. Put Aria Live behind a public HTTPS
+URL, set `PUBLIC_URL` to it, and restart: the session cookie becomes `Secure`,
+the Twitch OAuth redirect and every MCP URL on the dashboard use it.
+
+**a) Quick: a tunnel from your PC.**
+
+```sh
+cloudflared tunnel --url http://localhost:3000
+# prints https://<random>.trycloudflare.com
+```
+
+Set `PUBLIC_URL=https://<random>.trycloudflare.com` in `.env`, add
+`https://<random>.trycloudflare.com/auth/twitch/callback` as an OAuth Redirect
+URL of your Twitch application, restart `npm start`, and sign in again through
+the tunnel URL. Quick tunnels get a new hostname every run; a named Cloudflare
+tunnel (or any reverse proxy) keeps it stable. Everything else (OBS overlay,
+local coding agents) keeps working.
+
+**b) A small cloud deploy (Docker).** The repository has a `Dockerfile`
+(non-root, port 3000, `HEALTHCHECK` on `/healthz`, state in the `/data`
+volume):
+
+```sh
+docker build -t aria-live-studio .
+docker run -p 3000:3000 -v aria-live-data:/data \
+  -e TWITCH_CLIENT_ID=… -e TWITCH_CLIENT_SECRET=… \
+  -e PUBLIC_URL=https://live.example.com -e TRUST_PROXY=1 aria-live-studio
+```
+
+Run exactly **one always-on instance with a persistent volume at `/data`**: the
+Twitch EventSub WebSocket, the round and the MCP sessions live in that one
+process, and `/data` holds the session, the generated secrets and the history.
+
+- **Render**: New → Web Service from the repo (Docker), add a persistent disk
+  mounted at `/data`, an instance type that does not sleep, and the env vars.
+- **Fly.io**: `fly launch --no-deploy`, `fly volumes create aria_data --size 1`,
+  then in `fly.toml` add `[mounts] source = "aria_data"`, `destination = "/data"`,
+  and in `[http_service]` `internal_port = 3000`, `auto_stop_machines = "off"`,
+  `min_machines_running = 1`; `fly secrets set TWITCH_CLIENT_SECRET=…`, `fly deploy`.
+- **Cloud Run**: deploy the image with `--min-instances=1 --max-instances=1
+  --no-cpu-throttling` (the WebSocket needs CPU between requests) and a volume
+  mounted at `/data` (e.g. a Cloud Storage bucket).
+
+Then set `PUBLIC_URL` to the service's `https://` URL, add
+`<PUBLIC_URL>/auth/twitch/callback` to the Twitch app, and sign in. `TRUST_PROXY=1`
+makes the server believe the platform's `X-Forwarded-Proto` header; leave it
+unset when nothing in front of the server sets that header. In the container
+the built-in executor is off: connect your coding agent from your own machine
+to `PUBLIC_URL/mcp` with the agent token (see Remote (URL) above). Behind a
+TLS-intercepting proxy, give npm its CA at build time with
+`docker build --secret id=npm_ca,src=/path/to/ca.crt …`.
+
+**Add the connector.** Copy the streamer or co-host URL from the dashboard
+(Connect a coding agent → Remote (URL), **Reveal** to copy it in full).
+
+- **ChatGPT**: Settings → Apps & Connectors → Advanced settings → turn on
+  **Developer mode**, then Create → name it "Aria Live", paste the URL,
+  authentication **No authentication**.
+- **Claude**: Settings → Connectors → **Add custom connector** → paste the URL.
+  On Team and Enterprise plans an owner adds it under organisation settings first.
+
+Then ask, e.g., "What's the ballot looking like?" or "Start the vote".
+
+**Security notes.**
+
+- The connector URL is the password. Don't show it on stream; rotate the key if
+  it leaks.
+- The co-host URL is read-only. It still reveals idea texts and author names.
+- The streamer URL can open rounds, run votes, hide ideas and have Aria draft a
+  plan, which everyone sees on stream. It can never approve, reject, run or
+  cancel a task: the streamer approves on the dashboard, signed in with Twitch.
+- Only the dashboard needs your Twitch login; restrict it with
+  `ALLOWED_LOGINS=<your_login>` on a public deploy.
+
 ## Local end-to-end test
 
 `scripts/e2e-local.mjs` runs the real server, the real MCP bridge and a real
@@ -351,8 +437,11 @@ node scripts/e2e-local.mjs --phases=A       # or any of A,B,C; --skip-build, --k
   notifications: `!idea` (duplicates, a link, emoji, too long), `!vote`
   (changes, invalid numbers), dashboard REST with CSRF (open, vote, close, plan,
   approve), then `plugin/mcp/aria-live-mcp.mjs` over stdio (wait, claim, report
-  progress, complete), a cancel while an agent holds the task, and one run of
-  the built-in executor with a fake `aria-code` in a temporary git repository.
+  progress, complete), a cancel while an agent holds the task, one run of
+  the built-in executor with a fake `aria-code` in a temporary git repository,
+  and a round driven through the streamer MCP URL (open, vote, extend, close,
+  plan; no approve tool; the round card resources; the co-host still cannot
+  control anything).
 - **C: screenshots.** `npm run build`, then Chromium (via `playwright-core`;
   set `CHROMIUM_PATH` if no Playwright browser is installed) saves the
   dashboard, overlay, history and login screens to `docs/screenshots/`.

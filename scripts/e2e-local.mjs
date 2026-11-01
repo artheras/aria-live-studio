@@ -428,6 +428,8 @@ async function startAria(name, env) {
       OVERLAY_KEY: "",
       AGENT_TOKEN: "",
       COHOST_KEY: "",
+      STREAMER_KEY: "",
+      TRUST_PROXY: "",
       ARIA_LIVE_EXECUTOR: "disabled",
       PROJECT_BRIEF: "A tiny browser platformer built live on stream.",
       ...env,
@@ -1041,6 +1043,7 @@ async function phaseB() {
     if (shots) await shots.history();
     if (shots) await shots.phase("idle-after");
     await phaseBModCommands({ api, chat, waitState, twitch });
+    await phaseBStreamer({ api, chat, waitState, conn });
   } finally {
     await aria.stop();
   }
@@ -1123,6 +1126,67 @@ async function phaseBModCommands({ api, chat, waitState, twitch }) {
   s = await api.state();
   check(s.round.phase === "decided" && s.round.task === null, "a moderator's !aria approve changes nothing");
   await api.patch("/api/settings", { voteEligibility: "everyone" });
+}
+
+// ── Phase B (part 3): streamer MCP role for chat apps (ChatGPT / Claude) ──────
+
+async function phaseBStreamer({ api, chat, waitState, conn }) {
+  section("Phase B — streamer MCP role (round control from a chat app, never approval) + round card");
+  must(typeof conn.remote?.streamerUrl === "string" && conn.remote.streamerUrl.includes("/mcp/streamer/"), "agent-connection reports the streamer URL", conn.remote);
+  const wrong = await fetch(conn.remote.streamerUrl.replace(/\/mcp\/streamer\/.*/, "/mcp/streamer/wrong"), { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+  check(wrong.status === 404, "streamer endpoint with a wrong key is 404");
+  const st = await startRemoteMcp(conn.remote.streamerUrl, "claude-ai");
+  const tools = (await st.client.listTools()).tools;
+  const names = tools.map((t) => t.name).sort().join(",");
+  check(names === "live_activity_digest,live_close_vote,live_extend_vote,live_hide_idea,live_history,live_ideas,live_open_round,live_plan_task,live_start_vote,live_status", "streamer lists read tools + round control", names);
+  check(!tools.some((t) => /approve|reject|cancel|claim|complete|run/.test(t.name)), "streamer has no approve / reject / run / cancel tool");
+  check(tools.filter((t) => t.name.startsWith("live_") && !["live_status", "live_ideas", "live_history", "live_activity_digest"].includes(t.name)).every((t) => t.annotations?.readOnlyHint === false && t.annotations?.destructiveHint === false && /approval happens on the Aria Live dashboard/i.test(t.description ?? "")), "control tools: not read-only, not destructive, say approval is on the dashboard");
+  const statusMeta = tools.find((t) => t.name === "live_status")?._meta ?? {};
+  check(statusMeta["openai/outputTemplate"] === "ui://widget/aria-live-round.html" && statusMeta.ui?.resourceUri === "ui://aria-live/round.html", "live_status points at the round card (OpenAI + MCP Apps)", statusMeta);
+  const resources = (await st.client.listResources()).resources.map((r) => `${r.uri} ${r.mimeType}`).sort();
+  check(resources.join("|") === "ui://aria-live/round.html text/html;profile=mcp-app|ui://widget/aria-live-round.html text/html+skybridge", "widget resources listed with both MIME types", resources);
+  for (const uri of ["ui://widget/aria-live-round.html", "ui://aria-live/round.html"]) {
+    const read = await st.client.readResource({ uri });
+    const html = read.contents?.[0]?.text ?? "";
+    check(/^<!doctype html>/.test(html) && /ui\/initialize/.test(html) && /openai:set_globals/.test(html) && !/https?:\/\//.test(html), `resources/read ${uri}: self-contained HTML widget`);
+  }
+
+  const opened = await st.call("live_open_round", { prompt: "Chat app round" });
+  let s = await api.state();
+  check(!opened.isError && s.round.phase === "collecting" && s.round.prompt === "Chat app round", "streamer MCP opened a round", opened.text);
+  check(s.activity.some((a) => a.text === `Round ${s.round.index} opened from the chat app: Chat app round`), "activity attributes the round to the chat app");
+  check(opened.structuredContent?.phase === "collecting" && typeof opened.structuredContent?.message === "string", "control tool returns the round card data");
+  await chat("jumpjules", "!idea Double jump");
+  await chat("renee_dev", "!idea Slow motion on boss hit");
+  await waitState("streamer round ideas", (x) => x.round.ideas.length === 2);
+  const early = await st.call("live_close_vote");
+  check(early.isError && /voting/.test(early.text), "closing before the vote is a tool error with a clear reason", early.text);
+  const vote = await st.call("live_start_vote");
+  s = await api.state();
+  check(!vote.isError && s.round.phase === "voting" && vote.structuredContent?.ballot?.length === 2, "streamer MCP started the vote", vote.text);
+  const ends = s.round.votingEndsAt;
+  const ext = await st.call("live_extend_vote", { seconds: 15 });
+  check(!ext.isError && (await api.state()).round.votingEndsAt === ends + 15_000, "streamer MCP extended the vote by 15 s");
+  await chat("bytebard", "!vote 2");
+  await chat("nova_kid", "!vote 2");
+  await waitState("streamer round votes", (x) => x.round.voters === 2);
+  const shown = await st.call("live_status");
+  check(shown.structuredContent?.voters === 2 && /voters: 2/.test(shown.text), "live_status reports voters for the card", shown.text);
+  const closed = await st.call("live_close_vote");
+  s = await api.state();
+  check(!closed.isError && s.round.phase === "decided" && /Winner: ballot #2/.test(closed.text), "streamer MCP closed the vote", closed.text);
+
+  const cohost = await startRemoteMcp(conn.remote.cohostUrl, "openai-mcp");
+  for (const name of ["live_open_round", "live_start_vote", "live_close_vote", "live_plan_task"]) {
+    const r = await cohost.call(name, {});
+    check(r.isError, `co-host still cannot call ${name}`);
+  }
+
+  const plan = await st.call("live_plan_task");
+  s = await api.state();
+  check(!plan.isError && s.round.phase === "awaiting_approval" && s.round.task.status === "draft" && plan.structuredContent?.plan?.title === s.round.task.title, "streamer MCP planned the winner; the plan comes back for review", plan.text);
+  check(/approve or reject it on the Aria Live dashboard/.test(plan.text), "plan reply says approval happens on the dashboard");
+  check((await api.state()).round.task.status === "draft", "the task stays a draft until the streamer approves it on the dashboard");
 }
 
 // ── Phase C: screenshots (production build) ─────────────────────────────────

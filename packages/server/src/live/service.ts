@@ -11,7 +11,7 @@ import { EventSubClient } from "../twitch/eventsub.ts";
 import type { HelixClient } from "../twitch/helix.ts";
 import { AgentBridge, AGENT_EXECUTOR_PREFIX } from "./agent.ts";
 import { parseChatMessage, REPLY_PREFIX, type ChatMessageEvent, type ModAction, type ParsedChat } from "./commands.ts";
-import { EngineError, RoundEngine, type EngineDeps } from "./engine.ts";
+import { EngineError, RoundEngine, type Actor, type EngineDeps } from "./engine.ts";
 import type { Store } from "./store.ts";
 
 export const VIEWER_HELP =
@@ -351,8 +351,8 @@ export class LiveService {
 
   // ── rounds (streamer actions) ────────────────────────────────────────
 
-  openRound(prompt: string): void {
-    this.engine.openRound(prompt);
+  openRound(prompt: string, by?: Actor): void {
+    this.engine.openRound(prompt, by);
   }
 
   resetRound(): RoundSummary | null {
@@ -367,8 +367,8 @@ export class LiveService {
 
   // ── planning ─────────────────────────────────────────────────────────
 
-  async planTask(): Promise<Task> {
-    const { idea, round } = this.engine.beginPlanning();
+  async planTask(by?: Actor): Promise<Task> {
+    const { idea, round } = this.engine.beginPlanning(by);
     const roundId = round.id;
     const ac = new AbortController();
     this.planAbort = ac;

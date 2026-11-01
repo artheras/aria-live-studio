@@ -238,14 +238,15 @@ export class TwitchAuth {
     return s ? { id: s.id, csrf: s.csrf, user: this.tokens.user } : null;
   }
 
-  sessionCookie(sessionId: string): string {
-    const secure = this.config.publicUrl.startsWith("https:") ? "; Secure" : "";
+  /** `httpsRequest`: the request reached a TLS proxy (X-Forwarded-Proto: https with TRUST_PROXY=1). */
+  sessionCookie(sessionId: string, httpsRequest = false): string {
+    const secure = httpsRequest || this.config.publicUrl.startsWith("https:") ? "; Secure" : "";
     const v = encodeURIComponent(signValue(sessionId, this.config.sessionSecret));
     return `${SESSION_COOKIE}=${v}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${60 * 60 * 24 * 30}${secure}`;
   }
 
-  clearCookie(): string {
-    const secure = this.config.publicUrl.startsWith("https:") ? "; Secure" : "";
+  clearCookie(httpsRequest = false): string {
+    const secure = httpsRequest || this.config.publicUrl.startsWith("https:") ? "; Secure" : "";
     return `${SESSION_COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0${secure}`;
   }
 
