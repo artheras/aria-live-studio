@@ -154,7 +154,7 @@ interface ValidateResponse {
 export class TwitchAuth {
   readonly states: OAuthStateStore;
   private tokens: StoredTokens | null = null;
-  private refreshing: Promise<string> | null = null;
+  private refreshing: { tokens: StoredTokens; promise: Promise<string> } | null = null;
   private validateTimer: NodeJS.Timeout | null = null;
   private readonly fetch: FetchFn;
   private readonly now: () => number;
@@ -349,10 +349,10 @@ export class TwitchAuth {
 
   /** Single-flight refresh. Signs out if the refresh token is no longer valid. */
   refresh(): Promise<string> {
-    if (this.refreshing) return this.refreshing;
     const t = this.tokens;
     if (!t) return Promise.reject(new AuthError(401, "signed_out", "Not signed in to Twitch"));
-    this.refreshing = (async () => {
+    if (this.refreshing?.tokens === t) return this.refreshing.promise;
+    const promise = (async () => {
       try {
         const tok = await this.tokenRequest({
           client_id: this.config.twitch.clientId,
@@ -360,7 +360,7 @@ export class TwitchAuth {
           grant_type: "refresh_token",
           refresh_token: t.refreshToken,
         });
-        if (!this.tokens) throw new AuthError(401, "signed_out", "Signed out during refresh");
+        if (this.tokens !== t) throw new AuthError(401, "session_changed", "Session changed during refresh");
         this.tokens.accessToken = tok.access_token;
         this.tokens.refreshToken = tok.refresh_token || t.refreshToken;
         this.tokens.expiresAt = this.now() + (tok.expires_in ?? 0) * 1000;
@@ -369,15 +369,16 @@ export class TwitchAuth {
         for (const fn of this.tokenListeners) fn();
         return tok.access_token;
       } catch (err) {
-        if (err instanceof AuthError && (err.status === 400 || err.status === 401)) {
+        if (this.tokens === t && err instanceof AuthError && (err.status === 400 || err.status === 401)) {
           this.signOut("Twitch session expired; please log in again");
         }
         throw err;
       } finally {
-        this.refreshing = null;
+        if (this.refreshing?.tokens === t) this.refreshing = null;
       }
     })();
-    return this.refreshing;
+    this.refreshing = { tokens: t, promise };
+    return promise;
   }
 
   private async tokenRequest(form: Record<string, string>): Promise<TokenResponse> {
@@ -439,22 +440,25 @@ export class TwitchAuth {
     if (!t) return false;
     try {
       let v = await this.validateToken(t.accessToken);
+      if (this.tokens !== t) return false;
       if (!v) {
         const fresh = await this.refresh();
+        if (this.tokens !== t) return false;
         v = await this.validateToken(fresh);
+        if (this.tokens !== t) return false;
         if (!v) {
           this.signOut("Twitch token was revoked; please log in again");
           return false;
         }
       }
-      if (this.tokens) {
+      if (this.tokens === t) {
         this.tokens.scopes = v.scopes ?? this.tokens.scopes;
         this.tokens.expiresAt = this.now() + v.expires_in * 1000;
         this.save();
       }
       return true;
     } catch (err) {
-      if (!this.tokens) return false;
+      if (this.tokens !== t) return false;
       console.warn(`[auth] validate failed (will retry): ${(err as Error).message}`);
       return true; // network trouble: keep the session
     }

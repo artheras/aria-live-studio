@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -194,7 +194,7 @@ describe("AriaCodeExecutor", () => {
     expect(args.argv.join(" ")).not.toContain("dangerously");
     expect(args.stream).toBe("1");
     expect(args.twitch).toBeNull();
-    expect(args.cwd).toBe(result.workdir);
+    expect(realpathSync(args.cwd)).toBe(realpathSync(result.workdir!));
 
     const texts = steps.map((s) => `${s.kind}:${s.text}`);
     expect(texts).toContain("status:Aria started working");

@@ -44,7 +44,9 @@ result.**
 - **The built-in executor is isolated.** When the streamer runs a task from the
   dashboard, it runs in a fresh git worktree on its own branch, with an
   allow-listed tool set and a timeout. It never merges or pushes. Twitch and
-  session secrets are removed from its environment.
+  session secrets and studio agent/co-host/streamer control tokens are removed
+  from its environment, including explicit executor overrides. Model provider
+  credentials remain available to the coding agent for its own model calls.
 - **Real data only.** Chat arrives through the Twitch EventSub WebSocket. Local
   testing uses the official Twitch CLI mock server, never fabricated chat.
 
