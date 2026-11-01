@@ -38,6 +38,7 @@ async function main(): Promise<void> {
     force.unref();
     await service.stop();
     await app.close();
+    await store.close();
     process.exit(0);
   };
   process.on("SIGINT", () => void shutdown("SIGINT"));

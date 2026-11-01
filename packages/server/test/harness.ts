@@ -178,6 +178,8 @@ export async function startHarness(env: Record<string, string> = {}, opts: { web
     async close() {
       await service.stop();
       await app.close();
+      // A debounced state save or a history append can still be in flight.
+      await store.close();
       rmSync(dir, { recursive: true, force: true });
     },
   };

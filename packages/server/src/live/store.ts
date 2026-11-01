@@ -11,6 +11,7 @@ import type { EngineSnapshot } from "./engine.ts";
 
 export class Store {
   private timer: NodeJS.Timeout | null = null;
+  private readonly inflight = new Set<Promise<void>>();
   private pending: (() => EngineSnapshot) | null = null;
   readonly statePath: string;
   readonly historyPath: string;
@@ -67,7 +68,19 @@ export class Store {
   }
 
   async appendHistory(summary: RoundSummary): Promise<void> {
-    await appendFile(this.historyPath, `${JSON.stringify(summary)}\n`, { mode: 0o600 });
+    const write = appendFile(this.historyPath, `${JSON.stringify(summary)}\n`, { mode: 0o600 });
+    this.inflight.add(write);
+    try {
+      await write;
+    } finally {
+      this.inflight.delete(write);
+    }
+  }
+
+  /** Write the pending state now and wait for history appends still in flight. */
+  async close(): Promise<void> {
+    this.flush();
+    await Promise.allSettled([...this.inflight]);
   }
 
   /** Newest first. */
