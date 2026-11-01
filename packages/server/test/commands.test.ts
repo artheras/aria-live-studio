@@ -73,3 +73,51 @@ describe("text helpers", () => {
     expect(containsLink("no link here")).toBe(false);
   });
 });
+
+describe("moderator commands and +1 by number", () => {
+  const mod = { badges: ["moderator"] };
+  const parse = (text: string, o: Parameters<typeof chatEvent>[1] = {}) => parseChatMessage(chatEvent(text, o), opts)?.command ?? null;
+
+  it("parses mod sub-commands for moderators and the broadcaster", () => {
+    expect(parse("!aria open boss fight ideas", mod)).toEqual({ kind: "mod", action: "open", prompt: "boss fight ideas" });
+    expect(parse("!aria open", mod)).toEqual({ kind: "mod", action: "open", prompt: "" });
+    expect(parse("!ARIA Vote", mod)).toEqual({ kind: "mod", action: "vote" });
+    expect(parse("!aria close", { badges: ["broadcaster"] })).toEqual({ kind: "mod", action: "close" });
+    expect(parse("!aria extend 30", mod)).toEqual({ kind: "mod", action: "extend", seconds: 30 });
+    expect(parse("!aria extend 45s", mod)).toEqual({ kind: "mod", action: "extend", seconds: 45 });
+    expect(parse("!aria hide #4", mod)).toEqual({ kind: "mod", action: "hide", number: 4 });
+    for (const verb of ["approve", "run", "reject", "plan", "cancel"]) {
+      expect(parse(`!aria ${verb}`, mod)).toEqual({ kind: "mod", action: "dashboard_only", verb });
+    }
+  });
+
+  it("drops mod commands from everyone else; plain !aria stays help", () => {
+    for (const badges of [[], ["subscriber"], ["vip"], ["founder"]]) {
+      for (const t of ["!aria open x", "!aria vote", "!aria close", "!aria extend 30", "!aria hide 2", "!aria approve", "!aria extend nope"]) {
+        expect(parse(t, { badges })).toBeNull();
+      }
+      expect(parse("!aria", { badges })).toEqual({ kind: "help" });
+      expect(parse("!aria what is this", { badges })).toEqual({ kind: "help" });
+    }
+    expect(parse("!aria", mod)).toEqual({ kind: "help" });
+    expect(parse("!aria hello", mod)).toEqual({ kind: "help" });
+  });
+
+  it("rejects malformed mod commands with a usage reason", () => {
+    for (const t of ["!aria extend", "!aria extend abc", "!aria extend 4", "!aria extend 301", "!aria hide", "!aria hide two", "!aria close now", "!aria open see https://x.example"]) {
+      expect(parse(t, mod)).toMatchObject({ kind: "invalid", command: "aria" });
+    }
+    expect(parse("!aria extend 5", mod)).toMatchObject({ kind: "mod", seconds: 5 });
+    expect(parse("!aria extend 300", mod)).toMatchObject({ kind: "mod", seconds: 300 });
+  });
+
+  it("parses !idea +n and !+1 n; other text stays an idea", () => {
+    expect(parse("!idea +3")).toEqual({ kind: "plus_one", number: 3 });
+    expect(parse("!idea + #12")).toEqual({ kind: "plus_one", number: 12 });
+    expect(parse("!+1 3")).toEqual({ kind: "plus_one", number: 3 });
+    expect(parse("!+1 #7")).toEqual({ kind: "plus_one", number: 7 });
+    expect(parse("!+1")).toMatchObject({ kind: "invalid", command: "idea" });
+    expect(parse("!+1 abc")).toMatchObject({ kind: "invalid", command: "idea" });
+    expect(parse("!idea +3 lives for the boss")).toEqual({ kind: "idea", text: "+3 lives for the boss" });
+  });
+});

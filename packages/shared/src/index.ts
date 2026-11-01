@@ -18,6 +18,27 @@ export interface TwitchUser {
 
 export type ChatRole = "broadcaster" | "moderator" | "vip" | "subscriber" | "viewer";
 
+/** Who may take part in a round, from chat badges. VIPs, moderators and the
+ *  broadcaster are always eligible; "subscribers" also counts founders. */
+export type Eligibility = "everyone" | "subscribers" | "vip_mod";
+
+export const ELIGIBILITY_LABEL: Record<Eligibility, string> = {
+  everyone: "Everyone",
+  subscribers: "Subscribers",
+  vip_mod: "VIPs & mods",
+};
+
+export function isEligible(role: ChatRole, rule: Eligibility): boolean {
+  if (rule === "everyone") return true;
+  if (role === "broadcaster" || role === "moderator" || role === "vip") return true;
+  return rule === "subscribers" && role === "subscriber";
+}
+
+/** Roles that may drive the round from chat with `!aria open|vote|close|extend|hide`. */
+export function isModRole(role: ChatRole): boolean {
+  return role === "broadcaster" || role === "moderator";
+}
+
 // ── Ideas and votes ──────────────────────────────────────────────────────
 
 export interface Idea {
@@ -64,6 +85,8 @@ export interface Round {
   tallies: Tally[];
   voters: number;
   votingEndsAt: number | null;
+  /** !idea / !vote attempts refused by the eligibility settings this round. */
+  ineligible: number;
   winnerId: string | null;
   task: Task | null;
   execution: Execution | null;
@@ -159,6 +182,10 @@ export interface Settings {
   chatReplies: boolean;
   /** Execution adapter is configured and allowed to run. */
   executorEnabled: boolean;
+  /** Who may !vote. */
+  voteEligibility: Eligibility;
+  /** Who may !idea (and +1 an idea). */
+  ideaEligibility: Eligibility;
 }
 
 // ── Activity feed (what scrolls on the dashboard) ────────────────────────
@@ -291,4 +318,19 @@ export const COMMANDS = {
   vote: "!vote",
   ideas: "!ideas",
   help: "!aria",
+  /** `!+1 <n>` is the same as `!idea +<n>`: +1 idea #n while ideas are open. */
+  plusOne: "!+1",
 } as const;
+
+/** Moderator / broadcaster sub-commands of `!aria`. Planning, approving and
+ *  running builds are dashboard-only and have no chat command. */
+export const MOD_COMMANDS = {
+  open: "!aria open",
+  vote: "!aria vote",
+  close: "!aria close",
+  extend: "!aria extend",
+  hide: "!aria hide",
+} as const;
+
+export const EXTEND_MIN_SEC = 5;
+export const EXTEND_MAX_SEC = 300;

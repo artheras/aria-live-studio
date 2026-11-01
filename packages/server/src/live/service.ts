@@ -3,16 +3,21 @@
  * the planner, the executor and the coding-agent bridge.
  */
 import { randomUUID } from "node:crypto";
-import type { RoundSummary, Task } from "@aria-live/shared";
+import { EXTEND_MAX_SEC, EXTEND_MIN_SEC, isModRole, type RoundSummary, type Task } from "@aria-live/shared";
 import type { Config } from "../config.ts";
 import type { Executor, Planner } from "../contracts.ts";
 import type { TwitchAuth } from "../twitch/auth.ts";
 import { EventSubClient } from "../twitch/eventsub.ts";
 import type { HelixClient } from "../twitch/helix.ts";
 import { AgentBridge, AGENT_EXECUTOR_PREFIX } from "./agent.ts";
-import { parseChatMessage, REPLY_PREFIX, type ChatMessageEvent, type ParsedChat } from "./commands.ts";
+import { parseChatMessage, REPLY_PREFIX, type ChatMessageEvent, type ModAction, type ParsedChat } from "./commands.ts";
 import { EngineError, RoundEngine, type EngineDeps } from "./engine.ts";
 import type { Store } from "./store.ts";
+
+export const VIEWER_HELP =
+  "Propose with !idea <your idea>, +1 an idea with !idea +<n> (or !+1 <n>), vote with !vote <number> once voting opens, !ideas lists them. The streamer approves what gets built.";
+export const MOD_HELP = `Mods: !aria open [theme] · !aria vote · !aria close · !aria extend <${EXTEND_MIN_SEC}-${EXTEND_MAX_SEC}s> · !aria hide <n> (idea # while collecting, ballot # while voting). Planning, approvals and builds stay on the dashboard.`;
+export const DASHBOARD_ONLY_REPLY = "Approvals happen on the dashboard — planning, approving and running builds are the streamer's call.";
 
 export class ServiceError extends Error {
   constructor(
@@ -191,6 +196,11 @@ export class LiveService {
     const r = this.engine.round;
     switch (c.kind) {
       case "invalid": {
+        if (c.command === "aria") {
+          // Only moderators get "invalid aria" (the parser drops viewers' mod commands).
+          if (isModRole(p.role)) this.reply(`@${user.login} ${c.reason}`, p.messageId);
+          return;
+        }
         // Only answer while the command could have counted; otherwise stay quiet like for valid commands.
         const live = c.command === "idea" ? r?.phase === "collecting" : r?.phase === "voting";
         if (!live) return;
@@ -202,10 +212,11 @@ export class LiveService {
         return;
       }
       case "help":
-        this.reply(
-          "Propose with !idea <your idea>, vote with !vote <number> once voting opens, !ideas lists them. The streamer approves what gets built.",
-          p.messageId,
-        );
+        this.reply(isModRole(p.role) ? `${VIEWER_HELP} ${MOD_HELP}` : VIEWER_HELP, p.messageId);
+        return;
+      case "mod":
+        if (!isModRole(p.role)) return; // defence in depth: viewers are ignored silently
+        this.runModCommand(p, c);
         return;
       case "ideas": {
         if (!r) return this.reply("No round open right now.", p.messageId);
@@ -220,19 +231,87 @@ export class LiveService {
       }
       case "idea": {
         if (r?.phase !== "collecting") return;
-        const res = this.engine.submitIdea(user, c.text);
+        const res = this.engine.submitIdea(user, c.text, p.role);
         if (res.ok && res.kind === "added") this.reply(`Idea #${res.idea.number} from @${user.login} added`);
         else if (res.ok && res.counted) this.reply(`@${user.login} +1 on idea #${res.idea.number} (${res.idea.seconds})`);
-        else if (!res.ok && res.code !== "cooldown") this.reply(`@${user.login} ${res.reason}`, p.messageId);
+        else if (!res.ok) this.replyRejection(p, res);
+        return;
+      }
+      case "plus_one": {
+        if (r?.phase !== "collecting") return;
+        const res = this.engine.plusOneIdea(user, c.number, p.role);
+        if (res.ok && res.kind === "duplicate" && res.counted) this.reply(`@${user.login} +1 on idea #${res.idea.number} (${res.idea.seconds})`);
+        else if (!res.ok) this.replyRejection(p, res);
         return;
       }
       case "vote": {
         if (r?.phase !== "voting") return;
-        const res = this.engine.castVote(user, c.number);
-        if (!res.ok) this.reply(`@${user.login} ${res.reason}`, p.messageId);
+        const res = this.engine.castVote(user, c.number, p.role);
+        if (!res.ok) this.replyRejection(p, res);
         else if (!res.unchanged) this.scheduleVoteReply();
         return;
       }
+    }
+  }
+
+  /** Cooldowns stay quiet; ineligible users hear it once per round. */
+  private replyRejection(p: ParsedChat, res: { code: string; reason: string; notify?: boolean }): void {
+    if (res.code === "cooldown") return;
+    if (res.code === "ineligible" && !res.notify) return;
+    this.reply(`@${p.user.login} ${res.reason}`, p.messageId);
+  }
+
+  /**
+   * Moderator / broadcaster commands from chat. They drive the round
+   * (open, vote, close, extend, hide) but never plan, approve or run.
+   */
+  private runModCommand(p: ParsedChat, c: ModAction): void {
+    const { user: mod } = p;
+    const say = (text: string) => this.reply(`@${mod.login} ${text}`, p.messageId);
+    const r = this.engine.round;
+    const phase = r?.phase ?? "idle";
+    try {
+      switch (c.action) {
+        case "dashboard_only":
+          return say(DASHBOARD_ONLY_REPLY);
+        case "open": {
+          if (r && (phase === "collecting" || phase === "voting")) {
+            return say(`round ${r.index} is already running (${phase === "voting" ? "voting" : "collecting ideas"})`);
+          }
+          if (!["idle", "decided", "done", "rejected"].includes(phase)) {
+            return say("a task is in progress; the streamer finishes it on the dashboard first");
+          }
+          const nr = this.engine.openRound(c.prompt, mod);
+          return this.reply(`Round ${nr.index} is open${nr.prompt ? `: ${nr.prompt}` : ""}. Propose with !idea <your idea>`);
+        }
+        case "vote": {
+          const reopen = phase === "decided" && r?.winnerId === null;
+          if (phase !== "collecting" && !reopen) return say("voting can only start while ideas are open");
+          this.engine.startVote(mod);
+          return this.reply(`Voting is open! !vote <n>: ${this.ballotLine()}`);
+        }
+        case "close": {
+          if (phase !== "voting") return say("no vote is running");
+          const done = this.engine.closeVote(mod);
+          const w = this.engine.winner();
+          const t = w ? done.tallies.find((x) => x.ideaId === w.id) : undefined;
+          return this.reply(w && t ? `Vote closed. Winner: #${t.number} ${w.text} (${t.votes} votes)` : "Vote closed with no votes.");
+        }
+        case "extend": {
+          if (phase !== "voting") return say("no vote is running");
+          if (r?.votingEndsAt === null) return say("this vote has no timer; close it with !aria close");
+          this.engine.extendVote(c.seconds, mod);
+          return this.reply(`Voting extended by ${c.seconds}s`);
+        }
+        case "hide": {
+          if (phase !== "collecting" && phase !== "voting") return say("ideas can only be hidden while collecting or voting");
+          const idea = this.engine.hideIdeaByNumber(c.number, mod);
+          return say(`${phase === "voting" ? `ballot #${c.number}` : `idea #${idea.number}`} hidden`);
+        }
+      }
+    } catch (err) {
+      if (err instanceof EngineError) return say(err.message.charAt(0).toLowerCase() + err.message.slice(1));
+      throw err;
     }
   }
 

@@ -357,3 +357,139 @@ describe("round engine: task and execution", () => {
     expect(engine.updateSettings({ maxCandidates: 4 }).maxCandidates).toBe(4);
   });
 });
+
+describe("round engine: moderator actions, eligibility, +1 by number", () => {
+  const M = user("mod_marta");
+
+  function voting(settings: Record<string, unknown> = {}) {
+    const ctx = collecting(settings);
+    ctx.engine.submitIdea(A, "Add dark mode");
+    ctx.engine.submitIdea(B, "Add a leaderboard");
+    ctx.engine.submitIdea(C, "Add a pause menu");
+    ctx.engine.startVote();
+    return ctx;
+  }
+
+  it("records which moderator opened, started, extended and closed", () => {
+    const { engine } = makeEngine();
+    engine.updateSettings({ voteDurationSec: 60 });
+    engine.openRound("theme", M);
+    engine.submitIdea(A, "Add dark mode");
+    engine.startVote(M);
+    engine.castVote(B, 1);
+    engine.extendVote(30, M);
+    engine.closeVote(M);
+    const texts = engine.state.activity.map((a) => a.text);
+    expect(texts).toContain("Round 1 opened by @mod_marta: theme");
+    expect(texts.some((t) => t.startsWith("Voting open by @mod_marta: 1) Add dark mode"))).toBe(true);
+    expect(texts).toContain("Voting extended by 30s by @mod_marta");
+    expect(texts).toContain("Voting closed by @mod_marta");
+    expect(engine.state.activity.find((a) => a.text === "Voting closed by @mod_marta")?.user).toEqual(M);
+  });
+
+  it("extends a timed vote, refuses untimed votes and out-of-range values", () => {
+    const { engine, clock } = voting({ voteDurationSec: 60 });
+    const end = engine.round!.votingEndsAt!;
+    engine.extendVote(30, M);
+    expect(engine.round!.votingEndsAt).toBe(end + 30_000);
+    clock.advance(75_000); // past the original end, before the extended one
+    expect(engine.tick()).toBe(false);
+    expectCode(() => engine.extendVote(4), "bad_input");
+    expectCode(() => engine.extendVote(301), "bad_input");
+    expectCode(() => engine.extendVote(2.5), "bad_input");
+    clock.advance(20_000);
+    expectCode(() => engine.extendVote(30), "wrong_phase"); // tick closed it first
+    expect(engine.round!.phase).toBe("decided");
+
+    const untimed = voting();
+    expectCode(() => untimed.engine.extendVote(30), "wrong_phase");
+  });
+
+  it("hides by submission number while collecting and by ballot number while voting", () => {
+    const { engine } = collecting();
+    engine.submitIdea(A, "Add dark mode");
+    engine.submitIdea(B, "Add a leaderboard");
+    engine.submitIdea(C, "Add a pause menu");
+    engine.submitIdea(D, "Add a leaderboard!!"); // +1 on #2 → #2 becomes ballot #1
+    expect(engine.hideIdeaByNumber(1, M).text).toBe("Add dark mode");
+    expect(engine.state.activity.at(-1)?.text).toBe("Idea #1 hidden by @mod_marta");
+    expectCode(() => engine.hideIdeaByNumber(1), "not_found"); // already hidden
+    expectCode(() => engine.hideIdeaByNumber(9), "not_found");
+    engine.submitIdea(user("eve"), "Add co-op mode");
+    engine.startVote();
+    const r = engine.round!;
+    expect(r.tallies.map((t) => r.ideas.find((i) => i.id === t.ideaId)!.number)).toEqual([2, 3, 4]);
+    // ballot #3 is idea #4 ("co-op"), not idea #3
+    expect(engine.hideIdeaByNumber(3, M).text).toBe("Add co-op mode");
+    expect(r.tallies.map((t) => t.number)).toEqual([1, 2]);
+    expectCode(() => engine.hideIdeaByNumber(3), "not_found");
+    engine.closeVote();
+    expectCode(() => engine.hideIdeaByNumber(1), "wrong_phase");
+  });
+
+  it("gates votes and ideas by badge and counts ineligible attempts, notifying once per user per round", () => {
+    const { engine } = voting({ voteEligibility: "subscribers" });
+    const r1 = engine.castVote(D, 1, "viewer");
+    expect(r1).toMatchObject({ ok: false, code: "ineligible", reason: "only subscribers can vote this round", notify: true });
+    expect(engine.castVote(D, 2, "viewer")).toMatchObject({ ok: false, code: "ineligible", notify: false });
+    expect(engine.castVote(D, 1)).toMatchObject({ ok: false, notify: false }); // role defaults to viewer
+    expect(engine.round!.ineligible).toBe(3);
+    expect(engine.round!.voters).toBe(0);
+    for (const [u, role] of [[A, "subscriber"], [B, "vip"], [C, "moderator"], [user("streamer"), "broadcaster"]] as const) {
+      expect(engine.castVote(u, 1, role).ok).toBe(true);
+    }
+    expect(engine.round!.voters).toBe(4);
+
+    engine.updateSettings({ voteEligibility: "vip_mod" });
+    expect(engine.castVote(user("sub2"), 1, "subscriber")).toMatchObject({ ok: false, reason: "only VIPs and moderators can vote this round" });
+
+    // new round: counter and notifications reset; idea eligibility applies to !idea and +1
+    engine.closeVote();
+    engine.updateSettings({ ideaEligibility: "subscribers" });
+    engine.openRound();
+    expect(engine.round!.ineligible).toBe(0);
+    expect(engine.submitIdea(D, "Add a map", "viewer")).toMatchObject({ ok: false, code: "ineligible", notify: true, reason: "only subscribers can submit ideas this round" });
+    expect(engine.submitIdea(A, "Add a map", "subscriber").ok).toBe(true);
+    expect(engine.plusOneIdea(D, 1, "viewer")).toMatchObject({ ok: false, code: "ineligible", notify: false });
+    expect(engine.round!.ineligible).toBe(2);
+    expect(engine.round!.ideas).toHaveLength(1);
+    expect(engine.plusOneIdea(B, 1, "vip")).toMatchObject({ ok: true, counted: true });
+  });
+
+  it("validates eligibility settings and survives old snapshots", () => {
+    const { engine } = collecting();
+    expect(engine.state.settings.voteEligibility).toBe("everyone");
+    expect(engine.state.settings.ideaEligibility).toBe("everyone");
+    expectCode(() => engine.updateSettings({ voteEligibility: "followers" }), "bad_input");
+    expect(engine.updateSettings({ ideaEligibility: "vip_mod" }).ideaEligibility).toBe("vip_mod");
+    const snap = engine.snapshot();
+    delete (snap.state.round as Partial<typeof snap.state.round>)!.ineligible;
+    const { voteEligibility: _v, ...oldSettings } = snap.state.settings;
+    snap.state.settings = oldSettings as typeof snap.state.settings;
+    const restored = makeEngine(snap).engine;
+    expect(restored.round!.ineligible).toBe(0);
+    expect(restored.state.settings.voteEligibility).toBe("everyone");
+  });
+
+  it("+1s an idea by number: once per user per idea, never your own, not hidden or missing ones", () => {
+    const { engine } = collecting({ ideaCooldownSec: 30 });
+    engine.submitIdea(A, "Add dark mode");
+    engine.submitIdea(B, "Add a leaderboard");
+    expect(engine.plusOneIdea(C, 2)).toMatchObject({ ok: true, kind: "duplicate", counted: true });
+    expect(engine.round!.ideas[1]!.seconds).toBe(1);
+    expect(engine.plusOneIdea(C, 2)).toMatchObject({ ok: true, counted: false });
+    expect(engine.plusOneIdea(B, 2)).toMatchObject({ ok: true, counted: false }); // own idea
+    expect(engine.plusOneIdea(C, 1)).toMatchObject({ ok: true, counted: true }); // no cooldown between +1s
+    expect(engine.plusOneIdea(C, 9)).toMatchObject({ ok: false, code: "no_such_idea" });
+    // typed duplicate and +1 by number share the one-per-user rule
+    expect(engine.submitIdea(C, "add dark mode!")).toMatchObject({ ok: true, counted: false }); // already +1'd by number
+    expect(engine.submitIdea(D, "add dark mode!")).toMatchObject({ ok: true, counted: true });
+    expect(engine.plusOneIdea(D, 1)).toMatchObject({ ok: true, counted: false });
+    expect(engine.round!.ideas[0]!.seconds).toBe(2);
+    engine.hideIdea(engine.round!.ideas[0]!.id, true);
+    expect(engine.plusOneIdea(user("eve"), 1)).toMatchObject({ ok: false, code: "no_such_idea" });
+    expect(engine.state.activity.some((a) => a.text === "@carol +1'd idea #2 (1)")).toBe(true);
+    engine.startVote();
+    expectCode(() => engine.plusOneIdea(user("eve"), 2), "wrong_phase");
+  });
+});

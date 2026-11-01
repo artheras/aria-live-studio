@@ -8,19 +8,24 @@
  * 1..N in ballot order (`Round.candidates`, `Tally.number`). `!vote n`
  * refers to the BALLOT number n, which is what the overlay shows.
  */
-import type {
-  Activity,
-  ActivityKind,
-  Connection,
-  Execution,
-  ExecutionStep,
-  Idea,
-  LiveState,
-  Round,
-  RoundSummary,
-  Settings,
-  Task,
-  TwitchUser,
+import {
+  EXTEND_MAX_SEC,
+  EXTEND_MIN_SEC,
+  isEligible,
+  type Activity,
+  type ActivityKind,
+  type ChatRole,
+  type Connection,
+  type Eligibility,
+  type Execution,
+  type ExecutionStep,
+  type Idea,
+  type LiveState,
+  type Round,
+  type RoundSummary,
+  type Settings,
+  type Task,
+  type TwitchUser,
 } from "@aria-live/shared";
 import type { ExecutionResult, PlannedTask } from "../contracts.ts";
 import { cleanText, containsLink, jaccard, normalizeIdea, streamSafeLine, tokenSet } from "./text.ts";
@@ -69,7 +74,11 @@ export const DEFAULT_SETTINGS: Settings = {
   voteDurationSec: 60,
   chatReplies: true,
   executorEnabled: false,
+  voteEligibility: "everyone",
+  ideaEligibility: "everyone",
 };
+
+const ELIGIBILITIES: readonly Eligibility[] = ["everyone", "subscribers", "vip_mod"];
 
 export const SIGNED_OUT: Connection = {
   state: "signed_out",
@@ -93,17 +102,21 @@ export type ViewerRejection =
   | "cooldown"
   | "round_full"
   | "hidden_duplicate"
-  | "invalid_vote";
+  | "invalid_vote"
+  | "no_such_idea"
+  /** Blocked by voteEligibility / ideaEligibility. */
+  | "ineligible";
+
+/** `notify` (ineligible only): first refusal for this user this round, so reply once. */
+type Rejection = { ok: false; code: ViewerRejection; reason: string; retryInSec?: number; notify?: boolean };
 
 export type IdeaResult =
   | { ok: true; kind: "added"; idea: Idea }
   /** Same idea as an existing one; `counted` = this user's +1 was added. */
   | { ok: true; kind: "duplicate"; idea: Idea; counted: boolean }
-  | { ok: false; code: ViewerRejection; reason: string; retryInSec?: number };
+  | Rejection;
 
-export type VoteResult =
-  | { ok: true; ballotNumber: number; ideaId: string; changed: boolean; unchanged: boolean }
-  | { ok: false; code: ViewerRejection; reason: string };
+export type VoteResult = { ok: true; ballotNumber: number; ideaId: string; changed: boolean; unchanged: boolean } | Rejection;
 
 /** Data the engine needs that is not part of the public LiveState. */
 export interface EngineInternals {
@@ -115,6 +128,8 @@ export interface EngineInternals {
   lastIdeaAt: Record<string, number>;
   /** All-time distinct participants. */
   participants: string[];
+  /** userIds already told they are not eligible this round. */
+  ineligibleNotified?: string[];
 }
 
 export interface EngineSnapshot {
@@ -135,6 +150,7 @@ export class RoundEngine {
   private seconders = new Map<string, Set<string>>();
   private lastIdeaAt = new Map<string, number>();
   private participants = new Set<string>();
+  private ineligibleNotified = new Set<string>();
   private listeners = new Set<(e: EngineEvent) => void>();
 
   constructor(
@@ -188,6 +204,7 @@ export class RoundEngine {
         seconders,
         lastIdeaAt: Object.fromEntries(this.lastIdeaAt),
         participants: [...this.participants],
+        ineligibleNotified: [...this.ineligibleNotified],
       },
     };
   }
@@ -207,9 +224,11 @@ export class RoundEngine {
     this.seconders = new Map(Object.entries(i?.seconders ?? {}).map(([k, v]) => [k, new Set(v)]));
     this.lastIdeaAt = new Map(Object.entries(i?.lastIdeaAt ?? {}));
     this.participants = new Set(i?.participants ?? []);
+    this.ineligibleNotified = new Set(i?.ineligibleNotified ?? []);
     this.s.stats.participants = this.participants.size;
 
     const r = this.s.round;
+    if (r && typeof r.ineligible !== "number") r.ineligible = 0; // snapshots from before eligibility
     if (r?.phase === "executing") {
       const now = this.deps.now();
       r.phase = "done";
@@ -288,6 +307,11 @@ export class RoundEngine {
       } else if (k === "chatReplies" || k === "executorEnabled") {
         if (typeof v !== "boolean") throw new EngineError("bad_input", `${k} must be a boolean`);
         next[k] = v;
+      } else if (k === "voteEligibility" || k === "ideaEligibility") {
+        if (!ELIGIBILITIES.includes(v as Eligibility)) {
+          throw new EngineError("bad_input", `${k} must be one of ${ELIGIBILITIES.join(", ")}`);
+        }
+        next[k] = v as Eligibility;
       } else {
         throw new EngineError("bad_input", `Unknown setting: ${k}`);
       }
@@ -300,7 +324,8 @@ export class RoundEngine {
 
   // ── rounds ─────────────────────────────────────────────────────────────
 
-  openRound(prompt = ""): Round {
+  /** `by`: the moderator who opened it from chat (dashboard actions pass nothing). */
+  openRound(prompt = "", by?: TwitchUser): Round {
     const cur = this.s.round;
     if (cur && ["collecting", "voting", "planning", "executing"].includes(cur.phase)) {
       throw new EngineError("wrong_phase", `Cannot open a new round while the current one is ${cur.phase}`);
@@ -318,6 +343,7 @@ export class RoundEngine {
       tallies: [],
       voters: 0,
       votingEndsAt: null,
+      ineligible: 0,
       winnerId: null,
       task: null,
       execution: null,
@@ -327,7 +353,8 @@ export class RoundEngine {
     this.votes.clear();
     this.seconders.clear();
     this.lastIdeaAt.clear();
-    this.activity("round", `Round ${round.index} opened${p ? `: ${p}` : ""}`);
+    this.ineligibleNotified.clear();
+    this.activity("round", `Round ${round.index} opened${byMod(by)}${p ? `: ${p}` : ""}`, by);
     this.changed();
     return round;
   }
@@ -343,6 +370,7 @@ export class RoundEngine {
     this.votes.clear();
     this.seconders.clear();
     this.lastIdeaAt.clear();
+    this.ineligibleNotified.clear();
     this.activity("round", `Round ${r.index} closed`);
     this.changed();
     return summary;
@@ -380,11 +408,26 @@ export class RoundEngine {
 
   // ── ideas ──────────────────────────────────────────────────────────────
 
-  submitIdea(user: TwitchUser, rawText: string): IdeaResult {
+  /**
+   * Count an attempt blocked by the eligibility settings. Returns the
+   * rejection, with `notify` true only the first time for this user this round.
+   */
+  private ineligible(r: Round, user: TwitchUser, rule: Eligibility, what: "vote" | "submit ideas"): Rejection {
+    r.ineligible++;
+    const notify = !this.ineligibleNotified.has(user.id);
+    this.ineligibleNotified.add(user.id);
+    this.changed();
+    const who = rule === "subscribers" ? "subscribers" : "VIPs and moderators";
+    return { ok: false, code: "ineligible", reason: `only ${who} can ${what} this round`, notify };
+  }
+
+  /** `role` comes from chat badges; omitted = a plain viewer. */
+  submitIdea(user: TwitchUser, rawText: string, role: ChatRole = "viewer"): IdeaResult {
     const r = this.requirePhase("collecting");
     const now = this.deps.now();
     const st = this.s.settings;
     const text = cleanText(rawText);
+    if (!isEligible(role, st.ideaEligibility)) return this.ineligible(r, user, st.ideaEligibility, "submit ideas");
 
     const reject = (code: ViewerRejection, reason: string, retryInSec?: number): IdeaResult => {
       this.activity("rejected", `Idea from @${user.login} rejected: ${reason}`, user);
@@ -412,19 +455,7 @@ export class RoundEngine {
     if (dup) {
       if (dup.hidden) return reject("hidden_duplicate", "that idea was removed by the streamer");
       this.lastIdeaAt.set(user.id, now);
-      this.participate(user);
-      let set = this.seconders.get(dup.id);
-      if (!set) this.seconders.set(dup.id, (set = new Set()));
-      const counted = dup.author.id !== user.id && !set.has(user.id);
-      if (counted) {
-        set.add(user.id);
-        dup.seconds++;
-        this.activity("idea_duplicate", `@${user.login} +1'd idea #${dup.number} (${dup.seconds})`, user);
-      } else {
-        this.activity("idea_duplicate", `@${user.login} re-sent idea #${dup.number} (not counted)`, user);
-      }
-      this.changed();
-      return { ok: true, kind: "duplicate", idea: dup, counted };
+      return this.second(dup, user, "re-sent");
     }
 
     if (r.ideas.length >= st.maxIdeasPerRound) return reject("round_full", "this round is full");
@@ -447,7 +478,54 @@ export class RoundEngine {
     return { ok: true, kind: "added", idea };
   }
 
-  hideIdea(id: string, hidden: boolean): Idea {
+  /** One +1 per user per idea; never on your own idea. */
+  private second(idea: Idea, user: TwitchUser, verb: string): IdeaResult {
+    this.participate(user);
+    let set = this.seconders.get(idea.id);
+    if (!set) this.seconders.set(idea.id, (set = new Set()));
+    const counted = idea.author.id !== user.id && !set.has(user.id);
+    if (counted) {
+      set.add(user.id);
+      idea.seconds++;
+      this.activity("idea_duplicate", `@${user.login} +1'd idea #${idea.number} (${idea.seconds})`, user);
+    } else {
+      this.activity("idea_duplicate", `@${user.login} ${verb} idea #${idea.number} (not counted)`, user);
+    }
+    this.changed();
+    return { ok: true, kind: "duplicate", idea, counted };
+  }
+
+  /**
+   * `!idea +3` / `!+1 3`: +1 idea #3 (submission number) while collecting.
+   * Same rules as a typed duplicate: one per user per idea, not your own.
+   */
+  plusOneIdea(user: TwitchUser, ideaNumber: number, role: ChatRole = "viewer"): IdeaResult {
+    const r = this.requirePhase("collecting");
+    const st = this.s.settings;
+    if (!isEligible(role, st.ideaEligibility)) return this.ineligible(r, user, st.ideaEligibility, "submit ideas");
+    const idea = r.ideas.find((i) => i.number === ideaNumber && !i.hidden);
+    if (!idea) return { ok: false, code: "no_such_idea", reason: `there is no idea #${ideaNumber}` };
+    return this.second(idea, user, "+1'd");
+  }
+
+  /**
+   * Hide by the number chat sees: the submission number while collecting,
+   * the ballot number while voting.
+   */
+  hideIdeaByNumber(n: number, by?: TwitchUser): Idea {
+    const r = this.requirePhase("collecting", "voting");
+    const id =
+      r.phase === "voting"
+        ? r.tallies.find((t) => t.number === n)?.ideaId
+        : r.ideas.find((i) => i.number === n)?.id;
+    const idea = id ? this.ideaById(r, id) : undefined;
+    if (!idea || idea.hidden) {
+      throw new EngineError("not_found", `No ${r.phase === "voting" ? "ballot entry" : "idea"} #${n}`);
+    }
+    return this.hideIdea(idea.id, true, by);
+  }
+
+  hideIdea(id: string, hidden: boolean, by?: TwitchUser): Idea {
     const r = this.requireRound();
     const idea = this.ideaById(r, id);
     if (!idea) throw new EngineError("not_found", "No such idea in this round");
@@ -463,7 +541,7 @@ export class RoundEngine {
       for (const [u, v] of this.votes) if (v === id) this.votes.delete(u);
       this.recount(r);
     }
-    this.activity("system", `Idea #${idea.number} ${hidden ? "hidden" : "unhidden"}`);
+    this.activity("system", `Idea #${idea.number} ${hidden ? "hidden" : "unhidden"}${byMod(by)}`, by);
     this.changed();
     return idea;
   }
@@ -471,7 +549,7 @@ export class RoundEngine {
   // ── voting ─────────────────────────────────────────────────────────────
 
   /** Freeze the ballot. Also re-opens a vote that ended with no votes. */
-  startVote(): Round {
+  startVote(by?: TwitchUser): Round {
     const r = this.requireRound();
     const reopen = r.phase === "decided" && r.winnerId === null;
     if (r.phase !== "collecting" && !reopen) {
@@ -491,7 +569,8 @@ export class RoundEngine {
     r.votingEndsAt = dur > 0 ? this.deps.now() + dur * 1000 : null;
     this.activity(
       "round",
-      `Voting ${reopen ? "re-opened" : "open"}: ${ballot.map((i, n) => `${n + 1}) ${i.text}`).join(" · ")}`,
+      `Voting ${reopen ? "re-opened" : "open"}${byMod(by)}: ${ballot.map((i, n) => `${n + 1}) ${i.text}`).join(" · ")}`,
+      by,
     );
     this.changed();
     return r;
@@ -504,9 +583,11 @@ export class RoundEngine {
     r.voters = this.votes.size;
   }
 
-  castVote(user: TwitchUser, ballotNumber: number): VoteResult {
+  castVote(user: TwitchUser, ballotNumber: number, role: ChatRole = "viewer"): VoteResult {
     this.tick();
     const r = this.requirePhase("voting");
+    const rule = this.s.settings.voteEligibility;
+    if (!isEligible(role, rule)) return this.ineligible(r, user, rule, "vote");
     const tally = Number.isInteger(ballotNumber) ? r.tallies.find((t) => t.number === ballotNumber) : undefined;
     if (!tally) {
       const nums = r.tallies.map((t) => t.number).join(", ");
@@ -533,7 +614,21 @@ export class RoundEngine {
     return false;
   }
 
-  closeVote(): Round {
+  /** Add time to a timed vote (a moderator's `!aria extend 30`). */
+  extendVote(seconds: number, by?: TwitchUser): Round {
+    if (!Number.isInteger(seconds) || seconds < EXTEND_MIN_SEC || seconds > EXTEND_MAX_SEC) {
+      throw new EngineError("bad_input", `seconds must be an integer between ${EXTEND_MIN_SEC} and ${EXTEND_MAX_SEC}`);
+    }
+    this.tick();
+    const r = this.requirePhase("voting");
+    if (r.votingEndsAt === null) throw new EngineError("wrong_phase", "This vote has no timer");
+    r.votingEndsAt += seconds * 1000;
+    this.activity("round", `Voting extended by ${seconds}s${byMod(by)}`, by);
+    this.changed();
+    return r;
+  }
+
+  closeVote(by?: TwitchUser): Round {
     const r = this.requirePhase("voting");
     this.recount(r);
     const ideas = new Map(r.ideas.map((i) => [i.id, i]));
@@ -549,10 +644,11 @@ export class RoundEngine {
     const top = ranked[0];
     if (!top) {
       r.winnerId = null;
-      this.activity("round", "Voting closed with no votes — re-open the vote or reset the round");
+      this.activity("round", `Voting closed${byMod(by)} with no votes — re-open the vote or reset the round`, by);
     } else {
       r.winnerId = top.ideaId;
       const w = ideas.get(top.ideaId)!;
+      if (by) this.activity("round", `Voting closed${byMod(by)}`, by);
       this.activity("round", `Winner: #${top.number} "${w.text}" by @${w.author.login} (${top.votes} votes)`, w.author);
     }
     this.changed();
@@ -729,6 +825,11 @@ export class RoundEngine {
     this.activity(kind, text, user);
     this.changed();
   }
+}
+
+/** " by @mod" for activity lines of actions taken from chat. */
+function byMod(by?: TwitchUser): string {
+  return by ? ` by @${by.login}` : "";
 }
 
 function cleanMulti(s: unknown, max: number): string {
