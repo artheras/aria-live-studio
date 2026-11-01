@@ -13,6 +13,7 @@ import { AgentBridge, AGENT_EXECUTOR_PREFIX } from "./agent.ts";
 import { parseChatMessage, REPLY_PREFIX, type ChatMessageEvent, type ModAction, type ParsedChat } from "./commands.ts";
 import { EngineError, RoundEngine, type Actor, type EngineDeps } from "./engine.ts";
 import type { Store } from "./store.ts";
+import { TwitchExtras, type TwitchExtrasDeps } from "./twitch-extras.ts";
 
 export const VIEWER_HELP =
   "Propose with !idea <your idea>, +1 an idea with !idea +<n> (or !+1 <n>), vote with !vote <number> once voting opens, !ideas lists them. The streamer approves what gets built.";
@@ -75,11 +76,16 @@ export interface LiveServiceDeps {
   createEventSub?: (svc: LiveService) => EventSubClient | null;
   tickMs?: number;
   voteReplyDelayMs?: number;
+  /** Clip polling overrides for tests. */
+  twitchExtras?: Pick<TwitchExtrasDeps, "clipPollMs" | "clipWaitMs">;
 }
 
 export class LiveService {
   readonly engine: RoundEngine;
   readonly agent: AgentBridge;
+  readonly extras: TwitchExtras;
+  /** History appends in archive order (each waits for its round's Twitch extras). */
+  private historyWrites: Promise<void> = Promise.resolve();
   private eventsub: EventSubClient | null = null;
   private planAbort: AbortController | null = null;
   private execAbort: AbortController | null = null;
@@ -94,14 +100,38 @@ export class LiveService {
     const engineDeps = deps.engineDeps ?? { now: Date.now, id: randomUUID };
     this.engine = new RoundEngine(engineDeps, deps.store.loadState());
     this.agent = new AgentBridge(this.engine, deps.config.projectBrief);
+    this.extras = new TwitchExtras({
+      engine: this.engine,
+      auth: deps.auth,
+      helix: deps.helix,
+      reply: (text) => this.reply(text),
+      ...deps.twitchExtras,
+    });
     this.engine.on((e) => {
       if (e.type === "change") deps.store.scheduleSave(() => this.engine.snapshot());
-      else void deps.store.appendHistory(e.summary).catch((err) => console.error(`[history] ${err.message}`));
+      else if (e.type === "milestone") this.extras.handle(e.milestone);
+      else {
+        void this.extras.restoreTitle();
+        const enriched = this.extras.enrich(e.summary).catch(() => e.summary);
+        this.historyWrites = this.historyWrites
+          .then(() => enriched)
+          .then((summary) => deps.store.appendHistory(summary))
+          .catch((err) => console.error(`[history] ${(err as Error).message}`));
+      }
     });
     deps.auth.onSignedOut((reason) => {
       this.stopChat();
-      this.engine.setConnection({ state: "signed_out", channel: null, sessionId: null, error: reason, canReply: false });
+      this.engine.setConnection({ state: "signed_out", channel: null, sessionId: null, error: reason, canReply: false, scopes: [], missingScopes: [] });
     });
+    deps.auth.onTokens(() => {
+      if (this.engine.state.connection.state !== "signed_out") this.engine.setConnection(this.scopeState());
+    });
+  }
+
+  /** Granted / missing scopes for the Connection (drives the reconnect banner). */
+  private scopeState(): { canReply: boolean; scopes: string[]; missingScopes: string[] } {
+    const a = this.deps.auth;
+    return { canReply: a.canReply, scopes: [...a.scopes], missingScopes: a.missingScopes };
   }
 
   get config(): Config {
@@ -124,6 +154,7 @@ export class LiveService {
     if (this.tickTimer) clearInterval(this.tickTimer);
     if (this.voteReplyTimer) clearTimeout(this.voteReplyTimer);
     this.tickTimer = null;
+    this.extras.stop();
     this.stopChat();
     this.planAbort?.abort();
     if (this.execAbort) {
@@ -131,6 +162,7 @@ export class LiveService {
       await Promise.race([this.execRun, new Promise((r) => setTimeout(r, 3000))]);
     }
     this.deps.auth.stopValidation();
+    await Promise.race([this.historyWrites, new Promise((r) => setTimeout(r, 3000))]);
     this.deps.store.flush();
   }
 
@@ -146,7 +178,7 @@ export class LiveService {
       channel: user,
       sessionId: null,
       error: null,
-      canReply: this.deps.auth.canReply,
+      ...this.scopeState(),
     });
     this.eventsub = this.deps.createEventSub
       ? this.deps.createEventSub(this)
@@ -158,7 +190,7 @@ export class LiveService {
           handlers: {
             onChatMessage: (ev) => this.handleChat(ev),
             onState: (u) =>
-              this.engine.setConnection({ ...u, channel: this.deps.auth.user, canReply: this.deps.auth.canReply }),
+              this.engine.setConnection({ ...u, channel: this.deps.auth.user, ...this.scopeState() }),
           },
         });
     this.deps.auth.startValidation();
@@ -172,8 +204,10 @@ export class LiveService {
 
   async logout(): Promise<void> {
     this.stopChat();
+    // Put the streamer's title back while the token still works (bounded: logout never hangs on Twitch).
+    await Promise.race([this.extras.restoreTitle(), new Promise((r) => setTimeout(r, 5000).unref?.())]);
     await this.deps.auth.logout();
-    this.engine.setConnection({ state: "signed_out", channel: null, sessionId: null, error: null, canReply: false });
+    this.engine.setConnection({ state: "signed_out", channel: null, sessionId: null, error: null, canReply: false, scopes: [], missingScopes: [] });
   }
 
   /** Handle one channel.chat.message event. Exposed for tests and the mock flow. */

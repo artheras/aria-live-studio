@@ -24,6 +24,7 @@ import {
   type Round,
   type RoundSummary,
   type Settings,
+  type StreamMarker,
   type Task,
   type TwitchUser,
 } from "@aria-live/shared";
@@ -76,7 +77,12 @@ export const DEFAULT_SETTINGS: Settings = {
   executorEnabled: false,
   voteEligibility: "everyone",
   ideaEligibility: "everyone",
+  autoTitle: true,
+  streamMarkers: true,
+  autoClip: true,
 };
+
+const BOOLEAN_SETTINGS = ["chatReplies", "executorEnabled", "autoTitle", "streamMarkers", "autoClip"] as const;
 
 const ELIGIBILITIES: readonly Eligibility[] = ["everyone", "subscribers", "vip_mod"];
 
@@ -88,6 +94,8 @@ export const SIGNED_OUT: Connection = {
   reconnects: 0,
   error: null,
   canReply: false,
+  scopes: [],
+  missingScopes: [],
 };
 
 export const ACTIVITY_LIMIT = 200;
@@ -130,7 +138,25 @@ export interface EngineInternals {
   participants: string[];
   /** userIds already told they are not eligible this round. */
   ineligibleNotified?: string[];
+  /** The stream title before Aria changed it, kept so a restart can still restore it. */
+  streamTitle?: StreamTitleMemo | null;
 }
+
+export interface StreamTitleMemo {
+  /** Title before Aria changed it. */
+  original: string;
+  /** Title Aria set (restore only while Twitch still shows this one). */
+  ours: string;
+}
+
+/** Moments of the round other parts of the server react to (stream markers, title, clip). */
+export type Milestone =
+  | { kind: "round_opened"; round: Round }
+  | { kind: "vote_started"; round: Round }
+  | { kind: "winner"; round: Round; idea: Idea }
+  | { kind: "task_approved"; round: Round; task: Task }
+  | { kind: "build_started"; round: Round; execution: Execution }
+  | { kind: "build_finished"; round: Round; execution: Execution };
 
 export interface EngineSnapshot {
   state: Omit<LiveState, "activity"> & { activity?: Activity[] };
@@ -139,7 +165,8 @@ export interface EngineSnapshot {
 
 export type EngineEvent =
   | { type: "change"; state: LiveState }
-  | { type: "archive"; summary: RoundSummary };
+  | { type: "archive"; summary: RoundSummary }
+  | { type: "milestone"; milestone: Milestone };
 
 const EDITABLE_TASK_FIELDS = ["title", "summary", "userStory", "acceptanceCriteria", "steps", "risks", "size"] as const;
 export type TaskPatch = Partial<Pick<Task, (typeof EDITABLE_TASK_FIELDS)[number]>>;
@@ -151,6 +178,7 @@ export class RoundEngine {
   private lastIdeaAt = new Map<string, number>();
   private participants = new Set<string>();
   private ineligibleNotified = new Set<string>();
+  private titleMemo: StreamTitleMemo | null = null;
   private listeners = new Set<(e: EngineEvent) => void>();
 
   constructor(
@@ -205,6 +233,7 @@ export class RoundEngine {
         lastIdeaAt: Object.fromEntries(this.lastIdeaAt),
         participants: [...this.participants],
         ineligibleNotified: [...this.ineligibleNotified],
+        streamTitle: this.titleMemo ? { ...this.titleMemo } : null,
       },
     };
   }
@@ -225,10 +254,13 @@ export class RoundEngine {
     this.lastIdeaAt = new Map(Object.entries(i?.lastIdeaAt ?? {}));
     this.participants = new Set(i?.participants ?? []);
     this.ineligibleNotified = new Set(i?.ineligibleNotified ?? []);
+    const memo = i?.streamTitle;
+    this.titleMemo = memo && typeof memo.original === "string" && memo.ours ? { original: memo.original, ours: memo.ours } : null;
     this.s.stats.participants = this.participants.size;
 
     const r = this.s.round;
     if (r && typeof r.ineligible !== "number") r.ineligible = 0; // snapshots from before eligibility
+    if (r && !Array.isArray(r.markers)) r.markers = []; // snapshots from before stream markers
     if (r?.phase === "executing") {
       const now = this.deps.now();
       r.phase = "done";
@@ -304,9 +336,9 @@ export class RoundEngine {
           throw new EngineError("bad_input", `${k} must be an integer between ${min} and ${max}`);
         }
         (next as unknown as Record<string, number>)[k] = v;
-      } else if (k === "chatReplies" || k === "executorEnabled") {
+      } else if ((BOOLEAN_SETTINGS as readonly string[]).includes(k)) {
         if (typeof v !== "boolean") throw new EngineError("bad_input", `${k} must be a boolean`);
-        next[k] = v;
+        next[k as (typeof BOOLEAN_SETTINGS)[number]] = v;
       } else if (k === "voteEligibility" || k === "ideaEligibility") {
         if (!ELIGIBILITIES.includes(v as Eligibility)) {
           throw new EngineError("bad_input", `${k} must be one of ${ELIGIBILITIES.join(", ")}`);
@@ -347,6 +379,7 @@ export class RoundEngine {
       winnerId: null,
       task: null,
       execution: null,
+      markers: [],
     };
     this.s.round = round;
     this.s.stats.rounds++;
@@ -356,6 +389,7 @@ export class RoundEngine {
     this.ineligibleNotified.clear();
     this.activity("round", `Round ${round.index} opened${byMod(by)}${p ? `: ${p}` : ""}`, by);
     this.changed();
+    this.milestone({ kind: "round_opened", round });
     return round;
   }
 
@@ -395,8 +429,10 @@ export class RoundEngine {
             branch: r.execution.branch,
             changedFiles: r.execution.changedFiles,
             summary: r.execution.summary,
+            clipUrl: r.execution.clipUrl ?? null,
           }
         : null,
+      markers: (r.markers ?? []).map((m) => ({ ...m })),
     };
   }
 
@@ -573,6 +609,7 @@ export class RoundEngine {
       by,
     );
     this.changed();
+    this.milestone({ kind: "vote_started", round: r });
     return r;
   }
 
@@ -652,6 +689,7 @@ export class RoundEngine {
       this.activity("round", `Winner: #${top.number} "${w.text}" by @${w.author.login} (${top.votes} votes)`, w.author);
     }
     this.changed();
+    if (r.winnerId) this.milestone({ kind: "winner", round: r, idea: ideas.get(r.winnerId)! });
     return r;
   }
 
@@ -750,6 +788,7 @@ export class RoundEngine {
     t.decidedBy = by;
     this.activity("task", `Task approved by ${by}`);
     this.changed();
+    this.milestone({ kind: "task_approved", round: r, task: t });
     return t;
   }
 
@@ -786,11 +825,13 @@ export class RoundEngine {
       changedFiles: [],
       summary: null,
       error: null,
+      clipUrl: null,
     };
     r.execution = ex;
     r.phase = "executing";
     this.activity("execution", `Build started: ${executorLabel(executor)}`);
     this.changed();
+    this.milestone({ kind: "build_started", round: r, execution: ex });
     return ex;
   }
 
@@ -817,7 +858,46 @@ export class RoundEngine {
     r.phase = "done";
     this.activity("execution", `Execution ${result.status}${ex.error ? `: ${ex.error}` : ""}`);
     this.changed();
+    this.milestone({ kind: "build_finished", round: r, execution: ex });
     return ex;
+  }
+
+  // ── Twitch extras (written back by the service after Helix answered) ──
+
+  private milestone(m: Milestone): void {
+    this.emit({ type: "milestone", milestone: m });
+  }
+
+  /** The remembered stream title (see StreamTitleMemo). */
+  get streamTitle(): StreamTitleMemo | null {
+    return this.titleMemo ? { ...this.titleMemo } : null;
+  }
+
+  setStreamTitle(memo: StreamTitleMemo | null): void {
+    this.titleMemo = memo ? { ...memo } : null;
+    this.changed();
+  }
+
+  /** Record a marker on the round it was made for; false if that round is gone. */
+  addMarker(roundId: string, marker: StreamMarker): boolean {
+    const r = this.s.round;
+    if (r?.id !== roundId) return false;
+    r.markers.push({
+      label: streamSafeLine(marker.label, 140),
+      positionSeconds: Math.max(0, Math.floor(marker.positionSeconds)),
+      createdAt: marker.createdAt,
+    });
+    this.changed();
+    return true;
+  }
+
+  /** Attach a confirmed clip URL to the execution it was made for; false if that execution is gone. */
+  setClipUrl(executionId: string, url: string): boolean {
+    const ex = this.s.round?.execution;
+    if (ex?.id !== executionId) return false;
+    ex.clipUrl = url;
+    this.changed();
+    return true;
   }
 
   /** Log a system note (e.g. "Twitch connected"). */

@@ -8,10 +8,11 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { chmodSync, existsSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { TwitchUser } from "@aria-live/shared";
+import { TWITCH_SCOPES, type TwitchUser } from "@aria-live/shared";
 import { twitchConfigured, type Config } from "../config.ts";
 
-export const SCOPES = ["user:read:chat", "user:write:chat"] as const;
+/** Requested at every login; tokens from before keep working with fewer features. */
+export const SCOPES = TWITCH_SCOPES;
 export const SESSION_COOKIE = "aria_session";
 const STATE_TTL_MS = 10 * 60 * 1000;
 const VALIDATE_EVERY_MS = 60 * 60 * 1000;
@@ -182,6 +183,15 @@ export class TwitchAuth {
 
   get scopes(): string[] {
     return this.tokens?.scopes ?? [];
+  }
+
+  hasScope(scope: string): boolean {
+    return this.scopes.includes(scope);
+  }
+
+  /** Requested scopes this token was not granted. */
+  get missingScopes(): string[] {
+    return this.tokens ? SCOPES.filter((s) => !this.scopes.includes(s)) : [];
   }
 
   get canReply(): boolean {

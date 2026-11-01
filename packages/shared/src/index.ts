@@ -90,6 +90,17 @@ export interface Round {
   winnerId: string | null;
   task: Task | null;
   execution: Execution | null;
+  /** Twitch stream markers created this round (only while the channel is live). */
+  markers: StreamMarker[];
+}
+
+/** A Twitch stream marker as returned by Helix (POST /streams/markers). */
+export interface StreamMarker {
+  label: string;
+  /** Offset into the broadcast (and its VOD) reported by Twitch. */
+  positionSeconds: number;
+  /** epoch ms, from Twitch's created_at */
+  createdAt: number;
 }
 
 // ── Tasks (Aria's structured interpretation of the winning idea) ─────────
@@ -146,6 +157,8 @@ export interface Execution {
   changedFiles: string[];
   summary: string | null;
   error: string | null;
+  /** Twitch clip of the finished build (https://clips.twitch.tv/<id>), once Twitch confirmed it exists. */
+  clipUrl?: string | null;
 }
 
 // ── Connection and settings ──────────────────────────────────────────────
@@ -167,7 +180,22 @@ export interface Connection {
   error: string | null;
   /** Whether the bot can reply in chat (user:write:chat granted). */
   canReply: boolean;
+  /** OAuth scopes granted to the current token. */
+  scopes: string[];
+  /** Scopes from `TWITCH_SCOPES` the token lacks (reconnect to grant them). */
+  missingScopes: string[];
 }
+
+/** Everything the studio asks for at login, and what each one is for. */
+export const TWITCH_SCOPES = ["user:read:chat", "user:write:chat", "channel:manage:broadcast", "clips:edit"] as const;
+export type TwitchScope = (typeof TWITCH_SCOPES)[number];
+
+/** Scopes each optional Twitch feature needs. */
+export const FEATURE_SCOPE = {
+  autoTitle: "channel:manage:broadcast",
+  streamMarkers: "channel:manage:broadcast",
+  autoClip: "clips:edit",
+} as const satisfies Record<string, TwitchScope>;
 
 export interface Settings {
   /** Seconds a viewer waits between two !idea submissions. */
@@ -186,6 +214,12 @@ export interface Settings {
   voteEligibility: Eligibility;
   /** Who may !idea (and +1 an idea). */
   ideaEligibility: Eligibility;
+  /** Set the Twitch stream title to the approved task, restore it afterwards (channel:manage:broadcast). */
+  autoTitle: boolean;
+  /** Add Twitch stream markers at the round's key moments (channel:manage:broadcast). */
+  streamMarkers: boolean;
+  /** Clip the last ~30 s when a build succeeds (clips:edit). */
+  autoClip: boolean;
 }
 
 // ── Activity feed (what scrolls on the dashboard) ────────────────────────
@@ -243,7 +277,11 @@ export interface RoundSummary {
   voters: number;
   winner: { number: number; text: string; author: TwitchUser; votes: number } | null;
   task: Pick<Task, "title" | "status" | "size" | "source"> | null;
-  execution: Pick<Execution, "status" | "branch" | "changedFiles" | "summary"> | null;
+  execution: (Pick<Execution, "status" | "branch" | "changedFiles" | "summary"> & { clipUrl?: string | null }) | null;
+  /** Stream markers of the round; `url` deep-links into the VOD when it was found. */
+  markers?: (StreamMarker & { url?: string })[];
+  /** The past-broadcast VOD the markers belong to (Helix GET /videos). */
+  vodUrl?: string | null;
 }
 
 // ── REST actions (dashboard only; all require the broadcaster session) ───

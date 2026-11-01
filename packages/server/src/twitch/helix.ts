@@ -41,6 +41,30 @@ export interface SentChatMessage {
   drop_reason?: { code: string; message: string } | null;
 }
 
+export interface HelixChannel {
+  broadcaster_id: string;
+  title: string;
+}
+
+export interface HelixStreamMarker {
+  id: string;
+  created_at: string;
+  position_seconds: number;
+  description: string;
+}
+
+export interface HelixVideo {
+  id: string;
+  url: string;
+  created_at: string;
+  type: string;
+}
+
+export interface HelixClip {
+  id: string;
+  url?: string;
+}
+
 /** The part of Helix the EventSub client needs (fakeable in tests). */
 export interface EventSubApi {
   createEventSubSubscription(
@@ -169,5 +193,52 @@ export class HelixClient implements EventSubApi {
     const sent = res?.data?.[0];
     if (!sent) throw new HelixError(502, "Chat message response had no data");
     return sent;
+  }
+
+  // ── channel, markers, videos, clips (see the README's "Twitch integration") ──
+
+  /** GET /channels — no scope needed. */
+  async getChannel(broadcasterId: string): Promise<HelixChannel | null> {
+    const res = await this.request<{ data: HelixChannel[] }>("GET", `/channels?broadcaster_id=${encodeURIComponent(broadcasterId)}`);
+    return res?.data?.[0] ?? null;
+  }
+
+  /** PATCH /channels (channel:manage:broadcast); Twitch answers 204. */
+  async setChannelTitle(broadcasterId: string, title: string): Promise<void> {
+    await this.request<unknown>("PATCH", `/channels?broadcaster_id=${encodeURIComponent(broadcasterId)}`, { title });
+  }
+
+  /** POST /streams/markers (channel:manage:broadcast); 404 while the channel is offline. */
+  async createStreamMarker(userId: string, description: string): Promise<HelixStreamMarker> {
+    const res = await this.request<{ data: HelixStreamMarker[] }>("POST", "/streams/markers", { user_id: userId, description });
+    const m = res?.data?.[0];
+    if (!m) throw new HelixError(502, "Stream marker response had no data");
+    return m;
+  }
+
+  /** Newest past broadcast (GET /videos?type=archive&first=1); null if there is none. */
+  async getLatestArchive(userId: string): Promise<HelixVideo | null> {
+    const res = await this.request<{ data: HelixVideo[] }>(
+      "GET",
+      `/videos?user_id=${encodeURIComponent(userId)}&type=archive&first=1`,
+    );
+    return res?.data?.[0] ?? null;
+  }
+
+  /** POST /clips (clips:edit); 202 with the new clip's id while Twitch processes it. */
+  async createClip(broadcasterId: string): Promise<{ id: string; edit_url: string }> {
+    const res = await this.request<{ data: { id: string; edit_url: string }[] }>(
+      "POST",
+      `/clips?broadcaster_id=${encodeURIComponent(broadcasterId)}`,
+    );
+    const c = res?.data?.[0];
+    if (!c?.id) throw new HelixError(502, "Clip response had no data");
+    return c;
+  }
+
+  /** GET /clips?id= — null until Twitch finished creating the clip. */
+  async getClip(id: string): Promise<HelixClip | null> {
+    const res = await this.request<{ data: HelixClip[] }>("GET", `/clips?id=${encodeURIComponent(id)}`);
+    return res?.data?.[0] ?? null;
   }
 }

@@ -77,6 +77,7 @@ export function makeRound(phase: RoundPhase, extra: Partial<Round> = {}): Round 
     winnerId: ["voting", "collecting"].includes(phase) ? null : "i2",
     task: ["awaiting_approval", "executing", "done", "rejected"].includes(phase) ? { ...task } : null,
     execution: null,
+    markers: [],
     ...extra,
   };
 }
@@ -92,6 +93,8 @@ export function makeState(round: Round | null, extra: Partial<LiveState> = {}): 
       reconnects: 0,
       error: null,
       canReply: true,
+      scopes: ["user:read:chat", "user:write:chat", "channel:manage:broadcast", "clips:edit"],
+      missingScopes: [],
     },
     settings: {
       ideaCooldownSec: 30,
@@ -103,6 +106,9 @@ export function makeState(round: Round | null, extra: Partial<LiveState> = {}): 
       executorEnabled: true,
       voteEligibility: "everyone",
       ideaEligibility: "everyone",
+      autoTitle: true,
+      streamMarkers: true,
+      autoClip: true,
     },
     round,
     activity: [

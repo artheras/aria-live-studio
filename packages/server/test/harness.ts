@@ -19,11 +19,32 @@ export interface FetchCall {
   body: string;
 }
 
+export const ALL_SCOPES = ["user:read:chat", "user:write:chat", "channel:manage:broadcast", "clips:edit"];
+
 export class FakeTwitch {
   calls: FetchCall[] = [];
   login = "streamer";
   scopes = ["user:read:chat", "user:write:chat"];
   validateStatus = 200;
+  // ── simulated channel (Helix /channels, /streams/markers, /videos, /clips) ──
+  /** Whether the channel is broadcasting: markers and clips need it. */
+  live = true;
+  streamStartedAt = Date.now() - 3_723_000; // 1h 2m 3s ago
+  title = "Chill coding stream";
+  /** Status forced for /channels calls (e.g. 500), or 0 for normal answers. */
+  channelsStatus = 0;
+  markers: { id: string; created_at: string; position_seconds: number; description: string }[] = [];
+  /** Archive VOD of the current broadcast; null = none. */
+  vod: { id: string; url: string; created_at: string; type: string } | null = {
+    id: "v77",
+    url: "https://www.twitch.tv/videos/77",
+    created_at: new Date(this.streamStartedAt).toISOString(),
+    type: "archive",
+  };
+  clips: string[] = [];
+  /** GET /clips returns nothing for this many polls after a clip was created. */
+  clipPollsUntilReady = 1;
+  private clipPolls = new Map<string, number>();
   fetch = async (input: string | URL | Request, init: RequestInit = {}): Promise<Response> => {
     const url = String(input);
     const headers = Object.fromEntries(new Headers(init.headers).entries());
@@ -39,9 +60,49 @@ export class FakeTwitch {
     }
     if (url.endsWith("/oauth2/revoke")) return new Response(null, { status: 200 });
     if (url.includes("/helix/users")) return json(200, { data: [{ id: "1337", login: this.login, display_name: "StreamerName" }] });
+    const method = init.method ?? "GET";
+    const offline = () => json(404, { error: "Not Found", status: 404, message: "The broadcaster must be live" });
+    if (url.includes("/helix/channels?")) {
+      if (this.channelsStatus) return json(this.channelsStatus, { status: this.channelsStatus, message: "channel trouble" });
+      if (method === "GET") return json(200, { data: [{ broadcaster_id: "1337", broadcaster_login: this.login, title: this.title }] });
+      if (method === "PATCH") {
+        if (!this.scopes.includes("channel:manage:broadcast")) return json(401, { message: "Missing scope" });
+        this.title = (JSON.parse(body) as { title: string }).title;
+        return new Response(null, { status: 204 });
+      }
+    }
+    if (url.endsWith("/helix/streams/markers") && method === "POST") {
+      if (!this.live) return offline();
+      const { description } = JSON.parse(body) as { description: string };
+      const m = {
+        id: `m${this.markers.length + 1}`,
+        created_at: new Date().toISOString(),
+        position_seconds: Math.floor((Date.now() - this.streamStartedAt) / 1000),
+        description,
+      };
+      this.markers.push(m);
+      return json(200, { data: [m] });
+    }
+    if (url.includes("/helix/videos?")) return json(200, { data: this.vod ? [this.vod] : [], pagination: {} });
+    if (url.includes("/helix/clips?broadcaster_id=") && method === "POST") {
+      if (!this.live) return offline();
+      const id = `ClipSlug${this.clips.length + 1}`;
+      this.clips.push(id);
+      return json(202, { data: [{ id, edit_url: `https://clips.twitch.tv/${id}/edit` }] });
+    }
+    if (url.includes("/helix/clips?id=") && method === "GET") {
+      const id = new URL(url).searchParams.get("id")!;
+      const n = (this.clipPolls.get(id) ?? 0) + 1;
+      this.clipPolls.set(id, n);
+      const ready = this.clips.includes(id) && n > this.clipPollsUntilReady;
+      return json(200, { data: ready ? [{ id, url: `https://clips.twitch.tv/${id}` }] : [], pagination: {} });
+    }
     if (url.endsWith("/helix/chat/messages")) return json(200, { data: [{ message_id: `sent-${this.calls.length}`, is_sent: true, drop_reason: null }] });
     return json(404, { message: "not found" });
   };
+  helixCalls(path: string, method?: string): FetchCall[] {
+    return this.calls.filter((c) => c.url.includes(`/helix${path}`) && (!method || c.method === method));
+  }
   chatMessages(): string[] {
     return this.calls.filter((c) => c.url.endsWith("/chat/messages")).map((c) => (JSON.parse(c.body) as { message: string }).message);
   }
@@ -99,7 +160,7 @@ export interface Harness {
   close(): Promise<void>;
 }
 
-export async function startHarness(env: Record<string, string> = {}, opts: { webDist?: string; login?: boolean } = {}): Promise<Harness> {
+export async function startHarness(env: Record<string, string> = {}, opts: { webDist?: string; login?: boolean; scopes?: string[] } = {}): Promise<Harness> {
   const dir = mkdtempSync(join(tmpdir(), "aria-live-test-"));
   const config = loadConfig({
     DATA_DIR: dir,
@@ -112,6 +173,7 @@ export async function startHarness(env: Record<string, string> = {}, opts: { web
     ...env,
   });
   const twitch = new FakeTwitch();
+  if (opts.scopes) twitch.scopes = opts.scopes;
   const auth = new TwitchAuth(config, { fetch: twitch.fetch as typeof fetch });
   const helix = new HelixClient(config.twitch.apiBase, auth, { fetch: twitch.fetch as typeof fetch });
   const store = new Store(dir, 10);
@@ -126,6 +188,7 @@ export async function startHarness(env: Record<string, string> = {}, opts: { web
     executor,
     createEventSub: () => null,
     voteReplyDelayMs: 20,
+    twitchExtras: { clipPollMs: 10, clipWaitMs: 300 },
   });
   const app = createApp({ config, auth, service, store, webDist: opts.webDist });
   const port = await app.listen(0, "127.0.0.1");
