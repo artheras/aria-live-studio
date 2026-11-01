@@ -151,9 +151,22 @@ claude plugin install aria-live@aria-live-studio
 Or add only the MCP server:
 `claude mcp add aria-live -e ARIA_LIVE_TOKEN=<token> -- node /path/to/aria-live-studio/plugin/mcp/aria-live-mcp.mjs`
 
-**Codex**: append [`plugin/codex.toml`](plugin/codex.toml) to `~/.codex/config.toml`
-(fix the path and token), and copy the skill:
+**Codex** installs the same plugin from this repository (MCP server, both
+skills and the progress hook):
+
+```sh
+export ARIA_LIVE_TOKEN=<agent token>   # and ARIA_LIVE_URL if not http://localhost:3000
+codex plugin marketplace add artheras/aria-live-studio
+codex plugin add aria-live@aria-live-studio
+```
+
+Codex asks you to review the plugin's hook before it runs. Without the hook,
+the agent still reports milestones with `live_report_progress`. Without the
+plugin, append [`plugin/codex.toml`](plugin/codex.toml) to
+`~/.codex/config.toml` (fix the path and token) and copy the skill:
 `cp -r skills/aria-live ~/.codex/skills/`.
+`node scripts/check-codex-plugin.mjs` installs the plugin into a throwaway
+Codex home and checks the tools, hook and skills Codex loads. CI runs it too.
 
 **Aria Code**: `/skills add artheras/aria-live-studio`, then merge
 [`plugin/mcp.json`](plugin/mcp.json) into `~/.aria-code/mcp_servers.json`
@@ -179,13 +192,14 @@ The Codex snippet needs a Codex version with streamable HTTP MCP support.
 `/mcp` refuses a missing or wrong token (401) and a browser `Origin` other than
 the app's own (403).
 
-**Progress hook (Claude Code only).** The plugin adds a `PostToolUse` hook
+**Progress hook (Claude Code and Codex).** The plugin adds a `PostToolUse` hook
 (`plugin/hooks/report-progress.mjs`). While a task is claimed, it posts one line
 such as "Edited boss.js", "Wrote hud.ts", "Ran tests" or "Ran a command" to the
 overlay after edits and shell commands. It never sends command text or file
 contents. It sends at most one line every 3 s, runs only when `ARIA_LIVE_TOKEN`
 is set in your shell, and does nothing when no task is claimed. It never blocks
-or fails the agent. Codex and Aria Code have no such hook: they report progress
+or fails the agent. In Codex it also reads `apply_patch` ("Edited game.js",
+"Added pause.js and 1 more"). Aria Code has no hooks, so it reports progress
 with `live_report_progress`.
 
 Then, in the agent, in your game's repository: *"Build what chat voted for."*
@@ -243,7 +257,7 @@ server with one of three roles. Copy each URL, key and token from the dashboard
 | **Claude Desktop** | `aria-live.mcpb` (double-click), plus optionally the skill zip | cohost (default), streamer or agent, set in the bundle's settings | co-host, round controls (streamer), or build (agent) |
 | **Claude.ai / Claude mobile** | custom connector, plus upload `aria-live-cohost.zip` | co-host or streamer URL on a public HTTPS `PUBLIC_URL` | co-host from the browser. The mobile apps use the connectors and skills of your account. |
 | **ChatGPT** | developer-mode connector | co-host or streamer URL on a public HTTPS `PUBLIC_URL` | co-host |
-| **Codex** | [`plugin/codex.toml`](plugin/codex.toml), plus `cp -r skills/aria-live ~/.codex/skills/` | agent, through the stdio bridge, or `url` + `bearer_token_env_var` to `/mcp` | build |
+| **Codex** | `codex plugin add aria-live@aria-live-studio` (or [`plugin/codex.toml`](plugin/codex.toml)) | agent, through the stdio bridge, or `url` + `bearer_token_env_var` to `/mcp` | build, with the progress hook. The co-host skill is included. |
 
 Claude.ai, mobile and ChatGPT connect from the internet, so they need a public
 HTTPS address for the server. See
@@ -537,8 +551,8 @@ npm run typecheck
 | `packages/web` | streamer dashboard, OBS overlay, session history (React + Vite) |
 | `packages/mcp` | MCP bridge for coding agents, and the stdio ↔ remote proxy for the Claude Desktop bundle |
 | `skills/` | the `aria-live` and `aria-live-cohost` skills (canonical) |
-| `plugin/` | Claude Code plugin (skills mirrored from `skills/`), Codex and Aria Code configs |
-| `.claude-plugin/` | marketplace for Claude Code and Aria Code, and the Aria skills lock |
+| `plugin/` | One plugin for Claude Code (`.claude-plugin/`, `.mcp.json`) and Codex (`.codex-plugin/`, `codex.mcp.json`): MCP bridge, progress hook, skills mirrored from `skills/`; plus `codex.toml` and the Aria Code `mcp.json` |
+| `.claude-plugin/` | marketplace for Claude Code, Codex and Aria Code, and the Aria skills lock |
 | `bundles/claude-desktop/` | `.mcpb` manifest. `scripts/package-*.mjs` build the bundle and the skill zips into `dist/`. |
 
 ## Roadmap

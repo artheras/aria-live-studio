@@ -58,7 +58,7 @@ function runHook(input: unknown, env: Record<string, string> = {}, stamp = join(
 
 const bash = (command: string) => ({ hook_event_name: "PostToolUse", tool_name: "Bash", tool_input: { command } });
 
-describe("Claude Code progress hook", () => {
+describe("progress hook (Claude Code and Codex)", () => {
   it("posts a fixed phrase, never the command text or file contents", async () => {
     const cases: [unknown, string][] = [
       [{ tool_name: "Edit", tool_input: { file_path: "/home/me/game/src/boss.js", old_string: "SECRET_OLD", new_string: "SECRET_NEW" } }, "Edited boss.js"],
@@ -81,6 +81,27 @@ describe("Claude Code progress hook", () => {
     expect(hits).toHaveLength(cases.length);
     expect(hits.every((h) => h.path === "/api/agent/progress/current" && h.auth === "Bearer tok")).toBe(true);
     expect(JSON.stringify(hits)).not.toMatch(/SECRET|curl|example\.com|\/home\/me/);
+  });
+
+  it("understands Codex apply_patch and shell calls, without leaking patch contents", async () => {
+    const patch = (body: string) => ({ hook_event_name: "PostToolUse", tool_name: "apply_patch", tool_input: { command: body }, tool_response: {} });
+    const cases: [unknown, string][] = [
+      [patch("*** Begin Patch\n*** Update File: /home/me/game/src/game.js\n@@\n-SECRET_OLD\n+SECRET_NEW\n*** End Patch"), "Edited game.js"],
+      [patch("*** Begin Patch\n*** Add File: src/pause.js\n+export const SECRET = 1;\n*** Update File: src/game.js\n@@\n+x\n*** End Patch"), "Added pause.js and 1 more"],
+      [patch("*** Begin Patch\n*** Delete File: src/old.js\n*** End Patch"), "Deleted old.js"],
+      [patch("*** Begin Patch\n*** Update File: config/.env\n+TOKEN=SECRET\n*** End Patch"), "Edited a file"],
+      [{ hook_event_name: "PostToolUse", tool_name: "Bash", tool_input: { command: "npm test -- SECRET" }, tool_response: {} }, "Ran tests"],
+    ];
+    for (const [input, text] of cases) {
+      const r = await runHook(input);
+      expect(r).toMatchObject({ code: 0, stdout: "" });
+      expect(hits.at(-1)?.body).toEqual({ kind: "tool", text });
+    }
+    expect(hits).toHaveLength(cases.length);
+    expect(JSON.stringify(hits)).not.toMatch(/SECRET|\/home\/me/);
+    // A patch without file headers is skipped.
+    await runHook(patch("not a patch"));
+    expect(hits).toHaveLength(cases.length);
   });
 
   it("rate limits to one report per 3 s per stamp file", async () => {

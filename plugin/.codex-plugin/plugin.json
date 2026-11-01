@@ -1,0 +1,30 @@
+{
+  "name": "aria-live",
+  "version": "0.1.0",
+  "description": "Build what your Twitch chat votes for: wait for the streamer-approved task, claim it, report progress to the stream overlay and finish it.",
+  "author": { "name": "Xindi Wang", "url": "https://github.com/artheras" },
+  "homepage": "https://github.com/artheras/aria-live-studio",
+  "repository": "https://github.com/artheras/aria-live-studio",
+  "license": "Apache-2.0",
+  "keywords": ["twitch", "live", "streaming", "mcp", "community"],
+  "skills": "./skills/",
+  "hooks": "./hooks/hooks.json",
+  "mcpServers": "./codex.mcp.json",
+  "interface": {
+    "displayName": "Aria Live",
+    "shortDescription": "Build what your Twitch chat votes for, live",
+    "longDescription": "Twitch viewers pitch ideas with !idea and vote with !vote. The streamer approves the winning task on the Aria Live dashboard; Codex waits for it, claims it, builds it in your repository and every milestone shows on the stream overlay. Codex can never approve a task itself, and viewer text is treated as untrusted input.",
+    "developerName": "Xindi Wang",
+    "category": "Developer Tools",
+    "capabilities": ["Interactive", "Write"],
+    "websiteURL": "https://github.com/artheras/aria-live-studio",
+    "defaultPrompt": [
+      "Build the task my Twitch chat voted for",
+      "What is my Aria Live round doing right now?"
+    ],
+    "brandColor": "#A77BFF",
+    "composerIcon": "./assets/icon.png",
+    "logo": "./assets/icon.png",
+    "screenshots": ["./assets/screenshot-overlay.png", "./assets/screenshot-dashboard.png"]
+  }
+}

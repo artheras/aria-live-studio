@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "aria-live": {
+      "command": "node",
+      "args": ["./mcp/aria-live-mcp.mjs"],
+      "cwd": ".",
+      "env_vars": ["ARIA_LIVE_URL", "ARIA_LIVE_TOKEN"],
+      "startup_timeout_sec": 20,
+      "tool_timeout_sec": 660
+    }
+  }
+}

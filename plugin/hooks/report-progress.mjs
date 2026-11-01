@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 /**
- * Claude Code PostToolUse hook: tells the stream overlay what the agent just
- * did ("Edited game.js", "Ran tests") while it holds an Aria Live task.
+ * PostToolUse hook for Claude Code and Codex: tells the stream overlay what
+ * the agent just did ("Edited game.js", "Ran tests") while it holds an Aria
+ * Live task. Claude Code reports Write/Edit/MultiEdit/Bash; Codex reports
+ * Bash and apply_patch, both with the text in tool_input.command.
  *
  * - Runs only if ARIA_LIVE_TOKEN is set; posts to ARIA_LIVE_URL
  *   (default http://localhost:3000) /api/agent/progress/current, which
@@ -34,10 +36,21 @@ function fileName(path) {
   return name.length > 60 ? `${name.slice(0, 59)}…` : name;
 }
 
+/** "Edited game.js", "Added pause.js and 1 more" from a Codex apply_patch body. */
+function describePatch(patch) {
+  if (typeof patch !== "string") return null;
+  const files = [...patch.matchAll(/^\*\*\* (Add|Update|Delete) File: (.+)$/gm)].map((m) => ({ op: m[1], path: m[2].trim() }));
+  if (!files.length) return null;
+  const verb = { Add: "Added", Update: "Edited", Delete: "Deleted" }[files[0].op];
+  const more = files.length > 1 ? ` and ${files.length - 1} more` : "";
+  return `${verb} ${fileName(files[0].path)}${more}`;
+}
+
 /** The one line shown on stream for a tool call, or null to skip it. */
 function describe(input) {
   const tool = input?.tool_name;
   const args = input?.tool_input ?? {};
+  if (tool === "apply_patch") return describePatch(args.command ?? args.input ?? args.patch);
   if (tool === "Edit" || tool === "MultiEdit") return `Edited ${fileName(args.file_path)}`;
   if (tool === "Write") return `Wrote ${fileName(args.file_path)}`;
   if (tool === "Bash") return TEST_RUNNER.test(String(args.command ?? "")) ? "Ran tests" : "Ran a command";

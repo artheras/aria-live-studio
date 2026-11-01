@@ -23,3 +23,18 @@ jobs:
         run: |
           npm run build:plugin --workspace @aria-live/mcp
           git diff --exit-code -- plugin/mcp/aria-live-mcp.mjs
+
+  codex-plugin:
+    # Installs plugin/ into the real Codex CLI and checks the MCP tools, the
+    # progress hook and the skills it loads (no OpenAI account needed).
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-save --prefix "$RUNNER_TEMP/codex" @openai/codex@0.166.0
+      - run: node scripts/check-codex-plugin.mjs
+        env:
+          CODEX_BIN: ${{ runner.temp }}/codex/node_modules/.bin/codex
