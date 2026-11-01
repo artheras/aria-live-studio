@@ -962,6 +962,7 @@ async function phaseB() {
     check(history[2].execution?.status === "succeeded" && history[1].execution?.status === "cancelled", "history records succeeded / cancelled");
     if (shots) await shots.history();
     if (shots) await shots.phase("idle-after");
+    await phaseBModCommands({ api, chat, waitState, twitch });
   } finally {
     await aria.stop();
   }
@@ -985,6 +986,65 @@ async function phaseB() {
   } finally {
     await again.stop();
   }
+}
+
+// ── Phase B (part 2): moderator chat commands + eligibility ────────────────
+// Kept in its own function so other phase B additions do not conflict with it.
+
+async function phaseBModCommands({ api, chat, waitState, twitch }) {
+  section("Phase B — moderator chat commands, +1 by number, subscriber-only vote");
+  const MOD = { badges: [{ set_id: "moderator", id: "1", info: "" }] };
+  const SUB = { badges: [{ set_id: "subscriber", id: "12", info: "12" }] };
+  await api.patch("/api/settings", { voteEligibility: "subscribers", voteDurationSec: 120 });
+
+  await chat("bytebard", "!aria open Viewers cannot do this");
+  await sleep(300);
+  check((await api.state()).round === null, "a viewer's !aria open is ignored");
+
+  await chat("mod_marta", "!aria open Movement upgrades", MOD);
+  let s = await waitState("mod opened a round", (x) => x.round?.phase === "collecting");
+  check(s.round.prompt === "Movement upgrades" && s.activity.some((a) => a.text === `Round ${s.round.index} opened by @mod_marta: Movement upgrades`), "moderator opened a round via chat; activity names the mod");
+
+  await chat("pixelpatty", "!idea Grappling hook");
+  await chat("bytebard", "!idea Wall jump");
+  await chat("jumpjules", "!idea +2");
+  await chat("nova_kid", "!+1 2");
+  await chat("bytebard", "!+1 2"); // own idea: not counted
+  s = await waitState("+1 by number", (x) => x.round.ideas.length === 2 && x.round.ideas[1].seconds === 2);
+  check(s.round.ideas[1].seconds === 2, "viewers +1'd idea #2 by number (own +1 not counted)");
+
+  await chat("mod_marta", "!aria vote", MOD);
+  s = await waitState("mod started the vote", (x) => x.round.phase === "voting");
+  const wallJump = s.round.tallies.find((t) => s.round.ideas.find((i) => i.id === t.ideaId)?.text === "Wall jump");
+  check(wallJump?.number === 1, "most +1'd idea is ballot #1");
+  const endsAt = s.round.votingEndsAt;
+  await chat("mod_marta", "!aria extend 30", MOD);
+  s = await waitState("vote extended", (x) => x.round.votingEndsAt === endsAt + 30_000);
+  check(s.activity.some((a) => a.text === "Voting extended by 30s by @mod_marta"), "moderator extended the vote by 30s");
+
+  await sleep(2100); // let the reply limiter's 2 s gap pass
+  const before = twitch.rec.chat.length;
+  await chat("renee_dev", "!vote 1");
+  await chat("renee_dev", "!vote 2");
+  await chat("quietquinn", "!vote 1", SUB);
+  s = await waitState("subscriber vote counted", (x) => x.round.voters === 1 && x.round.ineligible === 2);
+  check(s.round.voters === 1 && s.round.tallies[0].votes === 1 && s.round.ineligible === 2, "subscriber-only vote: non-sub refused (counted as ineligible), sub accepted");
+  await waitFor("ineligible reply", () => twitch.rec.chat.length > before, { timeout: 3000 }).catch(() => {});
+  const replies = twitch.rec.chat.slice(before).map((m) => m.message);
+  check(replies.filter((m) => m.includes("@renee_dev")).length === 1 && replies.some((m) => /only subscribers can vote/.test(m)), "non-sub told once: only subscribers can vote", replies);
+
+  await chat("pixelpatty", "!aria close");
+  await sleep(300);
+  check((await api.state()).round.phase === "voting", "a viewer's !aria close is ignored");
+  await chat("mod_marta", "!aria close", MOD);
+  s = await waitState("mod closed the vote", (x) => x.round.phase === "decided");
+  const winner = s.round.ideas.find((i) => i.id === s.round.winnerId);
+  check(winner?.text === "Wall jump" && s.activity.some((a) => a.text === "Voting closed by @mod_marta"), "moderator closed the vote via chat: wall jump wins");
+  await chat("mod_marta", "!aria approve", MOD);
+  await sleep(300);
+  s = await api.state();
+  check(s.round.phase === "decided" && s.round.task === null, "a moderator's !aria approve changes nothing");
+  await api.patch("/api/settings", { voteEligibility: "everyone" });
 }
 
 // ── Phase C: screenshots (production build) ─────────────────────────────────
