@@ -34,6 +34,8 @@ result.**
 - **Agents cannot approve.** Coding agents use a separate agent token. With it
   they can read the round, claim an approved task, report progress and finish
   the task. There is no API or tool for approving, rejecting or voting.
+- **Chat assistants are read-only.** The co-host MCP URL (for ChatGPT or
+  Claude.ai) only has tools that read the round, its ideas and history.
 - **Viewer text is untrusted.** Ideas are sanitised (no links, no control or
   bidi characters, length limits). In every prompt they are quoted as untrusted
   data, so "ignore your instructions…" in chat is built as text, not obeyed.
@@ -153,7 +155,60 @@ Or add only the MCP server:
 `~/.aria-code/mcp_servers.json` (fix the path and token), and copy
 `plugin/skills/aria-live` into your skills folder.
 
+**Remote (URL), no local bridge.** The server also speaks MCP over Streamable
+HTTP at `PUBLIC_URL/mcp`, with the agent token as a bearer token (the panel's
+**Remote (URL)** tab has the snippets):
+
+```sh
+claude mcp add --transport http aria-live http://localhost:3000/mcp --header "Authorization: Bearer <agent token>"
+```
+
+```toml
+# ~/.codex/config.toml, with ARIA_LIVE_TOKEN exported in your shell
+[mcp_servers.aria-live]
+url = "http://localhost:3000/mcp"
+bearer_token_env_var = "ARIA_LIVE_TOKEN"
+tool_timeout_sec = 660
+```
+
+The Codex snippet needs a Codex version with streamable HTTP MCP support.
+`/mcp` refuses a missing or wrong token (401) and a browser `Origin` other than
+the app's own (403).
+
+**Progress hook (Claude Code only).** The plugin adds a `PostToolUse` hook
+(`plugin/hooks/report-progress.mjs`). While a task is claimed, it posts one line
+such as "Edited boss.js", "Wrote hud.ts", "Ran tests" or "Ran a command" to the
+overlay after edits and shell commands. It never sends command text or file
+contents. It sends at most one line every 3 s, runs only when `ARIA_LIVE_TOKEN`
+is set in your shell, and does nothing when no task is claimed. It never blocks
+or fails the agent. Codex and Aria Code have no such hook: they report progress
+with `live_report_progress`.
+
 Then, in the agent, in your game's repository: *"Build what chat voted for."*
+
+## Use ChatGPT or Claude as a co-host
+
+Give a chat assistant the **co-host URL** (dashboard → Connect a coding agent →
+Remote (URL) → Co-host). It is `PUBLIC_URL/mcp/cohost/<COHOST_KEY>` and needs no
+other auth.
+
+- **ChatGPT**: Settings → Connectors → Developer mode → Create connector →
+  paste the URL, no authentication.
+- **Claude.ai**: Settings → Connectors → Add custom connector → paste the URL.
+
+It has four read-only tools: `live_status`, `live_ideas` (every visible idea
+this round with ballot number, author, +1s and votes), `live_history` (recent
+rounds) and `live_activity_digest` (counts and the top ideas by +1s). Use it to
+summarise what chat wants, decide how to frame the vote and draft round recaps.
+It **cannot** open rounds, vote, hide ideas, approve tasks or run builds. Idea
+texts are marked as untrusted viewer input.
+
+The URL must be reachable from the internet over HTTPS. For a quick tunnel, run
+`cloudflared tunnel --url http://localhost:3000`, set `PUBLIC_URL` to the
+tunnel URL and restart the server. **Treat the co-host URL as a secret.** It
+cannot change anything, but it does show idea texts and author names. To revoke
+it, set a new `COHOST_KEY`, or delete `cohostKey` from `DATA_DIR/secrets.json`
+and restart.
 
 ## Local end-to-end test
 
