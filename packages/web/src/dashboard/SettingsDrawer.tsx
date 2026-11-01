@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ELIGIBILITY_LABEL, type Eligibility, type Settings } from "@aria-live/shared";
+import { ELIGIBILITY_LABEL, FEATURE_SCOPE, type Eligibility, type Settings } from "@aria-live/shared";
 import type { AriaApi, Me } from "../lib/api";
 import { Btn, useActions } from "./actions";
 
@@ -24,7 +24,28 @@ const ELIGIBILITY_HINT: Record<Eligibility, string> = {
   vip_mod: "VIPs and moderators only (and you)",
 };
 
-export function SettingsForm({ settings, me, api, onDone }: { settings: Settings; me: Me; api: AriaApi; onDone: () => void }) {
+type TwitchKey = keyof typeof FEATURE_SCOPE;
+
+const TWITCH_FIELDS: { key: TwitchKey; label: string; hint: string }[] = [
+  { key: "autoTitle", label: "Stream title", hint: "“Building live: <task> · voted by chat” while it's built, then your title back" },
+  { key: "streamMarkers", label: "Stream markers", hint: "At round open, vote, winner and build start/end — linked in History" },
+  { key: "autoClip", label: "Clip successful builds", hint: "Clips the last ~30 s and posts the link in chat" },
+];
+
+export function SettingsForm({
+  settings,
+  me,
+  api,
+  onDone,
+  missingScopes = [],
+}: {
+  settings: Settings;
+  me: Me;
+  api: AriaApi;
+  onDone: () => void;
+  /** Connection.missingScopes: features needing them are disabled until the streamer reconnects. */
+  missingScopes?: string[];
+}) {
   const { run, isPending } = useActions();
   const [draft, setDraft] = useState<Settings>(settings);
   useEffect(() => setDraft(settings), [settings]);
@@ -84,6 +105,30 @@ export function SettingsForm({ settings, me, api, onDone }: { settings: Settings
           <small className="muted"> — acknowledge ideas and votes (rate limited)</small>
         </span>
       </label>
+      <fieldset className="field field--group">
+        <legend>Twitch</legend>
+        {TWITCH_FIELDS.map((f) => {
+          const missing = missingScopes.includes(FEATURE_SCOPE[f.key]);
+          return (
+            <label key={f.key} className="switch switch--row">
+              <input
+                type="checkbox"
+                checked={draft[f.key] && !missing}
+                disabled={missing}
+                onChange={(e) => setDraft({ ...draft, [f.key]: e.target.checked })}
+              />
+              <span>
+                {f.label}
+                <small className="muted">
+                  {" "}
+                  — {missing ? `reconnect Twitch to allow it (needs ${FEATURE_SCOPE[f.key]})` : f.hint}
+                </small>
+              </span>
+            </label>
+          );
+        })}
+        <small className="muted">Markers and clips only work while you're live.</small>
+      </fieldset>
       <div className="field">
         <span>Built-in executor</span>
         {me.executor.ok ? (

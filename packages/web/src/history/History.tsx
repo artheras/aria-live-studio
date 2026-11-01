@@ -16,6 +16,20 @@ const EXEC_TONE: Record<string, string> = {
   queued: "info",
 };
 
+/** "Aria round 3: build succeeded" → "build succeeded" */
+function markerChip(label: string): string {
+  return label.replace(/^Aria round \d+:?\s*/, "") || label;
+}
+
+/** 3723 → "1:02:03" */
+function clock(sec: number): string {
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = Math.floor(sec % 60);
+  const mm = String(m).padStart(h ? 2 : 1, "0");
+  return `${h ? `${h}:` : ""}${mm}:${String(s).padStart(2, "0")}`;
+}
+
 export function HistoryCard({ r }: { r: RoundSummary }) {
   return (
     <article className="hcard">
@@ -62,7 +76,32 @@ export function HistoryCard({ r }: { r: RoundSummary }) {
           <span className={`pill pill--${EXEC_TONE[r.execution.status] ?? "info"}`}>{r.execution.status}</span>
           {r.execution.branch && <code>{r.execution.branch}</code>}
           <span className="muted">{r.execution.changedFiles.length} files</span>
+          {r.execution.clipUrl && (
+            <a className="chip chip--clip" href={r.execution.clipUrl} target="_blank" rel="noreferrer">
+              Clip
+            </a>
+          )}
           {r.execution.summary && <p className="hcard__summary">{r.execution.summary}</p>}
+        </div>
+      )}
+      {r.markers && r.markers.length > 0 && (
+        <div className="hcard__markers" aria-label="Stream markers">
+          {r.markers.map((m, i) =>
+            m.url ? (
+              <a key={i} className="chip" href={m.url} target="_blank" rel="noreferrer" title={m.label}>
+                {markerChip(m.label)} · {clock(m.positionSeconds)}
+              </a>
+            ) : (
+              <span key={i} className="chip chip--muted" title={`${m.label} (no VOD found)`}>
+                {markerChip(m.label)} · {clock(m.positionSeconds)}
+              </span>
+            ),
+          )}
+          {r.vodUrl && (
+            <a className="hcard__vod muted" href={r.vodUrl} target="_blank" rel="noreferrer">
+              VOD
+            </a>
+          )}
         </div>
       )}
     </article>

@@ -214,6 +214,7 @@ function OverlayCard({ state, now }: { state: LiveState; now: number }) {
           {ex && (
             <p className="ov-counter">
               <b>{ex.changedFiles.length}</b> {ex.changedFiles.length === 1 ? "file" : "files"} changed
+              {ok && ex.clipUrl && <span className="ov-clip"> · Clip saved</span>}
             </p>
           )}
         </div>

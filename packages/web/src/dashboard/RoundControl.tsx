@@ -142,6 +142,16 @@ function Outcome({ execution }: { execution: Execution }) {
           <dt>Changed files</dt>
           <dd className="num">{execution.changedFiles.length}</dd>
         </div>
+        {execution.clipUrl && (
+          <div>
+            <dt>Clip</dt>
+            <dd>
+              <a href={execution.clipUrl} target="_blank" rel="noreferrer">
+                Watch the clip
+              </a>
+            </dd>
+          </div>
+        )}
       </dl>
       {execution.changedFiles.length > 0 && (
         <ul className="files">

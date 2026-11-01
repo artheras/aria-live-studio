@@ -65,6 +65,7 @@ function DashboardInner({ state, live, me, api, clockOffset = 0, onLogout }: Das
           Twitch: {state.connection.error}
         </p>
       )}
+      <ScopeBanner connection={state.connection} />
       <StatsStrip stats={state.stats} />
       <main className="grid">
         <div className="grid__main">
@@ -86,12 +87,34 @@ function DashboardInner({ state, live, me, api, clockOffset = 0, onLogout }: Das
         </div>
       </main>
       <Drawer open={drawer === "settings"} title="Settings" onClose={close}>
-        <SettingsForm settings={state.settings} me={me} api={api} onDone={close} />
+        <SettingsForm
+          settings={state.settings}
+          me={me}
+          api={api}
+          onDone={close}
+          missingScopes={state.connection.state === "signed_out" ? [] : state.connection.missingScopes ?? []}
+        />
       </Drawer>
       <Drawer open={drawer === "agent"} title="Connect a coding agent" onClose={close} wide>
         <AgentPanel api={api} />
       </Drawer>
     </div>
+  );
+}
+
+/** Non-blocking: a token from before the extra scopes keeps chat working; this offers the re-consent. */
+export function ScopeBanner({ connection }: { connection: LiveState["connection"] }) {
+  const missing = connection.missingScopes ?? [];
+  if (connection.state === "signed_out" || missing.length === 0) return null;
+  return (
+    <p className="banner banner--info" role="status">
+      <span>
+        Reconnect Twitch to enable stream title, markers and clips <small className="muted">(missing {missing.join(", ")})</small>
+      </span>
+      <a className="btn btn--secondary btn--sm" href="/auth/twitch/login?force_verify=true">
+        Reconnect Twitch
+      </a>
+    </p>
   );
 }
 
