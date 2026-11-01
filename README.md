@@ -97,10 +97,23 @@ and viewer text is always quoted as untrusted input.
 
 | Command | Who | What it does |
 |---|---|---|
-| `!idea <text>` | anyone, while ideas are open | proposes a feature; sending the same idea again counts as a +1 |
-| `!vote <n>` | anyone, during the vote | votes for ballot number *n*; voting again changes your vote |
+| `!idea <text>` | eligible chatters, while ideas are open | proposes a feature; sending the same idea again counts as a +1 |
+| `!idea +<n>` or `!+1 <n>` | eligible chatters, while ideas are open | +1 idea #*n* (once per idea, not your own) |
+| `!vote <n>` | eligible chatters, during the vote | votes for ballot number *n*; voting again changes your vote |
 | `!ideas` | anyone | Aria replies with the current ballot or latest ideas |
-| `!aria` | anyone | help |
+| `!aria` | anyone | help (moderators also get the moderator commands) |
+| `!aria open [theme]` | moderators, broadcaster | opens a round when none is running (like **Open round** / **Next round**) |
+| `!aria vote` / `!aria close` | moderators, broadcaster | starts / closes the vote |
+| `!aria extend <5-300>` | moderators, broadcaster | adds seconds to a timed vote |
+| `!aria hide <n>` | moderators, broadcaster | hides idea #*n* while collecting, ballot #*n* while voting |
+
+"Eligible" is set per action in **Settings** (*Who can submit ideas*, *Who can
+vote*): everyone (default), subscribers (founders count), or VIPs & mods. VIPs,
+moderators and the broadcaster are always eligible. Ineligible attempts are
+counted on the dashboard, and each chatter is told at most once per round.
+Moderator commands from anyone else are ignored silently, and the activity feed
+names the moderator. Chat can never plan, approve, reject, run or cancel a
+build: `!aria approve` gets "Approvals happen on the dashboard".
 
 The streamer drives the round from the dashboard: **Open round → Start vote →
 Close vote → Plan with Aria → Approve → Build → Next round.**
