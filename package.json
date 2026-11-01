@@ -19,7 +19,8 @@
     "build": "npm run build --workspaces --if-present",
     "start": "npm run start --workspace @aria-live/server",
     "test": "npm run test --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "verify:twitch": "npm run verify:twitch --workspace @aria-live/server --"
   },
   "devDependencies": {
     "playwright-core": "^1.56.1"

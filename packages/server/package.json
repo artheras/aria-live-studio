@@ -7,7 +7,8 @@
     "dev": "tsx watch --env-file-if-exists=../../.env src/main.ts",
     "start": "tsx --env-file-if-exists=../../.env src/main.ts",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit -p ."
+    "typecheck": "tsc --noEmit -p .",
+    "verify:twitch": "tsx --env-file-if-exists=../../.env src/verify-twitch.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.3.0",
