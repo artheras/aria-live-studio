@@ -1,60 +1,103 @@
 import { useEffect, useRef } from "react";
 import type { LiveState } from "@aria-live/shared";
+import { truncate } from "../lib/time";
 
-interface Pulse {
+interface VoxelParticle {
   x: number;
   y: number;
   vx: number;
   vy: number;
+  size: number;
   color: string;
   life: number;
+  maxLife: number;
 }
 
-interface RingWave {
-  r: number;
-  maxR: number;
-  color: string;
-  alpha: number;
-}
+const ISO_X = 16;
+const ISO_Y = 8;
+const ISO_Z = 14;
 
-interface Spark {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  color: string;
-  life: number;
+/** Draw one 2.5D isometric voxel block at grid (gx, gy, gz). */
+function drawVoxel(
+  ctx: CanvasRenderingContext2D,
+  ox: number,
+  oy: number,
+  gx: number,
+  gy: number,
+  gz: number,
+  top: string,
+  left: string,
+  right: string,
+): void {
+  const sx = ox + (gx - gy) * ISO_X;
+  const sy = oy + (gx + gy) * ISO_Y - gz * ISO_Z;
+
+  // Top face
+  ctx.fillStyle = top;
+  ctx.beginPath();
+  ctx.moveTo(sx, sy - ISO_Y);
+  ctx.lineTo(sx + ISO_X, sy);
+  ctx.lineTo(sx, sy + ISO_Y);
+  ctx.lineTo(sx - ISO_X, sy);
+  ctx.closePath();
+  ctx.fill();
+
+  // Left face
+  ctx.fillStyle = left;
+  ctx.beginPath();
+  ctx.moveTo(sx - ISO_X, sy);
+  ctx.lineTo(sx, sy + ISO_Y);
+  ctx.lineTo(sx, sy + ISO_Y + ISO_Z);
+  ctx.lineTo(sx - ISO_X, sy + ISO_Z);
+  ctx.closePath();
+  ctx.fill();
+
+  // Right face
+  ctx.fillStyle = right;
+  ctx.beginPath();
+  ctx.moveTo(sx + ISO_X, sy);
+  ctx.lineTo(sx, sy + ISO_Y);
+  ctx.lineTo(sx, sy + ISO_Y + ISO_Z);
+  ctx.lineTo(sx + ISO_X, sy + ISO_Z);
+  ctx.closePath();
+  ctx.fill();
 }
 
 /**
- * Interactive geometric Boss Arena driven by real Twitch round & EventSub state.
- * Safe in headless/jsdom environments where 2D canvas context is unavailable.
+ * Lightweight 2.5D isometric voxel workshop driven by real Twitch round & Co-Builder state.
+ * Grows block-by-block as rounds ship; safe in headless/jsdom environments.
  */
 export function LiveStageCanvas({ state }: { state: LiveState }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stateRef = useRef(state);
-  const pulsesRef = useRef<Pulse[]>([]);
-  const wavesRef = useRef<RingWave[]>([]);
-  const sparksRef = useRef<Spark[]>([]);
+  const particlesRef = useRef<VoxelParticle[]>([]);
   const lastCelebrationIdRef = useRef<string | null>(null);
-  const pointerRef = useRef<{ x: number; y: number }>({ x: 140, y: 240 });
-  const hitsRef = useRef(0);
-  const tierRef = useRef(1);
-  const hpRef = useRef(25);
-  const maxHpRef = useRef(25);
 
   stateRef.current = state;
+
+  const spawnBurst = (cx: number, cy: number, color: string, count = 14) => {
+    for (let i = 0; i < count; i++) {
+      const ang = (i / count) * Math.PI * 2 + Math.random() * 0.4;
+      const spd = 1.2 + Math.random() * 2.6;
+      particlesRef.current.push({
+        x: cx,
+        y: cy,
+        vx: Math.cos(ang) * spd,
+        vy: Math.sin(ang) * spd - 1.4,
+        size: 3 + (i % 3),
+        color,
+        life: 36,
+        maxLife: 36,
+      });
+    }
+  };
 
   useEffect(() => {
     const latest = state.celebrations?.at(-1);
     if (!latest || latest.id === lastCelebrationIdRef.current) return;
     lastCelebrationIdRef.current = latest.id;
-    wavesRef.current.push({
-      r: 22,
-      maxR: 320,
-      color: latest.kind === "bits" || latest.kind === "channel_points" ? "#F5B942" : "#2FD48A",
-      alpha: 0.92,
-    });
+    const color = latest.kind === "bits" || latest.kind === "channel_points" ? "#F5B942" : "#B589FF";
+    spawnBurst(320, 145, color, 20);
   }, [state.celebrations]);
 
   useEffect(() => {
@@ -66,229 +109,166 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
     let raf = 0;
     let t = 0;
 
-    // Static ambient particles
-    const stars = Array.from({ length: 28 }, (_, i) => ({
-      x: ((i * 97) % 640),
-      y: ((i * 53) % 360),
-      speed: 0.15 + (i % 4) * 0.12,
-      size: i % 3 === 0 ? 1.5 : 1,
+    const motes = Array.from({ length: 24 }, (_, i) => ({
+      x: (i * 89) % 640,
+      y: 40 + ((i * 61) % 290),
+      speed: 0.25 + (i % 3) * 0.14,
+      size: i % 2 === 0 ? 3 : 2,
+      violet: i % 3 !== 0,
     }));
 
     const draw = () => {
-      t += 0.022;
+      t += 0.02;
       const w = canvas.width;
       const h = canvas.height;
-      const cx = w * 0.65;
-      const cy = h * 0.5;
+      const s = stateRef.current;
+      const phase = s.round?.phase ?? "idle";
+      const ideas = s.round?.ideas.filter((i) => !i.hidden) ?? [];
+      const coBuilders = s.coBuilders ?? [];
+      const totalShipped = coBuilders.reduce((sum, b) => sum + b.shipped, 0);
+      const level = Math.min(4, 1 + totalShipped + (s.stats.rounds > 0 ? 1 : 0));
 
-      ctx.fillStyle = "#08090e";
+      // Dusk gradient backdrop
+      const bg = ctx.createLinearGradient(0, 0, 0, h);
+      bg.addColorStop(0, "#121022");
+      bg.addColorStop(0.55, "#191530");
+      bg.addColorStop(1, "#0b0c12");
+      ctx.fillStyle = bg;
       ctx.fillRect(0, 0, w, h);
 
-      // Subtle radial core glow
-      const glow = ctx.createRadialGradient(cx, cy, 8, cx, cy, 175);
-      glow.addColorStop(0, "rgba(145, 70, 255, 0.22)");
-      glow.addColorStop(0.5, "rgba(145, 70, 255, 0.05)");
-      glow.addColorStop(1, "rgba(8, 9, 14, 0)");
+      // Soft warm horizon glow behind workshop
+      const glow = ctx.createRadialGradient(w * 0.5, h * 0.45, 20, w * 0.5, h * 0.48, 240);
+      glow.addColorStop(0, "rgba(145, 70, 255, 0.28)");
+      glow.addColorStop(0.55, "rgba(245, 185, 66, 0.08)");
+      glow.addColorStop(1, "rgba(11, 12, 18, 0)");
       ctx.fillStyle = glow;
       ctx.fillRect(0, 0, w, h);
 
-      // Precision 32px engineering grid
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.032)";
-      ctx.lineWidth = 1;
-      for (let gx = 0; gx < w; gx += 32) {
-        ctx.beginPath();
-        ctx.moveTo(gx, 0);
-        ctx.lineTo(gx, h);
-        ctx.stroke();
-      }
-      for (let gy = 0; gy < h; gy += 32) {
-        ctx.beginPath();
-        ctx.moveTo(0, gy);
-        ctx.lineTo(w, gy);
-        ctx.stroke();
+      // Floating voxel motes
+      for (const m of motes) {
+        m.y -= m.speed;
+        if (m.y < 10) m.y = h - 10;
+        ctx.fillStyle = m.violet ? "rgba(181, 137, 255, 0.36)" : "rgba(245, 185, 66, 0.3)";
+        ctx.fillRect(m.x, m.y, m.size, m.size);
       }
 
-      // Drifting ambient telemetry particles
-      ctx.fillStyle = "rgba(255, 255, 255, 0.22)";
-      for (const st of stars) {
-        st.x = (st.x + st.speed) % w;
-        ctx.fillRect(st.x, st.y, st.size, st.size);
+      const ox = w * 0.5;
+      const oy = h * 0.52 + Math.sin(t * 1.1) * 3;
+      let blockCount = 0;
+
+      // 1. Floating island stone/earth base + grass terrace (5x5)
+      for (let gx = -2; gx <= 2; gx++) {
+        for (let gy = -2; gy <= 2; gy++) {
+          const edge = Math.abs(gx) === 2 || Math.abs(gy) === 2;
+          if (!edge || (gx + gy) % 2 === 0) {
+            drawVoxel(ctx, ox, oy, gx, gy, -1, "#4b4657", "#363242", "#282532");
+            blockCount++;
+          }
+          drawVoxel(ctx, ox, oy, gx, gy, 0, "#4b835b", "#3a6547", "#2c4d36");
+          blockCount++;
+        }
       }
 
-      const s = stateRef.current;
-      const ideas = s.round?.ideas.filter((i) => !i.hidden) ?? [];
-      const phase = s.round?.phase ?? "idle";
+      // 2. Workshop stone foundation & walls (grows with level)
+      const wallHeight = level >= 2 ? 2 : 1;
+      for (let gz = 1; gz <= wallHeight; gz++) {
+        for (let gx = -1; gx <= 1; gx++) {
+          for (let gy = -1; gy <= 1; gy++) {
+            const isWindow = gz === 1 && ((gx === 0 && gy === 1) || (gx === 1 && gy === 0));
+            const top = isWindow ? "#b589ff" : "#77798a";
+            const left = isWindow ? "#9146ff" : "#5a5c6c";
+            const right = isWindow ? "#6b2cd4" : "#444654";
+            drawVoxel(ctx, ox, oy, gx, gy, gz, top, left, right);
+            blockCount++;
+          }
+        }
+      }
 
-      // Expanding shockwaves
-      wavesRef.current = wavesRef.current.filter((wave) => {
-        wave.r += 4.2;
-        wave.alpha *= 0.955;
-        ctx.strokeStyle = wave.color;
-        ctx.globalAlpha = Math.max(0, wave.alpha);
-        ctx.lineWidth = 1.5;
+      // 3. Timber pitched roof (unlocked at level >= 2)
+      if (level >= 2) {
+        const roofZ = wallHeight + 1;
+        for (let gx = -1; gx <= 1; gx++) {
+          for (let gy = -1; gy <= 1; gy++) {
+            drawVoxel(ctx, ox, oy, gx, gy, roofZ, "#c68b4b", "#9e6b36", "#7a5128");
+            blockCount++;
+          }
+        }
+        drawVoxel(ctx, ox, oy, 0, 0, roofZ + 1, "#d99f5e", "#b07a40", "#8a5c2e");
+        blockCount++;
+      }
+
+      // 4. Crystal spire when executing or level >= 3
+      if (level >= 3 || phase === "executing") {
+        const spireZ = wallHeight + 3;
+        const pulse = phase === "executing" ? "#2FD48A" : "#c79eff";
+        drawVoxel(ctx, ox, oy, 0, 0, spireZ, pulse, "#9146ff", "#6b2cd4");
+        blockCount++;
+      }
+
+      // 5. Co-Builder terrace flags & tree accent
+      drawVoxel(ctx, ox, oy, -2, 1, 1, "#5c422c", "#473220", "#362517");
+      drawVoxel(ctx, ox, oy, -2, 1, 2, "#3c7c4e", "#2d5e3b", "#22472d");
+      blockCount += 2;
+
+      if (coBuilders.length > 0) {
+        const flagSlots: [number, number][] = [
+          [2, -1],
+          [-1, 2],
+          [2, 1],
+        ];
+        coBuilders.slice(0, 3).forEach((b, idx) => {
+          const [fx, fy] = flagSlots[idx]!;
+          drawVoxel(ctx, ox, oy, fx, fy, 1, "#9146ff", "#7232d6", "#5824ad");
+          const sx = ox + (fx - fy) * ISO_X;
+          const sy = oy + (fx + fy) * ISO_Y - ISO_Z * 1.4;
+          ctx.font = "10px monospace";
+          ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+          ctx.fillText(`@${b.login}`, sx + 12, sy);
+        });
+      }
+
+      // 6. Floating chat !idea speech pills above the island
+      const shownIdeas = ideas.slice(-3);
+      shownIdeas.forEach((idea, idx) => {
+        const bx = w * (0.22 + idx * 0.27);
+        const by = 78 + (idx % 2) * 28 + Math.sin(t * 1.6 + idx * 1.7) * 4;
+        const label = `@${idea.author.login}: ${truncate(idea.text, 20)}`;
+        ctx.font = "11px monospace";
+        const tw = ctx.measureText(label).width;
+        const pw = tw + 16;
+        const ph = 22;
+
+        ctx.fillStyle = idea.boosts ? "rgba(245, 185, 66, 0.18)" : "rgba(18, 21, 32, 0.86)";
+        ctx.strokeStyle = idea.boosts ? "rgba(245, 185, 66, 0.7)" : "rgba(145, 70, 255, 0.65)";
+        ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.arc(cx, cy, wave.r, 0, Math.PI * 2);
+        ctx.roundRect(bx - pw / 2, by, pw, ph, 6);
+        ctx.fill();
         ctx.stroke();
-        ctx.globalAlpha = 1;
-        return wave.r < wave.maxR && wave.alpha > 0.03;
+
+        ctx.fillStyle = "#ffffff";
+        ctx.fillText(label, bx - tw / 2, by + 15);
       });
 
-      // Outer dashed orbital ring
-      ctx.save();
-      ctx.translate(cx, cy);
-      ctx.rotate(-t * 0.25);
-      ctx.setLineDash([4, 8]);
-      ctx.strokeStyle = "rgba(181, 137, 255, 0.28)";
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.arc(0, 0, 84, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.restore();
-
-      // Rotating dual-layer wireframe Boss polygon
-      const sides = Math.max(5, Math.min(8, 5 + (s.stats.rounds % 4)));
-      const bossR = 46 + Math.sin(t * 2) * 3;
-      const coreColor = phase === "done" ? "#2FD48A" : "#9146FF";
-
-      ctx.save();
-      ctx.translate(cx, cy);
-      ctx.rotate(t * (phase === "executing" ? 1.4 : 0.45));
-      ctx.strokeStyle = coreColor;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      for (let i = 0; i <= sides; i++) {
-        const ang = (i / sides) * Math.PI * 2;
-        const px = Math.cos(ang) * bossR;
-        const py = Math.sin(ang) * bossR;
-        if (i === 0) ctx.moveTo(px, py);
-        else ctx.lineTo(px, py);
-      }
-      ctx.stroke();
-      ctx.fillStyle = phase === "done" ? "rgba(47, 212, 138, 0.14)" : "rgba(145, 70, 255, 0.16)";
-      ctx.fill();
-
-      // Inner counter-rotating core
-      ctx.rotate(-t * 1.1);
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.45)";
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      for (let i = 0; i <= sides; i++) {
-        const ang = (i / sides) * Math.PI * 2;
-        const px = Math.cos(ang) * (bossR * 0.48);
-        const py = Math.sin(ang) * (bossR * 0.48);
-        if (i === 0) ctx.moveTo(px, py);
-        else ctx.lineTo(px, py);
-      }
-      ctx.stroke();
-      ctx.restore();
-
-      // Allied viewer orbiters (one per submitted !idea)
-      const orbitCount = Math.min(ideas.length, 10);
-      for (let i = 0; i < orbitCount; i++) {
-        const idea = ideas[i]!;
-        const ang = t * 0.7 + (i / Math.max(1, orbitCount)) * Math.PI * 2;
-        const rx = 114 + (i % 2) * 24;
-        const ry = 86 + (i % 2) * 18;
-        const ox = cx + Math.cos(ang) * rx;
-        const oy = cy + Math.sin(ang) * ry;
-
-        ctx.fillStyle = idea.boosts ? "#F5B942" : "#2FD48A";
-        ctx.beginPath();
-        ctx.arc(ox, oy, idea.boosts ? 5 : 3.5, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.font = "10px monospace";
-        ctx.fillStyle = "rgba(255, 255, 255, 0.78)";
-        ctx.fillText(`@${idea.author.login}`, ox + 8, oy + 3);
-      }
-
-      // Pointer craft & subtle aim line
-      const ship = pointerRef.current;
-      const aimAng = Math.atan2(cy - ship.y, cx - ship.x);
-      ctx.save();
-      ctx.translate(ship.x, ship.y);
-      ctx.rotate(aimAng);
-      ctx.strokeStyle = "#5cb8ff";
-      ctx.fillStyle = "rgba(92, 184, 255, 0.16)";
-      ctx.lineWidth = 1.6;
-      ctx.beginPath();
-      ctx.moveTo(13, 0);
-      ctx.lineTo(-9, -7);
-      ctx.lineTo(-5, 0);
-      ctx.lineTo(-9, 7);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-      ctx.restore();
-
-      // Projectiles + hit sparks
-      pulsesRef.current = pulsesRef.current.filter((p) => {
+      // 7. Voxel celebration / click particles
+      particlesRef.current = particlesRef.current.filter((p) => {
         p.x += p.vx;
         p.y += p.vy;
+        p.vy += 0.08;
         p.life -= 1;
-        ctx.strokeStyle = p.color;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(p.x, p.y);
-        ctx.lineTo(p.x - p.vx * 1.9, p.y - p.vy * 1.9);
-        ctx.stroke();
-        if (Math.hypot(p.x - cx, p.y - cy) < bossR) {
-          hitsRef.current += 1;
-          hpRef.current = Math.max(0, hpRef.current - 1);
-          if (hpRef.current === 0) {
-            tierRef.current += 1;
-            maxHpRef.current = 25 + (tierRef.current - 1) * 5;
-            hpRef.current = maxHpRef.current;
-            wavesRef.current.push({ r: 16, maxR: 340, color: "#2FD48A", alpha: 1 });
-          } else {
-            wavesRef.current.push({ r: 12, maxR: 84, color: "#9146FF", alpha: 0.7 });
-          }
-          for (let k = 0; k < 6; k++) {
-            const sa = (k / 6) * Math.PI * 2 + t;
-            sparksRef.current.push({
-              x: p.x,
-              y: p.y,
-              vx: Math.cos(sa) * 2.8,
-              vy: Math.sin(sa) * 2.8,
-              color: "#2FD48A",
-              life: 16,
-            });
-          }
-          return false;
-        }
+        ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+        ctx.globalAlpha = 1;
         return p.life > 0;
       });
 
-      sparksRef.current = sparksRef.current.filter((sp) => {
-        sp.x += sp.vx;
-        sp.y += sp.vy;
-        sp.life -= 1;
-        ctx.fillStyle = sp.color;
-        ctx.globalAlpha = sp.life / 16;
-        ctx.fillRect(sp.x, sp.y, 2, 2);
-        ctx.globalAlpha = 1;
-        return sp.life > 0;
-      });
-
-      // Top-left minimal telemetry HUD inside canvas
+      // Top-left crisp telemetry
       ctx.font = "11px monospace";
-      ctx.fillStyle = "rgba(255, 255, 255, 0.55)";
-      ctx.fillText(`PHASE // ${phase.toUpperCase()}`, 18, 28);
-      ctx.fillText(`ORBITERS // ${ideas.length}`, 18, 44);
-      ctx.fillText(`HITS // ${hitsRef.current}`, 18, 60);
-
-      // Top-right Boss HP bar
-      const barW = 132;
-      const barX = w - barW - 18;
-      const barY = 24;
-      const hpFrac = Math.max(0, Math.min(1, hpRef.current / maxHpRef.current));
       ctx.fillStyle = "rgba(255, 255, 255, 0.65)";
-      ctx.fillText(`CORE MK-${tierRef.current} // ${hpRef.current}/${maxHpRef.current}`, barX, barY - 6);
-      ctx.fillStyle = "rgba(255, 255, 255, 0.1)";
-      ctx.fillRect(barX, barY, barW, 5);
-      ctx.fillStyle = hpFrac > 0.35 ? "#9146FF" : "#F5B942";
-      ctx.fillRect(barX, barY, barW * hpFrac, 5);
+      ctx.fillText(`WORKSHOP // LVL 0${level}`, 16, 26);
+      ctx.fillText(`VOXELS // ${blockCount}`, 16, 42);
+      ctx.fillText(`PHASE // ${phase.toUpperCase()}`, 16, 58);
 
       raf = requestAnimationFrame(draw);
     };
@@ -297,43 +277,21 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  const fireAtBoss = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / Math.max(1, rect.width)) * canvas.width;
-    const y = ((e.clientY - rect.top) / Math.max(1, rect.height)) * canvas.height;
-    pointerRef.current = { x, y };
-    const cx = canvas.width * 0.65;
-    const cy = canvas.height * 0.5;
-    const ang = Math.atan2(cy - y, cx - x);
-    pulsesRef.current.push({
-      x,
-      y,
-      vx: Math.cos(ang) * 10,
-      vy: Math.sin(ang) * 10,
-      color: "#2FD48A",
-      life: 60,
-    });
-  };
-
   return (
     <canvas
       ref={canvasRef}
       width={640}
       height={360}
       className="stage-canvas"
-      onMouseMove={(e) => {
+      onClick={(e) => {
         const canvas = canvasRef.current;
         if (!canvas) return;
         const rect = canvas.getBoundingClientRect();
-        pointerRef.current = {
-          x: ((e.clientX - rect.left) / Math.max(1, rect.width)) * canvas.width,
-          y: ((e.clientY - rect.top) / Math.max(1, rect.height)) * canvas.height,
-        };
+        const x = ((e.clientX - rect.left) / Math.max(1, rect.width)) * canvas.width;
+        const y = ((e.clientY - rect.top) / Math.max(1, rect.height)) * canvas.height;
+        spawnBurst(x, y, "#9146FF", 12);
       }}
-      onClick={fireAtBoss}
-      title="Click to fire at the Boss core"
+      title="Click workshop to drop voxel sparks"
     />
   );
 }

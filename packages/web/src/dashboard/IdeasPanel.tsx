@@ -207,6 +207,7 @@ export function IdeasPanel({
   const [view, setView] = useState<"stage" | "arena" | "overlay" | "build">(() =>
     previewUrl ? "build" : round && phase !== "idle" ? "stage" : state ? "arena" : "overlay",
   );
+  const [focusMode, setFocusMode] = useState(false);
 
   useEffect(() => {
     if (previewUrl) setView("build");
@@ -291,9 +292,16 @@ export function IdeasPanel({
               <div className="monitor-bezel__bar">
                 <span className="monitor-bezel__ch">
                   <span className="monitor-bezel__led" aria-hidden="true" />
-                  CH-02 // LIVE STAGE
+                  CH-02 // VOXEL WORKSHOP
                 </span>
-                <span className="monitor-hint">CLICK TO FIRE</span>
+                <button
+                  type="button"
+                  className={`monitor-hint monitor-hint--btn ${focusMode ? "is-active" : ""}`}
+                  aria-pressed={focusMode}
+                  onClick={() => setFocusMode((f) => !f)}
+                >
+                  {focusMode ? "FOCUS: ON" : "FOCUS MODE"}
+                </button>
               </div>
               <div className="idle-preview__stage monitor-stage">
                 <span className="reticle reticle--tl" aria-hidden="true" />
@@ -303,22 +311,24 @@ export function IdeasPanel({
                 <LiveStageCanvas state={state} />
               </div>
             </div>
-            <div className="monitor-footer">
-              <div className="monitor-stat">
-                <span className="monitor-stat__label">Stream</span>
-                <span className="monitor-stat__val num">
-                  {state.connection.isLive ? `LIVE · ${state.connection.viewerCount ?? 0}` : "OFFLINE"}
-                </span>
+            {!focusMode && (
+              <div className="monitor-footer">
+                <div className="monitor-stat">
+                  <span className="monitor-stat__label">Stream</span>
+                  <span className="monitor-stat__val num">
+                    {state.connection.isLive ? `LIVE · ${state.connection.viewerCount ?? 0}` : "OFFLINE"}
+                  </span>
+                </div>
+                <div className="monitor-stat">
+                  <span className="monitor-stat__label">Ideas</span>
+                  <span className="monitor-stat__val num">{visible}</span>
+                </div>
+                <div className="monitor-stat">
+                  <span className="monitor-stat__label">Co-Builders</span>
+                  <span className="monitor-stat__val num">{state.coBuilders?.length ?? 0}</span>
+                </div>
               </div>
-              <div className="monitor-stat">
-                <span className="monitor-stat__label">Orbiters</span>
-                <span className="monitor-stat__val num">{visible}</span>
-              </div>
-              <div className="monitor-stat">
-                <span className="monitor-stat__label">Co-Builders</span>
-                <span className="monitor-stat__val num">{state.coBuilders?.length ?? 0}</span>
-              </div>
-            </div>
+            )}
           </div>
         ) : activeView === "overlay" ? (
           <BroadcastMonitor api={api} />

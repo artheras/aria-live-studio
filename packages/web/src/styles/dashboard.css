@@ -1623,7 +1623,16 @@ input[type="checkbox"] {
   padding: 2px 7px;
   border-radius: 4px;
   border: 1px solid var(--border);
+  background: transparent;
   white-space: nowrap;
+}
+.monitor-hint--btn {
+  cursor: pointer;
+}
+.monitor-hint--btn.is-active {
+  border-color: rgba(145, 70, 255, 0.55);
+  background: var(--accent-soft);
+  color: var(--accent-2);
 }
 .monitor-footer {
   display: grid;
