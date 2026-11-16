@@ -6,6 +6,7 @@ import { ballotNumber, computeBallot, winnerIdea } from "../lib/round";
 import { playCue } from "../lib/sound";
 import { duration, truncate, useNow } from "../lib/time";
 import { useLive } from "../lib/useLive";
+import { LiveStageCanvas } from "../dashboard/LiveStageCanvas";
 import "../styles/overlay.css";
 
 function Ring({ endsAt, totalSec, now }: { endsAt: number; totalSec: number; now: number }) {
@@ -360,10 +361,12 @@ export function OverlayView({
   state,
   connected,
   clockOffset = 0,
+  stageMode = false,
 }: {
   state: LiveState | null;
   connected: boolean;
   clockOffset?: number;
+  stageMode?: boolean;
 }) {
   const now = useNow(500) + clockOffset;
   if (!state) return null;
@@ -373,6 +376,11 @@ export function OverlayView({
     .at(-1);
   return (
     <div className="ov-stage">
+      {stageMode && (
+        <div className="ov-3d-corner" aria-hidden="true">
+          <LiveStageCanvas state={state} transparent />
+        </div>
+      )}
       {activeCelebration && (
         <div className={`ov-celebration ov-celebration--${activeCelebration.kind}`} key={activeCelebration.id}>
           <span className="ov-celebration__tag">{activeCelebration.kind.replace("_", " ")}</span>
@@ -388,7 +396,9 @@ export function OverlayView({
 }
 
 export function OverlayPage() {
-  const key = useMemo(() => new URLSearchParams(window.location.search).get("key"), []);
+  const params = useMemo(() => new URLSearchParams(window.location.search), []);
+  const key = params.get("key");
+  const stageMode = params.get("mode") === "stage";
   useEffect(() => {
     document.documentElement.classList.add("is-overlay");
     if (!key) console.warn("[aria-overlay] Missing ?key=… — copy the Overlay URL from the dashboard.");
@@ -402,5 +412,12 @@ export function OverlayPage() {
       console.warn("[aria-overlay] Can't connect — is the server running and the overlay key correct?"),
   });
   if (!key) return null;
-  return <OverlayView state={live.state} connected={live.status === "open"} clockOffset={live.clockOffset} />;
+  return (
+    <OverlayView
+      state={live.state}
+      connected={live.status === "open"}
+      clockOffset={live.clockOffset}
+      stageMode={stageMode}
+    />
+  );
 }

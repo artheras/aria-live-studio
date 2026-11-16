@@ -54,8 +54,22 @@ function buildVoxelInstances(
   return mesh;
 }
 
+function resolveThemePalette(prompt?: string | null, modifiers?: string[]) {
+  const text = `${prompt ?? ""} ${(modifiers ?? []).join(" ")}`.toLowerCase();
+  if (/boss|fight|combat|dragon|danger/.test(text)) {
+    return { top: 0x2c1124, mid: 0x762547, horizon: 0xf29472, crystal: 0xff4d6d };
+  }
+  if (/retro|pixel|cyber|neon|sci-fi/.test(text)) {
+    return { top: 0x102238, mid: 0x2a4e7c, horizon: 0x8cdbd8, crystal: 0x2dd4bf };
+  }
+  if (/library|enchanted|magic|arcane|float/.test(text)) {
+    return { top: 0x1f143d, mid: 0x623b96, horizon: 0xf0ba80, crystal: 0xb589ff };
+  }
+  return { top: 0x281d45, mid: 0x6d4c8f, horizon: 0xe6ad8a, crystal: 0x9146ff };
+}
+
 /** Interactive 3D voxel workshop island powered by Three.js with OrbitControls & 3D-projected idea bubbles. */
-export function LiveStageCanvas({ state }: { state: LiveState }) {
+export function LiveStageCanvas({ state, transparent = false }: { state: LiveState; transparent?: boolean }) {
   const mountRef = useRef<HTMLDivElement>(null);
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -92,7 +106,7 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
 
     let renderer: THREE.WebGLRenderer;
     try {
-      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: "high-performance" });
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: transparent, powerPreference: "high-performance" });
     } catch {
       setWebglReady(false);
       return;
@@ -102,6 +116,7 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
     const height = Math.max(180, container.clientHeight || 360);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     renderer.setSize(width, height);
+    if (transparent) renderer.setClearColor(0x000000, 0);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -165,7 +180,9 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
         }
       `,
     });
-    scene.add(new THREE.Mesh(skyGeo, skyMat));
+    if (!transparent) {
+      scene.add(new THREE.Mesh(skyGeo, skyMat));
+    }
 
     // Balanced 3-point twilight lighting so shadow-side stone bricks stay legible & richly textured
     scene.add(new THREE.HemisphereLight(0xe4d2ff, 0x45355c, 1.48));
@@ -636,6 +653,33 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
     addVoxelBuilder(2.15, 0.24, 2.75, 0x4ca6ff, -0.8, 2.8);
     addVoxelBuilder(3.15, 0.24, 1.45, 0xf5b942, -1.1, 4.2);
 
+    // 8b. Round Milestone Memorial Obelisks (1 unlocked per completed round, up to 5)
+    const milestoneTowers: { group: THREE.Group; baseY: number; idx: number }[] = [];
+    for (const [idx, [mx, my, mz]] of (
+      [
+        [-3.6, 0.35, 3.8],
+        [3.6, 0.35, 3.6],
+        [-4.8, 0.35, 0.2],
+        [4.8, 0.35, -3.9],
+        [-3.9, 0.35, -4.1],
+      ] as const
+    ).entries()) {
+      const mg = new THREE.Group();
+      const base = new THREE.Mesh(voxelGeo, stoneLightMat);
+      base.scale.set(0.9, 0.45, 0.9);
+      const pillar = new THREE.Mesh(voxelGeo, crystalMat);
+      pillar.scale.set(0.45, 1.15, 0.45);
+      pillar.position.y = 0.45;
+      const cap = new THREE.Mesh(voxelGeo, lanternMat);
+      cap.scale.set(0.32, 0.32, 0.32);
+      cap.position.y = 0.88;
+      mg.add(base, pillar, cap);
+      mg.position.set(mx, my, mz);
+      mg.visible = false;
+      islandGroup.add(mg);
+      milestoneTowers.push({ group: mg, baseY: my, idx });
+    }
+
     // 9. Distant Waterfall Cliff Peaks + Soft Feathered Volumetric Cloud Sprites (zero hard bubble seams)
     const bgIslands = new THREE.Group();
     const makeCloudTexture = (innerHex: string, outerHex: string) => {
@@ -789,6 +833,10 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
     let raf = 0;
     let frame = 0;
     const vec = new THREE.Vector3();
+    const targetTop = new THREE.Color();
+    const targetMid = new THREE.Color();
+    const targetHorizon = new THREE.Color();
+    const targetCrystal = new THREE.Color();
 
     const animate = () => {
       frame += 1;
@@ -797,6 +845,28 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
       const isCollecting = phase === "collecting";
       const isVoting = phase === "voting";
       const isBuilding = phase === "executing" || phase === "planning";
+
+      // Dynamic theme & modifier palette morphing
+      const pal = resolveThemePalette(stateRef.current.round?.prompt, stateRef.current.round?.modifiers);
+      targetTop.setHex(pal.top);
+      targetMid.setHex(pal.mid);
+      targetHorizon.setHex(pal.horizon);
+      targetCrystal.setHex(pal.crystal);
+      skyMat.uniforms.topColor!.value.lerp(targetTop, 0.04);
+      skyMat.uniforms.midColor!.value.lerp(targetMid, 0.04);
+      skyMat.uniforms.horizonColor!.value.lerp(targetHorizon, 0.04);
+      crystalMat.emissive.lerp(targetCrystal, 0.05);
+      crystalLight.color.lerp(targetCrystal, 0.05);
+      underGlow.color.lerp(targetCrystal, 0.05);
+
+      const completedRounds = stateRef.current.stats?.rounds ?? 0;
+      for (const m of milestoneTowers) {
+        m.group.visible = completedRounds > m.idx;
+        if (m.group.visible) {
+          m.group.position.y = m.baseY + Math.sin(t * 2.0 + m.idx * 1.1) * 0.08;
+          m.group.rotation.y = t * 0.6 + m.idx;
+        }
+      }
 
       islandGroup.position.y = Math.sin(t * 1.0) * 0.1;
       bgIslands.position.y = Math.sin(t * 0.6) * 0.16;
@@ -937,7 +1007,7 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
         );
       })}
 
-      <span className="workshop-orbit-hint">360° Interactive · Drag to rotate · Scroll to zoom</span>
+      {!transparent && <span className="workshop-orbit-hint">360° Interactive · Drag to rotate · Scroll to zoom</span>}
     </div>
   );
 }

@@ -1690,11 +1690,14 @@ input[type="checkbox"] {
   .grid--workshop {
     grid-template-columns: 1fr;
     grid-template-areas:
-      "main"
-      "ideas";
+      "ideas"
+      "main";
   }
   .grid--workshop .panel--ideas {
-    min-height: 480px;
+    min-height: 360px;
+  }
+  .grid--workshop .panel--activity {
+    min-height: 180px;
   }
 }
 
