@@ -304,7 +304,9 @@ export function IdeasPanel({
                 <span className="workshop-bar__hint">
                   {state.connection.isLive
                     ? `LIVE · ${state.connection.viewerCount ?? 0} viewers`
-                    : `${state.coBuilders?.length ?? 0} Co-Builders`}
+                    : phase === "idle"
+                      ? "Next theme: Boss fight mechanic"
+                      : `${state.coBuilders?.length ?? 0} Co-Builders`}
                 </span>
                 <div className="workshop-bar__actions">
                   <button

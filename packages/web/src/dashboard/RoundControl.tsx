@@ -595,20 +595,24 @@ export function RoundControl({ round, settings, me, api, clockOffset, onConnectA
               {m}
             </span>
           ))}
-          <button
-            type="button"
-            className={`sfx-toggle ${sfx ? "is-on" : ""}`}
-            aria-pressed={sfx}
-            onClick={() => {
-              const next = !sfx;
-              setSfxEnabled(next);
-              setSfx(next);
-              if (next) playCue("open");
-            }}
-          >
-            SFX {sfx ? "ON" : "OFF"}
-          </button>
-          <span className={`phase-tag phase-tag--${phase}`}>{phase === "awaiting_approval" && task?.status === "approved" ? "Ready to build" : PHASE_LABEL[phase]}</span>
+          {phase !== "idle" && (
+            <>
+              <button
+                type="button"
+                className={`sfx-toggle ${sfx ? "is-on" : ""}`}
+                aria-pressed={sfx}
+                onClick={() => {
+                  const next = !sfx;
+                  setSfxEnabled(next);
+                  setSfx(next);
+                  if (next) playCue("open");
+                }}
+              >
+                SFX {sfx ? "ON" : "OFF"}
+              </button>
+              <span className={`phase-tag phase-tag--${phase}`}>{phase === "awaiting_approval" && task?.status === "approved" ? "Ready to build" : PHASE_LABEL[phase]}</span>
+            </>
+          )}
         </div>
         {body}
       </div>

@@ -276,6 +276,15 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
     windowSpecs.push({ x: 0, y: 3.7, z: 1.1, sx: 0.75, sy: 0.75, sz: 0.75 });
     // Stone chimney
     wallSpecs.push({ x: -1.3, y: 3.5, z: -1.1, sx: 0.7, sy: 2.2, sz: 0.7 });
+    // Fence posts & flower/bush tufts around terrace
+    timberSpecs.push(
+      { x: 1.4, y: 0.75, z: 2.8, sx: 0.2, sy: 0.6, sz: 0.2 },
+      { x: -0.6, y: 0.75, z: 2.8, sx: 0.2, sy: 0.6, sz: 0.2 },
+    );
+    grassSpecs.push(
+      { x: 1.5, y: 0.65, z: 3.3, sx: 0.55, sy: 0.45, sz: 0.55 },
+      { x: -1.8, y: 0.65, z: 3.2, sx: 0.6, sy: 0.48, sz: 0.6 },
+    );
 
     islandGroup.add(buildVoxelInstances(boxGeo, stoneMat, wallSpecs));
     islandGroup.add(buildVoxelInstances(boxGeo, darkWoodMat, timberSpecs));
@@ -385,6 +394,16 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
     const motes = new THREE.Points(moteGeo, moteMat);
     scene.add(motes);
 
+    // Rising voxel chimney smoke puffs
+    const smokeGeo = new THREE.BoxGeometry(0.32, 0.32, 0.32);
+    const smokeMat = new THREE.MeshStandardMaterial({ color: 0xc9c2dc, transparent: true, opacity: 0.42, roughness: 1 });
+    const smokePuffs = Array.from({ length: 5 }, (_, i) => {
+      const m = new THREE.Mesh(smokeGeo, smokeMat);
+      m.position.set(-1.3, 4.8 + i * 0.65, -1.1);
+      islandGroup.add(m);
+      return { mesh: m, offset: i * 0.2 };
+    });
+
     // 3D Firework particle cubes
     const bursts: BurstCube[] = [];
     const burstGeo = new THREE.BoxGeometry(0.22, 0.22, 0.22);
@@ -440,6 +459,13 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
       islandGroup.position.y = Math.sin(t * 1.05) * 0.12;
       cloudsGroup.position.x = Math.sin(t * 0.18) * 0.6;
       crystalLight.intensity = 5.0 + Math.sin(t * 3.0) * 0.9;
+
+      for (const puff of smokePuffs) {
+        const cyc = (t * 0.45 + puff.offset) % 1;
+        puff.mesh.position.y = 4.7 + cyc * 2.4;
+        puff.mesh.position.x = -1.3 + Math.sin(t + puff.offset * 6) * 0.15;
+        puff.mesh.scale.setScalar(0.7 + cyc * 0.8);
+      }
 
       for (let i = bursts.length - 1; i >= 0; i--) {
         const b = bursts[i]!;
