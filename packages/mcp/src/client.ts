@@ -127,6 +127,7 @@ export class LiveClient {
     changedFiles?: string[];
     branch?: string;
     error?: string;
+    previewUrl?: string;
   }): Promise<void> {
     await this.request("POST", "/api/agent/complete", input, 10_000);
   }

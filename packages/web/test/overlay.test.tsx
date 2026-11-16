@@ -60,4 +60,41 @@ describe("overlay", () => {
     expect(container.textContent).toContain("edit src/Boss.tsx");
     expect(container.textContent).not.toContain("/tmp/secret/path");
   });
+
+  it("done renders celebration toast, changed file pills, and live preview iframe", () => {
+    const now = Date.now();
+    const state = {
+      ...makeState(
+        makeRound("done", {
+          task: { ...task, status: "approved" },
+          execution: {
+            ...execution,
+            status: "succeeded",
+            endedAt: now,
+            changedFiles: ["src/Boss.tsx", "src/Boss.css"],
+            summary: "Added boss bar",
+            previewUrl: "http://127.0.0.1:4173/preview",
+          },
+        }),
+      ),
+      celebrations: [
+        {
+          id: "cel-1",
+          kind: "channel_points" as const,
+          at: now,
+          user: { id: "u1", login: "viewerone", displayName: "ViewerOne", role: "viewer" as const },
+          text: "Boosted #1 (+2)",
+        },
+      ],
+    };
+
+    const { container } = render(<OverlayView state={state} connected />);
+    expect(container.textContent).toContain("channel points");
+    expect(container.textContent).toContain("Boosted #1 (+2)");
+    expect(container.textContent).toContain("src/Boss.tsx");
+    expect(container.textContent).toContain("src/Boss.css");
+    const iframe = container.querySelector("iframe.ov-preview");
+    expect(iframe).not.toBeNull();
+    expect(iframe?.getAttribute("src")).toBe("http://127.0.0.1:4173/preview");
+  });
 });

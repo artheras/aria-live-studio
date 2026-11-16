@@ -546,6 +546,23 @@ export function RoundControl({ round, settings, me, api, clockOffset, onConnectA
           <span className={`phase-tag phase-tag--${phase}`}>{phase === "awaiting_approval" && task?.status === "approved" ? "Ready to build" : PHASE_LABEL[phase]}</span>
         </div>
         {body}
+        <details className="demo-sim" style={{ marginTop: "1rem", opacity: 0.85 }}>
+          <summary style={{ cursor: "pointer", fontSize: "0.85rem" }}>Demo simulator (test chat &amp; Twitch events without going live)</summary>
+          <div className="actions" style={{ marginTop: "0.5rem" }}>
+            <Btn size="sm" variant="ghost" disabled={pending || phase !== "collecting"} onClick={() => act(() => api.demoSimulate("idea"))}>
+              Simulate !idea
+            </Btn>
+            <Btn size="sm" variant="ghost" disabled={pending || phase !== "voting"} onClick={() => act(() => api.demoSimulate("vote", { number: 1 }))}>
+              Simulate !vote 1
+            </Btn>
+            <Btn size="sm" variant="ghost" disabled={pending || (phase !== "collecting" && phase !== "voting")} onClick={() => act(() => api.demoSimulate("boost", { number: 1 }))}>
+              Channel Points Boost #1
+            </Btn>
+            <Btn size="sm" variant="ghost" disabled={pending} onClick={() => act(() => api.demoSimulate("raid"))}>
+              Simulate Raid
+            </Btn>
+          </div>
+        </details>
       </div>
     </section>
   );
