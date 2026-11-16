@@ -291,9 +291,9 @@ export function IdeasPanel({
               <div className="monitor-bezel__bar">
                 <span className="monitor-bezel__ch">
                   <span className="monitor-bezel__led" aria-hidden="true" />
-                  CH-02 // LIVE INTERACTIVE STAGE
+                  CH-02 // LIVE STAGE
                 </span>
-                <span className="muted num">Click arena to fire · Twitch events trigger waves</span>
+                <span className="monitor-hint">CLICK TO FIRE</span>
               </div>
               <div className="idle-preview__stage monitor-stage">
                 <span className="reticle reticle--tl" aria-hidden="true" />
@@ -301,6 +301,22 @@ export function IdeasPanel({
                 <span className="reticle reticle--bl" aria-hidden="true" />
                 <span className="reticle reticle--br" aria-hidden="true" />
                 <LiveStageCanvas state={state} />
+              </div>
+            </div>
+            <div className="monitor-footer">
+              <div className="monitor-stat">
+                <span className="monitor-stat__label">Stream</span>
+                <span className="monitor-stat__val num">
+                  {state.connection.isLive ? `LIVE · ${state.connection.viewerCount ?? 0}` : "OFFLINE"}
+                </span>
+              </div>
+              <div className="monitor-stat">
+                <span className="monitor-stat__label">Orbiters</span>
+                <span className="monitor-stat__val num">{visible}</span>
+              </div>
+              <div className="monitor-stat">
+                <span className="monitor-stat__label">Co-Builders</span>
+                <span className="monitor-stat__val num">{state.coBuilders?.length ?? 0}</span>
               </div>
             </div>
           </div>

@@ -229,6 +229,20 @@ export class LiveService {
   }
 
   private startStreamPoll(userId: string): void {
+    if (!this.deps.auth.user?.avatarUrl && typeof this.deps.helix.getUsers === "function") {
+      void this.deps.helix
+        .getUsers({ ids: [userId] })
+        .then((users) => {
+          const avatar = users[0]?.profile_image_url;
+          const cur = this.deps.auth.user;
+          if (avatar && cur && cur.id === userId) {
+            cur.avatarUrl = avatar;
+            this.avatarCache.set(userId, avatar);
+            this.engine.setConnection({ channel: { ...cur } });
+          }
+        })
+        .catch(() => {});
+    }
     if (typeof this.deps.helix.getStream !== "function") return;
     const poll = () => {
       void this.deps.helix
