@@ -492,4 +492,73 @@ describe("round engine: moderator actions, eligibility, +1 by number", () => {
     engine.startVote();
     expectCode(() => engine.plusOneIdea(user("eve"), 2), "wrong_phase");
   });
+
+  it("boosts ideas with Channel Points/Bits and records capped stream celebrations", () => {
+    const { engine } = collecting();
+    engine.submitIdea(A, "Add dark mode");
+    engine.submitIdea(B, "Add confetti");
+
+    const boosted1 = engine.boostIdea(C, 1, 3, "channel_points");
+    expect(boosted1.boosts).toBe(3);
+    expect(boosted1.seconds).toBe(3);
+    expectCode(() => engine.boostIdea(C, 99, 1), "not_found");
+
+    engine.startVote();
+    const boosted2 = engine.boostIdea(D, 2, 2, "bits");
+    expect(boosted2.boosts).toBe(2);
+    expect(engine.round!.tallies.find((t) => t.number === 2)?.votes).toBe(2);
+
+    for (let i = 0; i < 12; i++) {
+      engine.recordCelebration("raid", user(`raider${i}`), `Raider${i} raided with ${i + 10} viewers`, i + 10);
+    }
+    expect(engine.state.celebrations).toHaveLength(10);
+    expect(engine.state.celebrations!.at(-1)!.user.displayName).toBe("RAIDER11");
+    expect(engine.state.celebrations!.at(-1)!.kind).toBe("raid");
+  });
+
+  it("sanitizes previewUrl in finishExecution and rejects unsafe schemes", () => {
+    const { engine: okEngine } = collecting();
+    okEngine.submitIdea(A, "dark mode");
+    okEngine.startVote();
+    okEngine.castVote(B, 1);
+    okEngine.closeVote();
+    okEngine.beginPlanning();
+    okEngine.setTask(plan);
+    okEngine.approveTask("streamer");
+    okEngine.beginExecution("aria-code");
+    okEngine.finishExecution({
+      status: "succeeded",
+      branch: "b",
+      workdir: "/tmp/w",
+      changedFiles: ["a.ts"],
+      summary: "ok",
+      previewUrl: "http://127.0.0.1:4173/preview",
+      error: null,
+    });
+    expect(okEngine.round!.execution!.previewUrl).toBe("http://127.0.0.1:4173/preview");
+    expect(okEngine.state.coBuilders).toEqual([
+      { login: "alice", displayName: "ALICE", shipped: 1 },
+    ]);
+
+    const { engine: badEngine } = collecting();
+    badEngine.submitIdea(A, "dark mode");
+    badEngine.startVote();
+    badEngine.castVote(B, 1);
+    badEngine.closeVote();
+    badEngine.beginPlanning();
+    badEngine.setTask(plan);
+    badEngine.approveTask("streamer");
+    badEngine.beginExecution("aria-code");
+    badEngine.finishExecution({
+      status: "failed",
+      branch: "b",
+      workdir: "/tmp/w",
+      changedFiles: ["a.ts"],
+      summary: "ok",
+      previewUrl: "javascript:alert(1)",
+      error: "boom",
+    });
+    expect(badEngine.round!.execution!.previewUrl).toBeNull();
+    expect(badEngine.state.coBuilders ?? []).toHaveLength(0);
+  });
 });

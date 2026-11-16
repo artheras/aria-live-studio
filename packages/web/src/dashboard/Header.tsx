@@ -17,11 +17,7 @@ const TWITCH_LABEL: Record<Connection["state"], string> = {
 export function Logo() {
   return (
     <span className="logo">
-      <svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true">
-        <rect width="32" height="32" rx="8" fill="var(--accent)" />
-        <path d="M9 23l7-15 7 15h-3.2l-1.3-3h-5l-1.3 3z" fill="#fff" />
-        <circle cx="25" cy="8" r="3" fill="var(--live)" />
-      </svg>
+      <img className="logo__icon" src="/aria-icon-dark.png" width={28} height={28} alt="" aria-hidden="true" />
       <span className="logo__word">
         Aria <strong>Live Studio</strong>
       </span>
@@ -126,6 +122,14 @@ export function Header({
       >
         {connection.canReply ? "Chat replies on" : "Read-only chat"}
       </span>
+      <button
+        type="button"
+        className={`chip chip--btn ${me.executor.ok ? "chip--good" : "chip--muted"}`}
+        onClick={onAgent}
+        title={me.executor.ok ? `Executor: ${me.executor.kind}` : me.executor.reason || "Connect a coding agent via MCP"}
+      >
+        {me.executor.ok ? `Agent: ${me.executor.kind}` : "Agent: MCP"}
+      </button>
       {live !== "open" && (
         <span className="chip chip--warn" role="status">
           Server {live === "connecting" ? "connecting…" : "reconnecting…"}

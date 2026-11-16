@@ -176,13 +176,13 @@ export class AgentBridge {
     if (!Array.isArray(files) || files.length > 100 || !files.every((f) => typeof f === "string" && f.length <= 200)) {
       throw new AgentError(400, "bad_input", "changedFiles must be at most 100 strings of at most 200 chars");
     }
-    for (const k of ["summary", "branch", "error"] as const) {
+    for (const k of ["summary", "branch", "error", "previewUrl"] as const) {
       if (body[k] !== undefined && body[k] !== null && typeof body[k] !== "string") {
         throw new AgentError(400, "bad_input", `${k} must be a string`);
       }
     }
     this.held(body.taskId);
-    const opt = (k: "summary" | "branch" | "error", max: number) =>
+    const opt = (k: "summary" | "branch" | "error" | "previewUrl", max: number) =>
       typeof body[k] === "string" && body[k] ? streamSafe(body[k], max) : null;
     this.engine.finishExecution({
       status,
@@ -191,6 +191,7 @@ export class AgentBridge {
       changedFiles: (files as string[]).map((f) => streamSafe(f, 200)).filter(Boolean),
       summary: opt("summary", 2000),
       error: opt("error", 500),
+      previewUrl: opt("previewUrl", 300),
     });
   }
 

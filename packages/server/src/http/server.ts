@@ -265,6 +265,39 @@ export function createApp(deps: AppDeps): App {
     service.cancelExecution();
     return engine.state.round?.execution ?? null;
   });
+  route("POST /api/demo/simulate", "session", ({ session, body }) => {
+    const action = typeof body.action === "string" ? body.action : "idea";
+    const demoUser = {
+      id: `demo_${Math.floor(Math.random() * 900 + 100)}`,
+      login: "demo_viewer",
+      displayName: "DemoViewer",
+    };
+    if (action === "idea") {
+      const sampleIdeas = [
+        "Add a boss fight with laser hazards",
+        "Add live confetti burst when chat hits 10 votes",
+        "Show dark-mode neon theme toggle",
+        "Add combo multiplier sound & HUD counter",
+      ];
+      const text = typeof body.text === "string" && body.text.trim()
+        ? body.text
+        : sampleIdeas[Math.floor(Math.random() * sampleIdeas.length)]!;
+      return engine.submitIdea(demoUser, text, "viewer");
+    }
+    if (action === "vote") {
+      const n = typeof body.number === "number" ? body.number : 1;
+      return engine.castVote(demoUser, n, "viewer");
+    }
+    if (action === "boost") {
+      const n = typeof body.number === "number" ? body.number : 1;
+      return engine.boostIdea(demoUser, n, 2, "channel_points");
+    }
+    if (action === "raid") {
+      const raider = session?.user ?? demoUser;
+      return engine.recordCelebration("raid", raider, `${raider.displayName} raided with 42 viewers!`, 42);
+    }
+    throw new HttpError(400, "bad_input", "action must be idea, vote, boost, or raid");
+  });
 
   // ── coding-agent API ──
 

@@ -22281,10 +22281,11 @@ ${describeStatus(status)}`);
         summary: external_exports.string().max(500).optional().describe("What changed, in one or two sentences for viewers."),
         changed_files: external_exports.array(external_exports.string().max(200)).max(100).optional(),
         branch: external_exports.string().max(200).optional(),
-        error: external_exports.string().max(500).optional()
+        error: external_exports.string().max(500).optional(),
+        preview_url: external_exports.string().max(300).optional().describe("Optional live preview URL for the OBS overlay.")
       }
     },
-    async ({ task_id, status, summary, changed_files, branch, error: error2 }) => {
+    async ({ task_id, status, summary, changed_files, branch, error: error2, preview_url }) => {
       try {
         await client2.complete({
           taskId: task_id,
@@ -22292,7 +22293,8 @@ ${describeStatus(status)}`);
           summary,
           changedFiles: changed_files,
           branch,
-          error: error2
+          error: error2,
+          previewUrl: preview_url
         });
         return text(`Task ${task_id} marked ${status}. The stream shows the result.`);
       } catch (err) {

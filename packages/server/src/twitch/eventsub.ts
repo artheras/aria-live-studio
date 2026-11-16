@@ -12,6 +12,7 @@
  */
 import WebSocket from "ws";
 import type { TwitchConnectionState } from "@aria-live/shared";
+import { getWebSocketProxyAgent } from "../proxy.ts";
 import type { EventSubApi } from "./helix.ts";
 import { HelixError } from "./helix.ts";
 import type { ChatMessageEvent } from "../live/commands.ts";
@@ -196,7 +197,8 @@ export class EventSubClient {
   // ── sockets ──
 
   private open(url: string, migrating: boolean): Conn {
-    const ws = new WebSocket(url);
+    const agent = getWebSocketProxyAgent(url);
+    const ws = agent ? new WebSocket(url, { agent }) : new WebSocket(url);
     const conn: Conn = { ws, sessionId: null, migrating, watchdog: null, keepaliveMs: 0 };
     if (migrating) this.pending = conn;
     else this.current = conn;

@@ -104,6 +104,7 @@ export interface AgentApi {
     changedFiles?: string[];
     branch?: string;
     error?: string;
+    previewUrl?: string;
   }): Promise<void>;
 }
 
@@ -249,9 +250,10 @@ function createAgentServer(client: AgentApi, clientName: string | undefined): Mc
         changed_files: z.array(z.string().max(200)).max(100).optional(),
         branch: z.string().max(200).optional(),
         error: z.string().max(500).optional(),
+        preview_url: z.string().max(300).optional().describe("Optional live preview URL for the OBS overlay."),
       },
     },
-    async ({ task_id, status, summary, changed_files, branch, error }) => {
+    async ({ task_id, status, summary, changed_files, branch, error, preview_url }) => {
       try {
         await client.complete({
           taskId: task_id,
@@ -260,6 +262,7 @@ function createAgentServer(client: AgentApi, clientName: string | undefined): Mc
           changedFiles: changed_files,
           branch,
           error,
+          previewUrl: preview_url,
         });
         return text(`Task ${task_id} marked ${status}. The stream shows the result.`);
       } catch (err) {

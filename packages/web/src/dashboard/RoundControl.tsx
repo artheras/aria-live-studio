@@ -33,6 +33,8 @@ export function PhaseStepper({ round }: { round: Round | null }) {
   );
 }
 
+const THEME_PRESETS = ["Boss fight mechanic", "UI & animations", "Sound effects", "Mini-game"];
+
 function PromptForm({
   label,
   onSubmit,
@@ -44,26 +46,40 @@ function PromptForm({
 }) {
   const [prompt, setPrompt] = useState("");
   return (
-    <form
-      className="prompt-form"
-      onSubmit={(e) => {
-        e.preventDefault();
-        onSubmit(prompt.trim());
-      }}
-    >
-      <label className="field field--grow">
-        <span>Theme for this round (optional)</span>
-        <input
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          placeholder="e.g. features for the boss fight"
-          maxLength={140}
-        />
-      </label>
-      <Btn type="submit" variant="primary" size="lg" pending={pending}>
-        {label}
-      </Btn>
-    </form>
+    <div className="prompt-wrap">
+      <form
+        className="prompt-form"
+        onSubmit={(e) => {
+          e.preventDefault();
+          onSubmit(prompt.trim());
+        }}
+      >
+        <label className="field field--grow">
+          <span>Theme for this round (optional)</span>
+          <input
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            placeholder="e.g. features for the boss fight"
+            maxLength={140}
+          />
+        </label>
+        <Btn type="submit" variant="primary" size="lg" pending={pending}>
+          {label}
+        </Btn>
+      </form>
+      <div className="theme-chips" aria-label="Theme presets">
+        {THEME_PRESETS.map((preset) => (
+          <button
+            key={preset}
+            type="button"
+            className="theme-chip"
+            onClick={() => setPrompt(preset)}
+          >
+            {preset}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -546,6 +562,23 @@ export function RoundControl({ round, settings, me, api, clockOffset, onConnectA
           <span className={`phase-tag phase-tag--${phase}`}>{phase === "awaiting_approval" && task?.status === "approved" ? "Ready to build" : PHASE_LABEL[phase]}</span>
         </div>
         {body}
+        <details className="demo-sim" style={{ marginTop: "1rem", opacity: 0.85 }}>
+          <summary style={{ cursor: "pointer", fontSize: "0.85rem" }}>Demo simulator (test chat &amp; Twitch events without going live)</summary>
+          <div className="actions" style={{ marginTop: "0.5rem" }}>
+            <Btn size="sm" variant="ghost" disabled={pending || phase !== "collecting"} onClick={() => act(() => api.demoSimulate("idea"))}>
+              Simulate !idea
+            </Btn>
+            <Btn size="sm" variant="ghost" disabled={pending || phase !== "voting"} onClick={() => act(() => api.demoSimulate("vote", { number: 1 }))}>
+              Simulate !vote 1
+            </Btn>
+            <Btn size="sm" variant="ghost" disabled={pending || (phase !== "collecting" && phase !== "voting")} onClick={() => act(() => api.demoSimulate("boost", { number: 1 }))}>
+              Channel Points Boost #1
+            </Btn>
+            <Btn size="sm" variant="ghost" disabled={pending} onClick={() => act(() => api.demoSimulate("raid"))}>
+              Simulate Raid
+            </Btn>
+          </div>
+        </details>
       </div>
     </section>
   );

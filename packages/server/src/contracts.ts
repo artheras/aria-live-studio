@@ -33,6 +33,7 @@ export interface ExecutionResult {
   changedFiles: string[];
   summary: string | null;
   error: string | null;
+  previewUrl?: string | null;
 }
 
 export interface ExecutionHooks {

@@ -24,6 +24,8 @@ import {
   type Round,
   type RoundSummary,
   type Settings,
+  type StreamCelebration,
+  type StreamCelebrationKind,
   type StreamMarker,
   type Task,
   type TwitchUser,
@@ -171,6 +173,20 @@ export type EngineEvent =
 const EDITABLE_TASK_FIELDS = ["title", "summary", "userStory", "acceptanceCriteria", "steps", "risks", "size"] as const;
 export type TaskPatch = Partial<Pick<Task, (typeof EDITABLE_TASK_FIELDS)[number]>>;
 
+function sanitizePreviewUrl(raw?: string | null): string | null {
+  if (!raw || typeof raw !== "string") return null;
+  const trimmed = streamSafeLine(raw, 300);
+  if (!trimmed) return null;
+  if (trimmed.startsWith("/") && !trimmed.startsWith("//")) return trimmed;
+  try {
+    const u = new URL(trimmed);
+    if (u.protocol === "http:" || u.protocol === "https:") return u.toString();
+  } catch {
+    return null;
+  }
+  return null;
+}
+
 export class RoundEngine {
   private s: LiveState;
   private votes = new Map<string, string>();
@@ -191,6 +207,7 @@ export class RoundEngine {
       settings: { ...DEFAULT_SETTINGS },
       round: null,
       activity: [],
+      celebrations: [],
       stats: { rounds: 0, ideas: 0, votes: 0, participants: 0 },
     };
     if (snapshot) this.restore(snapshot);
@@ -855,11 +872,99 @@ export class RoundEngine {
     ex.changedFiles = result.changedFiles.map((f) => streamSafeLine(f, 300)).slice(0, 500);
     ex.summary = result.summary ? cleanMulti(result.summary, 4000) : null;
     ex.error = result.error ? streamSafeLine(result.error, 1000) : null;
+    ex.previewUrl = sanitizePreviewUrl(result.previewUrl);
     r.phase = "done";
+    if (result.status === "succeeded" && r.winnerId) {
+      const winner = r.ideas.find((i) => i.id === r.winnerId);
+      if (winner) this.recordCoBuilder(winner.author);
+    }
     this.activity("execution", `Execution ${result.status}${ex.error ? `: ${ex.error}` : ""}`);
     this.changed();
     this.milestone({ kind: "build_finished", round: r, execution: ex });
     return ex;
+  }
+
+  private recordCoBuilder(author: TwitchUser): void {
+    const list = [...(this.s.coBuilders ?? [])];
+    const login = author.login.toLowerCase();
+    const existing = list.find((b) => b.login === login);
+    if (existing) {
+      existing.shipped += 1;
+      existing.displayName = author.displayName || existing.displayName;
+    } else {
+      list.push({
+        login,
+        displayName: author.displayName || author.login,
+        shipped: 1,
+      });
+    }
+    list.sort((a, b) => b.shipped - a.shipped);
+    this.s.coBuilders = list.slice(0, 10);
+  }
+
+  /** Record a Twitch native celebration (Channel Points, Bits, Raid, Subscribe) for the overlay. */
+  recordCelebration(
+    kind: StreamCelebrationKind,
+    user: TwitchUser,
+    text: string,
+    amount?: number,
+  ): StreamCelebration {
+    const item: StreamCelebration = {
+      id: this.deps.id(),
+      kind,
+      at: this.deps.now(),
+      user,
+      text: streamSafeLine(text, 140),
+      ...(amount !== undefined ? { amount } : {}),
+    };
+    const list = this.s.celebrations ?? [];
+    list.push(item);
+    if (list.length > 10) list.splice(0, list.length - 10);
+    this.s.celebrations = list;
+    this.activity("system", item.text, user);
+    this.changed();
+    return item;
+  }
+
+  /** Apply a Channel Points or Bits boost to an idea during collecting or voting. */
+  boostIdea(
+    user: TwitchUser,
+    targetNumber: number,
+    weight = 1,
+    kind: "channel_points" | "bits" = "channel_points",
+  ): Idea {
+    const r = this.s.round;
+    if (!r || (r.phase !== "collecting" && r.phase !== "voting")) {
+      throw new EngineError("wrong_phase", "Boosts are only accepted while ideas are open or voting is active");
+    }
+    const w = Math.max(1, Math.min(20, Math.floor(weight)));
+    let idea: Idea | undefined;
+    if (r.phase === "voting") {
+      const tally = r.tallies.find((t) => t.number === targetNumber);
+      if (tally) {
+        idea = r.ideas.find((i) => i.id === tally.ideaId && !i.hidden);
+        if (idea) {
+          tally.votes += w;
+          this.s.stats.votes += w;
+        }
+      }
+    } else {
+      idea = r.ideas.find((i) => i.number === targetNumber && !i.hidden);
+      if (idea) idea.seconds += w;
+    }
+    if (!idea) {
+      throw new EngineError("not_found", `Idea #${targetNumber} not found`);
+    }
+    idea.boosts = (idea.boosts ?? 0) + w;
+    this.participants.add(user.id);
+    this.s.stats.participants = this.participants.size;
+    this.recordCelebration(
+      kind,
+      user,
+      `${user.displayName || user.login} boosted #${targetNumber} (+${w})`,
+      w,
+    );
+    return idea;
   }
 
   // ── Twitch extras (written back by the service after Helix answered) ──

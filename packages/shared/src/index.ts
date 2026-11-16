@@ -53,6 +53,8 @@ export interface Idea {
   hidden: boolean;
   /** Viewers who sent the same idea again (+1s) — a signal, not a vote. */
   seconds: number;
+  /** Extra weight from Twitch Channel Points redemptions or Bits boosts. */
+  boosts?: number;
 }
 
 export type RoundPhase =
@@ -159,6 +161,8 @@ export interface Execution {
   error: string | null;
   /** Twitch clip of the finished build (https://clips.twitch.tv/<id>), once Twitch confirmed it exists. */
   clipUrl?: string | null;
+  /** Live preview URL for the built change (shown on OBS overlay when safe http/https/relative). */
+  previewUrl?: string | null;
 }
 
 // ── Connection and settings ──────────────────────────────────────────────
@@ -244,6 +248,23 @@ export interface Activity {
 
 // ── What clients receive ─────────────────────────────────────────────────
 
+export type StreamCelebrationKind = "channel_points" | "bits" | "raid" | "subscribe";
+
+export interface StreamCelebration {
+  id: string;
+  kind: StreamCelebrationKind;
+  at: number;
+  user: TwitchUser;
+  text: string;
+  amount?: number;
+}
+
+export interface CoBuilder {
+  login: string;
+  displayName: string;
+  shipped: number;
+}
+
 export interface LiveState {
   version: number;
   connection: Connection;
@@ -251,6 +272,10 @@ export interface LiveState {
   round: Round | null;
   /** Newest last, bounded. Overlay snapshots omit it. */
   activity: Activity[];
+  /** Recent Twitch native celebrations (Channel Points, Bits, Raids, Subs) for the OBS overlay. */
+  celebrations?: StreamCelebration[];
+  /** Top viewers whose winning ideas were successfully shipped. */
+  coBuilders?: CoBuilder[];
   stats: {
     rounds: number;
     ideas: number;
@@ -303,6 +328,7 @@ export const Api = {
   rejectTask: "POST /api/task/reject", // { note?: string }
   startExecution: "POST /api/execution/start", // {}
   cancelExecution: "POST /api/execution/cancel", // {}
+  demoSimulate: "POST /api/demo/simulate", // { action: "idea"|"vote"|"boost"|"raid" }
   // Coding-agent API (MCP bridge for Codex / Claude Code / Aria Code).
   // Authorization: Bearer AGENT_TOKEN. Agents can read, claim an APPROVED
   // task, report progress and finish it — never approve, reject or vote.

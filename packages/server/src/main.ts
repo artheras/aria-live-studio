@@ -1,6 +1,7 @@
 /** Entry point: load config, build everything, start, shut down cleanly. */
 import { join } from "node:path";
 import { loadConfig, REPO_ROOT, twitchConfigured } from "./config.ts";
+import { configureEnvProxy } from "./proxy.ts";
 import { createExecutor } from "./executor/index.ts";
 import { createApp } from "./http/server.ts";
 import { LiveService } from "./live/service.ts";
@@ -10,6 +11,7 @@ import { HelixClient } from "./twitch/helix.ts";
 import { createPlanner } from "./planner/index.ts";
 
 async function main(): Promise<void> {
+  configureEnvProxy();
   const config = loadConfig();
   const store = new Store(config.dataDir);
   const auth = new TwitchAuth(config);

@@ -1,7 +1,9 @@
+import { useEffect, useRef, useState } from "react";
 import type { Round } from "@aria-live/shared";
 import type { AriaApi } from "../lib/api";
 import { computeBallot, totalVotes } from "../lib/round";
-import { useActions } from "./actions";
+import { Btn, useActions } from "./actions";
+import { copyText } from "./Drawer";
 
 export function Ballot({ round }: { round: Round }) {
   const rows = computeBallot(round, true);
@@ -91,6 +93,79 @@ function IdeaList({ round, api }: { round: Round; api: AriaApi }) {
   );
 }
 
+function IdleOverlayPreview({ api }: { api: AriaApi }) {
+  const { toast } = useActions();
+  const [url, setUrl] = useState<string | null>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(0.38);
+
+  useEffect(() => {
+    let active = true;
+    if (typeof api.overlayUrl !== "function") return;
+    api
+      .overlayUrl()
+      .then((u) => {
+        if (active) setUrl(u);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [api]);
+
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el) return;
+    const update = () => {
+      if (el.clientWidth > 0) setScale(el.clientWidth / 1280);
+    };
+    update();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [url]);
+
+  return (
+    <div className="idle-preview">
+      <div className="idle-preview__head">
+        <div>
+          <p className="idle-preview__title">No round open.</p>
+          <p className="muted">Open a round and chat's ideas will appear here live.</p>
+        </div>
+        {url && (
+          <div className="actions">
+            <Btn
+              size="sm"
+              variant="ghost"
+              onClick={async () => {
+                const ok = await copyText(url);
+                toast(ok ? "success" : "info", ok ? "Overlay URL copied" : "Copy failed");
+              }}
+            >
+              Copy OBS URL
+            </Btn>
+            <a className="btn btn--secondary btn--sm" href={url} target="_blank" rel="noreferrer">
+              Open
+            </a>
+          </div>
+        )}
+      </div>
+      {url && (
+        <div className="idle-preview__stage" ref={stageRef}>
+          <span className="idle-preview__badge">OBS Overlay Live Preview (1280×720)</span>
+          <iframe
+            className="idle-preview__frame"
+            src={url}
+            title="Live OBS Overlay preview"
+            style={{ transform: `scale(${scale})` }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function IdeasPanel({ round, api, maxIdeas }: { round: Round | null; api: AriaApi; maxIdeas: number }) {
   const phase = round?.phase ?? "idle";
   const showBallot = round && phase !== "idle" && phase !== "collecting" && round.candidates.length > 0;
@@ -108,10 +183,7 @@ export function IdeasPanel({ round, api, maxIdeas }: { round: Round | null; api:
       </header>
       <div className="panel__body panel__body--scroll">
         {!round || phase === "idle" ? (
-          <div className="empty empty--big">
-            <p>No round open.</p>
-            <p className="muted">Open a round and chat's ideas will appear here live.</p>
-          </div>
+          <IdleOverlayPreview api={api} />
         ) : showBallot ? (
           <Ballot round={round} />
         ) : (
