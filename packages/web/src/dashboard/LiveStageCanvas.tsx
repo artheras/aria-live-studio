@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
+import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
-import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import type { LiveState } from "@aria-live/shared";
 import { truncate } from "../lib/time";
 
@@ -33,7 +34,7 @@ interface ProjectedLabel {
 }
 
 function buildVoxelInstances(
-  geo: THREE.BoxGeometry,
+  geo: THREE.BufferGeometry,
   mat: THREE.Material,
   specs: VoxelSpec[],
   castShadow = true,
@@ -43,9 +44,9 @@ function buildVoxelInstances(
   mesh.castShadow = castShadow;
   mesh.receiveShadow = receiveShadow;
   const dummy = new THREE.Object3D();
-  specs.forEach((v, i) => {
-    dummy.position.set(v.x, v.y, v.z);
-    dummy.scale.set(v.sx ?? 1, v.sy ?? 1, v.sz ?? 1);
+  specs.forEach((s, i) => {
+    dummy.position.set(s.x, s.y, s.z);
+    dummy.scale.set(s.sx ?? 1, s.sy ?? 1, s.sz ?? 1);
     dummy.updateMatrix();
     mesh.setMatrixAt(i, dummy.matrix);
   });
@@ -53,24 +54,29 @@ function buildVoxelInstances(
   return mesh;
 }
 
-/**
- * High-detail 3D Voxel Castle-Workshop matching Image 1:
- * - Multi-tone textured stone masonry & two-tone voxel foliage
- * - Stepped front stone staircase with parapet walls & glowing warm porch
- * - Recessed/framed glowing Twitch-violet windows + pyramidal watchtower cap
- * - Dual wooden scaffolding (left & right), ladder rungs, crates & dual-color fireflies
- */
+/** Interactive 3D voxel workshop island powered by Three.js with OrbitControls & 3D-projected idea bubbles. */
 export function LiveStageCanvas({ state }: { state: LiveState }) {
   const mountRef = useRef<HTMLDivElement>(null);
   const stateRef = useRef(state);
-  const burstFnRef = useRef<((colorHex: number) => void) | null>(null);
-  const lastCelebrationIdRef = useRef<string | null>(null);
+  stateRef.current = state;
+
   const [webglReady, setWebglReady] = useState(true);
   const [projectedIdeas, setProjectedIdeas] = useState<Record<string, ProjectedLabel>>({});
   const [projectedBuilders, setProjectedBuilders] = useState<Record<string, ProjectedLabel>>({});
 
-  stateRef.current = state;
-  const coBuilders = (state.coBuilders ?? []).slice(0, 3);
+  const prevPhaseRef = useRef(state.round?.phase ?? "idle");
+  const lastCelebrationIdRef = useRef<string | null>(null);
+  const burstFnRef = useRef<((colorHex: number) => void) | null>(null);
+
+  useEffect(() => {
+    const phase = state.round?.phase ?? "idle";
+    if (phase !== prevPhaseRef.current) {
+      if (phase === "collecting") burstFnRef.current?.(0x9146ff);
+      if (phase === "voting") burstFnRef.current?.(0xf5b942);
+      if (phase === "done") burstFnRef.current?.(0x30d88b);
+      prevPhaseRef.current = phase;
+    }
+  }, [state.round?.phase]);
 
   useEffect(() => {
     const latest = state.celebrations?.at(-1);
@@ -99,39 +105,41 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.08;
+    renderer.toneMappingExposure = 1.12;
     container.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x2d2142, 0.014);
+    scene.fog = new THREE.FogExp2(0x3a2a54, 0.011);
 
-    const camera = new THREE.PerspectiveCamera(36, width / height, 0.1, 160);
-    camera.position.set(14.0, 9.2, 15.0);
+    // Classic 45-deg isometric hero view matching the reference workshop composition
+    const camera = new THREE.PerspectiveCamera(35, width / height, 0.1, 160);
+    camera.position.set(13.6, 9.6, 13.8);
 
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
-    composer.addPass(new UnrealBloomPass(new THREE.Vector2(width, height), 0.52, 0.45, 0.78));
+    // Gentle bloom so windows glow richly without blowing out the front porch
+    composer.addPass(new UnrealBloomPass(new THREE.Vector2(width, height), 0.28, 0.42, 0.85));
     composer.addPass(new OutputPass());
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.06;
     controls.autoRotate = true;
-    controls.autoRotateSpeed = 0.35;
+    controls.autoRotateSpeed = 0.12;
     controls.minDistance = 8.5;
     controls.maxDistance = 26;
     controls.maxPolarAngle = Math.PI * 0.49;
-    controls.target.set(0.2, 2.5, 0);
+    controls.target.set(0.25, 2.35, -0.15);
 
-    // Twilight sky dome
+    // Twilight sky dome with directional golden-peach sunset glow on upper-right
     const skyGeo = new THREE.SphereGeometry(76, 24, 16);
     const skyMat = new THREE.ShaderMaterial({
       side: THREE.BackSide,
       depthWrite: false,
       uniforms: {
-        topColor: { value: new THREE.Color(0x191330) },
-        midColor: { value: new THREE.Color(0x5c3d7b) },
-        horizonColor: { value: new THREE.Color(0xe7ad84) },
+        topColor: { value: new THREE.Color(0x281d45) },
+        midColor: { value: new THREE.Color(0x6d4c8f) },
+        horizonColor: { value: new THREE.Color(0xe6ad8a) },
       },
       vertexShader: `
         varying vec3 vWorldPosition;
@@ -149,21 +157,21 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
         void main() {
           vec3 dir = normalize(vWorldPosition);
           float h = dir.y;
-          vec3 col = mix(horizonColor, midColor, smoothstep(-0.18, 0.2, h));
-          col = mix(col, topColor, smoothstep(0.18, 0.72, h));
-          float sunGlow = pow(max(dot(dir, normalize(vec3(0.65, 0.16, -0.72))), 0.0), 4.0);
-          col = mix(col, vec3(0.98, 0.79, 0.58), sunGlow * 0.45);
+          vec3 col = mix(horizonColor, midColor, smoothstep(-0.2, 0.25, h));
+          col = mix(col, topColor, smoothstep(0.22, 0.78, h));
+          float sunGlow = pow(max(dot(dir, normalize(vec3(0.68, 0.2, -0.7))), 0.0), 3.2);
+          col = mix(col, vec3(0.99, 0.82, 0.62), sunGlow * 0.55);
           gl_FragColor = vec4(col, 1.0);
         }
       `,
     });
     scene.add(new THREE.Mesh(skyGeo, skyMat));
 
-    // Lighting
-    scene.add(new THREE.HemisphereLight(0xd5b8ff, 0x261c38, 1.08));
+    // Balanced 3-point twilight lighting so shadow-side stone bricks stay legible & richly textured
+    scene.add(new THREE.HemisphereLight(0xe4d2ff, 0x45355c, 1.48));
 
-    const sun = new THREE.DirectionalLight(0xffcfa0, 2.35);
-    sun.position.set(14, 17, 10);
+    const sun = new THREE.DirectionalLight(0xffd2a4, 2.15);
+    sun.position.set(16, 18, 12);
     sun.castShadow = true;
     sun.shadow.mapSize.set(1024, 1024);
     sun.shadow.camera.near = 2;
@@ -172,499 +180,439 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
     sun.shadow.camera.right = 13;
     sun.shadow.camera.top = 13;
     sun.shadow.camera.bottom = -13;
-    sun.shadow.bias = -0.0006;
+    sun.shadow.bias = -0.0005;
     scene.add(sun);
 
-    const rim = new THREE.DirectionalLight(0x9146ff, 0.95);
-    rim.position.set(-12, 6, -12);
-    scene.add(rim);
+    const frontFill = new THREE.DirectionalLight(0xb898ff, 0.92);
+    frontFill.position.set(-14, 10, 12);
+    scene.add(frontFill);
 
-    const crystalLight = new THREE.PointLight(0x9146ff, 6.2, 13);
-    crystalLight.position.set(0, 3.6, 1.3);
+    const crystalLight = new THREE.PointLight(0x9d5cff, 4.6, 12);
+    crystalLight.position.set(0.3, 3.6, 1.6);
     scene.add(crystalLight);
 
-    const porchLight = new THREE.PointLight(0xffb44c, 5.4, 8.5);
-    porchLight.position.set(-0.6, 1.4, 2.9);
+    const porchLight = new THREE.PointLight(0xffb44c, 3.6, 7.5);
+    porchLight.position.set(-0.75, 1.55, 2.35);
     scene.add(porchLight);
 
-    const underGlow = new THREE.PointLight(0x8b4dff, 4.2, 13);
-    underGlow.position.set(0, -3.8, 0);
+    const underGlow = new THREE.PointLight(0x8b4dff, 3.8, 13);
+    underGlow.position.set(0, -3.5, 0);
     scene.add(underGlow);
-
-    const wingGlow = new THREE.PointLight(0x9146ff, 3.8, 7.5);
-    wingGlow.position.set(2.4, 2.5, 1.3);
-    scene.add(wingGlow);
 
     const islandGroup = new THREE.Group();
     scene.add(islandGroup);
 
-    const boxGeo = new THREE.BoxGeometry(0.94, 0.94, 0.94);
-    const stoneLightMat = new THREE.MeshStandardMaterial({ color: 0x7a7589, roughness: 0.85 });
-    const stoneMidMat = new THREE.MeshStandardMaterial({ color: 0x615c70, roughness: 0.88 });
-    const stoneDarkMat = new THREE.MeshStandardMaterial({ color: 0x433e50, roughness: 0.92 });
-    const dirtMat = new THREE.MeshStandardMaterial({ color: 0x574236, roughness: 0.94 });
-    const grassMat = new THREE.MeshStandardMaterial({ color: 0x4f8a59, roughness: 0.8 });
-    const mossMat = new THREE.MeshStandardMaterial({ color: 0x629e65, roughness: 0.78 });
-    const pineMat = new THREE.MeshStandardMaterial({ color: 0x316b43, roughness: 0.82 });
-    const woodMat = new THREE.MeshStandardMaterial({ color: 0x9b643a, roughness: 0.78 });
-    const darkWoodMat = new THREE.MeshStandardMaterial({ color: 0x583721, roughness: 0.85 });
-    const roofMat = new THREE.MeshStandardMaterial({ color: 0x393246, roughness: 0.72 });
-    const roofLightMat = new THREE.MeshStandardMaterial({ color: 0x4e4560, roughness: 0.7 });
+    // 0.5-unit beveled sub-voxel unit gives crisp brick edges & highlights
+    const u = 0.5;
+    const voxelGeo = new RoundedBoxGeometry(0.472, 0.472, 0.472, 2, 0.042);
+
+    const stoneLightMat = new THREE.MeshStandardMaterial({ color: 0x9e94ad, roughness: 0.84 });
+    const stoneMidMat = new THREE.MeshStandardMaterial({ color: 0x7e748d, roughness: 0.86 });
+    const stoneDarkMat = new THREE.MeshStandardMaterial({ color: 0x5c536a, roughness: 0.9 });
+    const dirtMat = new THREE.MeshStandardMaterial({ color: 0x6b5040, roughness: 0.92 });
+    const grassMat = new THREE.MeshStandardMaterial({ color: 0x5ba158, roughness: 0.78 });
+    const mossMat = new THREE.MeshStandardMaterial({ color: 0x78bd63, roughness: 0.76 });
+    const pineMat = new THREE.MeshStandardMaterial({ color: 0x397644, roughness: 0.8 });
+    const woodMat = new THREE.MeshStandardMaterial({ color: 0xb67b48, roughness: 0.76 });
+    const darkWoodMat = new THREE.MeshStandardMaterial({ color: 0x734828, roughness: 0.84 });
+    const roofMat = new THREE.MeshStandardMaterial({ color: 0x453e56, roughness: 0.72 });
+    const roofLightMat = new THREE.MeshStandardMaterial({ color: 0x5c5371, roughness: 0.7 });
     const crystalMat = new THREE.MeshStandardMaterial({
-      color: 0xe2c7ff,
+      color: 0xe6c8ff,
       emissive: 0x9146ff,
-      emissiveIntensity: 2.5,
-      roughness: 0.18,
+      emissiveIntensity: 1.55,
+      roughness: 0.2,
     });
     const lanternMat = new THREE.MeshStandardMaterial({
-      color: 0xffe8ad,
-      emissive: 0xffa62b,
-      emissiveIntensity: 2.7,
-      roughness: 0.15,
+      color: 0xffe49e,
+      emissive: 0xffa028,
+      emissiveIntensity: 1.65,
+      roughness: 0.18,
     });
 
-    // Multi-tone masonry buckets
     const stoneLightSpecs: VoxelSpec[] = [];
     const stoneMidSpecs: VoxelSpec[] = [];
     const stoneDarkSpecs: VoxelSpec[] = [];
-    const pushStone = (spec: VoxelSpec) => {
-      const hash = Math.abs(Math.round(spec.x * 3 + spec.y * 5 + spec.z * 7)) % 5;
+    const pushStone = (x: number, y: number, z: number, sx = 1, sy = 1, sz = 1) => {
+      const hash = Math.abs(Math.round(x * 7 + y * 11 + z * 13)) % 5;
+      const spec = { x, y, z, sx, sy, sz };
       if (hash === 0) stoneLightSpecs.push(spec);
       else if (hash === 4) stoneDarkSpecs.push(spec);
       else stoneMidSpecs.push(spec);
     };
 
-    // 1. Craggy 13x13 floating rocky island + two-tier mossy grass terrace + overhanging cliff boulders
     const grassSpecs: VoxelSpec[] = [];
     const mossSpecs: VoxelSpec[] = [];
     const dirtSpecs: VoxelSpec[] = [];
+    const timberSpecs: VoxelSpec[] = [];
+    const scaffSpecs: VoxelSpec[] = [];
+    const windowSpecs: VoxelSpec[] = [];
+    const roofDarkSpecs: VoxelSpec[] = [];
+    const roofLightSpecs: VoxelSpec[] = [];
+    const pineSpecs: VoxelSpec[] = [];
+    const lanternSpecs: VoxelSpec[] = [];
 
-    for (let x = -6; x <= 6; x++) {
-      for (let z = -6; z <= 6; z++) {
-        const dist = Math.abs(x) + Math.abs(z);
-        if (dist > 8) continue;
-        const onTerrace = x >= -2 && x <= 3 && z >= -3 && z <= 1;
-        if (onTerrace) {
-          pushStone({ x, y: 0.5, z });
-        } else if ((x + z) % 3 === 0) {
-          mossSpecs.push({ x, y: 0.08, z });
+    const pushRoof = (x: number, y: number, z: number, sx = 1, sy = 1, sz = 1) => {
+      if (Math.abs(Math.round(x * 2 + z * 2)) % 3 === 0) roofLightSpecs.push({ x, y, z, sx, sy, sz });
+      else roofDarkSpecs.push({ x, y, z, sx, sy, sz });
+    };
+
+    // 1. High-density 24x24 Floating Cliff Island (stepped stone cliff, dirt, 2-tier mossy grass)
+    for (let gx = -11; gx <= 11; gx++) {
+      for (let gz = -11; gz <= 11; gz++) {
+        const x = gx * u;
+        const z = gz * u;
+        const dist = Math.abs(gx) + Math.abs(gz);
+        const maxC = Math.max(Math.abs(gx), Math.abs(gz));
+        if (maxC > 11 || dist > 16) continue;
+
+        const onUpperTerrace = gx >= -5 && gx <= 6 && gz >= -6 && gz <= 2;
+        if (onUpperTerrace) {
+          pushStone(x, 0.5, z);
+          pushStone(x, 0.0, z);
         } else {
-          grassSpecs.push({ x, y: 0, z });
+          if ((gx + gz) % 3 === 0) mossSpecs.push({ x, y: 0.04, z });
+          else grassSpecs.push({ x, y: 0.0, z });
         }
-        if (dist <= 7) dirtSpecs.push({ x, y: -1, z });
-        if (dist <= 5 || (dist === 6 && (x * z) % 2 === 0)) stoneDarkSpecs.push({ x, y: -2, z });
-        if (dist <= 4) stoneDarkSpecs.push({ x, y: -3, z });
-        if (dist <= 2 || (dist === 3 && (x + z) % 2 === 0)) stoneDarkSpecs.push({ x, y: -4, z });
+
+        // Craggy cliff depth layers
+        if (dist <= 15) dirtSpecs.push({ x, y: -0.5, z });
+        if (dist <= 13 || (maxC === 10 && (gx * gz) % 2 === 0)) pushStone(x, -1.0, z);
+        if (dist <= 11 || (gx % 3 === 0 && gz % 2 === 0 && dist <= 13)) stoneDarkSpecs.push({ x, y: -1.5, z });
+        if (dist <= 9) stoneDarkSpecs.push({ x, y: -2.0, z });
+        if (dist <= 6) stoneDarkSpecs.push({ x, y: -2.5, z });
+        if (dist <= 3) stoneDarkSpecs.push({ x, y: -3.0, z });
       }
     }
-    stoneDarkSpecs.push(
-      { x: 0, y: -5.2, z: 0 },
-      { x: -1, y: -4.8, z: 1 },
-      { x: 1, y: -4.7, z: -1 },
-      { x: 2.5, y: -2.8, z: 2.5, sx: 0.9, sy: 1.25, sz: 0.9 },
-      { x: -3.5, y: -2.6, z: 2.5, sx: 0.85, sy: 1.1, sz: 0.85 },
-      { x: 4.5, y: -2.1, z: -1.5, sx: 0.85, sy: 1.0, sz: 0.85 },
-      { x: -4.5, y: -2.1, z: -1.5, sx: 0.85, sy: 1.0, sz: 0.85 },
-    );
-    // Mossy grass lips & stone retaining wall along terrace edge
-    for (let x = -3; x <= 4; x += 1) {
-      if (x !== -1) pushStone({ x, y: 0.72, z: 1.85, sx: 0.75, sy: 0.45, sz: 0.4 });
-    }
-    mossSpecs.push(
-      { x: -4.6, y: -0.35, z: 2.5, sx: 0.5, sy: 0.65, sz: 0.5 },
-      { x: -4.6, y: -0.95, z: 2.5, sx: 0.35, sy: 0.65, sz: 0.35 },
-      { x: -3.2, y: -0.65, z: 4.3, sx: 0.4, sy: 0.75, sz: 0.4 },
-      { x: 4.5, y: -0.35, z: 1.5, sx: 0.5, sy: 0.7, sz: 0.5 },
-      { x: 4.5, y: -1.0, z: 1.5, sx: 0.36, sy: 0.65, sz: 0.36 },
-      { x: 2.5, y: -0.4, z: 4.5, sx: 0.55, sy: 0.65, sz: 0.55 },
-      { x: 1.2, y: -0.75, z: 4.9, sx: 0.38, sy: 0.7, sz: 0.38 },
-    );
-
-    // Stepped 5-tier front stone staircase + parapet walls + newel posts + courtyard stepping stones
-    for (let s = 0; s < 5; s++) {
-      const sy = 0.16 + s * 0.22;
-      const sz = 4.2 - s * 0.56;
-      pushStone({ x: -1, y: sy, z: sz, sx: 1.55, sy: 0.28 + s * 0.12, sz: 0.54 });
-      pushStone({ x: -2.0, y: sy + 0.24, z: sz, sx: 0.34, sy: 0.56, sz: 0.54 });
-      pushStone({ x: 0.0, y: sy + 0.24, z: sz, sx: 0.34, sy: 0.56, sz: 0.54 });
-    }
-    stoneLightSpecs.push(
-      { x: -2.0, y: 0.58, z: 4.5, sx: 0.42, sy: 0.48, sz: 0.42 },
-      { x: 0.0, y: 0.58, z: 4.5, sx: 0.42, sy: 0.48, sz: 0.42 },
-    );
-    for (const [cx, cz] of [
-      [-1.0, 4.9],
-      [-0.4, 4.7],
-      [0.6, 3.6],
-      [1.6, 3.1],
-      [2.5, 2.5],
+    // Irregular corner rock stalactites & hanging moss lips
+    for (const [rx, rz] of [
+      [-4.0, 2.5],
+      [4.0, 2.0],
+      [2.5, -4.0],
+      [-3.5, -3.5],
+      [0.0, 4.5],
     ] as const) {
-      stoneLightSpecs.push({ x: cx, y: 0.48, z: cz, sx: 0.58, sy: 0.14, sz: 0.58 });
+      stoneDarkSpecs.push({ x: rx, y: -2.0, z: rz, sx: 1.2, sy: 1.6, sz: 1.2 });
+      mossSpecs.push({ x: rx, y: -0.35, z: rz, sx: 0.9, sy: 1.1, sz: 0.9 });
     }
 
-    // 2. Main Gabled Stone & Timber Manor (framed purple windows, stone arches/mullions, bargeboards, dormer)
-    const timberSpecs: VoxelSpec[] = [];
-    const windowSpecs: VoxelSpec[] = [];
-    const roofSpecs: VoxelSpec[] = [];
-    const porchSpecs: VoxelSpec[] = [];
+    // 2. Grand 7-Step Front Stone Staircase + Cheek Parapet Walls
+    for (let s = 0; s < 7; s++) {
+      const sy = 0.12 + s * 0.12;
+      const sz = 4.4 - s * 0.42;
+      for (let wx = -3; wx <= -1; wx++) {
+        pushStone(wx * u, sy, sz, 1, 0.75, 0.95);
+      }
+      pushStone(-2.0, sy + 0.25, sz, 0.72, 1.15, 0.95);
+      pushStone(0.0, sy + 0.25, sz, 0.72, 1.15, 0.95);
+    }
+    stoneLightSpecs.push({ x: -2.0, y: 0.45, z: 4.75 }, { x: 0.0, y: 0.45, z: 4.75 });
 
-    for (let y = 1.5; y <= 3.5; y += 1) {
-      for (let x = -2; x <= 1; x++) {
-        for (let z = -2; z <= 1; z++) {
-          const isCorner = (x === -2 || x === 1) && (z === -2 || z === 1);
-          const isFrontWin = z === 1 && (x === 0 || x === 1) && y === 2.5;
-          const isSideWin = x === -2 && z === 0 && y === 2.5;
-          const isDoor = z === 1 && x === -1 && y === 1.5;
+    // 3. Main Two-Story Gabled Manor Hall (fine 0.5u stone masonry, dark wood door, arched purple windows)
+    for (let gy = 2; gy <= 7; gy++) {
+      const y = gy * u;
+      for (let gx = -5; gx <= 2; gx++) {
+        for (let gz = -4; gz <= 2; gz++) {
+          const isOuter = gx === -5 || gx === 2 || gz === -4 || gz === 2;
+          if (!isOuter) continue;
+          const x = gx * u;
+          const z = gz * u;
+          const isDoor = gz === 2 && (gx === -2 || gx === -1) && (gy === 2 || gy === 3);
+          const isFrontWin = gz === 2 && (gx === 0 || gx === 1) && (gy === 4 || gy === 5);
+          const isSideWin = gx === -5 && (gz === -1 || gz === 0) && (gy === 4 || gy === 5);
+          const isCorner = (gx === -5 || gx === 2) && (gz === -4 || gz === 2);
+
           if (isDoor) {
-            porchSpecs.push({ x, y, z });
+            // Recessed dark wooden double doors instead of blinding solid glow
+            timberSpecs.push({ x, y, z: z - 0.12, sx: 0.95, sy: 0.95, sz: 0.55 });
           } else if (isFrontWin || isSideWin) {
-            windowSpecs.push({ x, y, z, sx: 0.76, sy: 0.88, sz: 0.76 });
-            timberSpecs.push({ x, y: y - 0.5, z: z === 1 ? 1.45 : z, sx: 0.94, sy: 0.18, sz: 0.32 });
-            // Center stone mullion & arch lintel
-            const mx = z === 1 ? x : x - 0.38;
-            const mz = z === 1 ? 1.38 : z;
-            pushStone({ x: mx, y, z: mz, sx: z === 1 ? 0.12 : 0.2, sy: 0.88, sz: z === 1 ? 0.2 : 0.12 });
-            pushStone({ x: mx, y: y + 0.52, z: mz, sx: z === 1 ? 0.92 : 0.28, sy: 0.2, sz: z === 1 ? 0.28 : 0.92 });
+            windowSpecs.push({ x, y, z, sx: 0.82, sy: 0.92, sz: 0.82 });
           } else if (isCorner) {
             timberSpecs.push({ x, y, z });
           } else {
-            pushStone({ x, y, z });
+            pushStone(x, y, z);
           }
         }
       }
     }
-    // Warm porch canopy + 3-post colonnade + stone arch lintel
+    // Warm porch canopy + 3 slender timber columns + twin hanging amber lanterns
     timberSpecs.push(
-      { x: -1.65, y: 1.5, z: 1.8, sx: 0.22, sy: 1.6, sz: 0.22 },
-      { x: -0.35, y: 1.5, z: 1.8, sx: 0.22, sy: 1.6, sz: 0.22 },
-      { x: -1.0, y: 2.35, z: 1.65, sx: 1.72, sy: 0.26, sz: 0.92 },
+      { x: -1.55, y: 1.35, z: 1.55, sx: 0.42, sy: 2.2, sz: 0.42 },
+      { x: -0.75, y: 1.35, z: 1.55, sx: 0.36, sy: 2.2, sz: 0.36 },
+      { x: 0.05, y: 1.35, z: 1.55, sx: 0.42, sy: 2.2, sz: 0.42 },
+      { x: -0.75, y: 2.05, z: 1.4, sx: 3.8, sy: 0.5, sz: 1.8 },
     );
-    stoneLightSpecs.push({ x: -1.0, y: 2.6, z: 1.85, sx: 1.45, sy: 0.22, sz: 0.28 });
+    lanternSpecs.push(
+      { x: -1.55, y: 1.65, z: 1.82, sx: 0.45, sy: 0.55, sz: 0.45 },
+      { x: 0.05, y: 1.65, z: 1.82, sx: 0.45, sy: 0.55, sz: 0.45 },
+    );
 
-    // Right-wing stone gallery connecting main hall & watchtower
-    for (let y = 1.5; y <= 2.5; y += 1) {
-      for (let x = 1.6; x <= 2.8; x += 1) {
-        for (let z = -0.9; z <= 0.7; z += 0.8) {
-          const isWingWin = y === 2.5 && ((z > 0.3 && x > 2.0) || (x > 2.4 && Math.abs(z) < 0.3));
-          if (isWingWin) {
-            windowSpecs.push({ x, y, z, sx: 0.68, sy: 0.85, sz: 0.68 });
+    // 8-Tier Stepped Slate Pitched Roof + Stone Gable Wall + Large Arched Purple Gable Window
+    for (let tier = 0; tier < 6; tier++) {
+      const y = 3.9 + tier * 0.42;
+      const halfW = 5 - tier;
+      for (let gz = -5; gz <= 3; gz++) {
+        const z = gz * u;
+        for (let gx = -halfW; gx <= halfW - 1; gx++) {
+          const x = (gx - 0.5) * u;
+          const isGableFace = gz === 3 || gz === -5;
+          const isGableWin = isGableFace && tier >= 1 && tier <= 3 && gx >= -2 && gx <= 0;
+          if (isGableWin) {
+            windowSpecs.push({ x, y, z: z - (gz === 3 ? 0.15 : -0.15), sx: 0.88, sy: 0.9, sz: 0.65 });
+          } else if (isGableFace && tier < 5 && Math.abs(gx) < halfW - 1) {
+            pushStone(x, y, z - (gz === 3 ? 0.15 : -0.15));
           } else {
-            pushStone({ x, y, z, sx: 0.88, sy: 0.96, sz: 0.82 });
+            pushRoof(x, y, z, 1.02, 0.92, 1.02);
           }
         }
       }
-    }
-    for (let x = 1.6; x <= 2.8; x += 0.6) {
-      pushStone({ x, y: 3.35, z: 0.85, sx: 0.42, sy: 0.45, sz: 0.35 });
-    }
-
-    // Manor stepped pitched roof with overhanging eaves, ridge cresting & corner stone buttresses
-    for (const [bx, bz] of [
-      [-2.18, 1.18],
-      [1.18, 1.18],
-    ] as const) {
-      pushStone({ x: bx, y: 2.0, z: bz, sx: 0.36, sy: 2.2, sz: 0.36 });
-    }
-    for (let z = -2.5; z <= 1.7; z += 1) {
-      for (let x = -2.6; x <= 1.6; x += 1) {
-        roofSpecs.push({ x, y: 4.3, z, sx: 0.96, sy: 0.65, sz: 0.96 });
-      }
-      for (let x = -1.6; x <= 0.6; x += 1) {
-        roofSpecs.push({ x, y: 4.95, z, sx: 0.96, sy: 0.65, sz: 0.96 });
-      }
-      roofSpecs.push({ x: -0.5, y: 5.6, z, sx: 0.96, sy: 0.65, sz: 0.96 });
-      if (Math.round(z * 10) % 2 === 0) {
-        stoneLightSpecs.push({ x: -0.5, y: 6.04, z, sx: 0.32, sy: 0.28, sz: 0.38 });
-      }
-    }
-    for (const gz of [1.85, -2.65]) {
+      // Wooden bargeboard eaves on front & back gable
       timberSpecs.push(
-        { x: -2.1, y: 4.55, z: gz, sx: 0.95, sy: 0.22, sz: 0.22 },
-        { x: -1.25, y: 5.2, z: gz, sx: 0.95, sy: 0.22, sz: 0.22 },
-        { x: -0.5, y: 5.85, z: gz, sx: 0.95, sy: 0.22, sz: 0.22 },
-        { x: 0.25, y: 5.2, z: gz, sx: 0.95, sy: 0.22, sz: 0.22 },
-        { x: 1.1, y: 4.55, z: gz, sx: 0.95, sy: 0.22, sz: 0.22 },
+        { x: (-halfW - 0.5) * u, y: y + 0.08, z: 1.65, sx: 0.72, sy: 0.48, sz: 0.45 },
+        { x: (halfW - 1.5) * u, y: y + 0.08, z: 1.65, sx: 0.72, sy: 0.48, sz: 0.45 },
       );
     }
-    // Tall arched purple crystal gable window + center mullion + right-side roof dormer
-    windowSpecs.push(
-      { x: -0.5, y: 4.95, z: 1.65, sx: 0.94, sy: 1.08, sz: 0.42 },
-      { x: 1.55, y: 4.65, z: -0.25, sx: 0.42, sy: 0.68, sz: 0.62 },
-    );
-    timberSpecs.push(
-      { x: -0.5, y: 4.4, z: 1.72, sx: 1.18, sy: 0.16, sz: 0.3 },
-      { x: -0.5, y: 4.95, z: 1.85, sx: 0.12, sy: 1.05, sz: 0.14 },
-    );
-    pushStone({ x: -0.5, y: 5.56, z: 1.8, sx: 1.16, sy: 0.2, sz: 0.28 });
-    roofSpecs.push({ x: 1.45, y: 5.15, z: -0.25, sx: 0.72, sy: 0.36, sz: 0.9 });
+    // Right-side roof dormer & left-back stone chimney
+    pushStone(-1.6, 5.2, -1.6, 1.2, 2.6, 1.2);
+    stoneLightSpecs.push({ x: -1.6, y: 6.1, z: -1.6, sx: 1.45, sy: 0.45, sz: 1.45 });
+    windowSpecs.push({ x: 1.35, y: 4.5, z: -0.25, sx: 0.7, sy: 1.0, sz: 0.9 });
+    pushRoof(1.25, 5.05, -0.25, 1.2, 0.6, 1.6);
 
-    // 3. Tall Square Castle Watchtower (back-right) + Stone Quoins + Pyramidal Roof Cap
-    for (let y = 1.5; y <= 6.5; y += 1) {
-      for (let x = 1.5; x <= 3.5; x += 1) {
-        for (let z = -3.5; z <= -1.5; z += 1) {
-          const isTowerWin = y === 5.5 && ((z === -1.5 && x === 2.5) || (x === 1.5 && z === -2.5));
-          if (isTowerWin) {
-            windowSpecs.push({ x, y, z, sx: 0.78, sy: 0.96, sz: 0.78 });
-            const mx = z === -1.5 ? 2.5 : 1.15;
-            const mz = z === -1.5 ? -1.15 : -2.5;
-            pushStone({ x: mx, y, z: mz, sx: 0.14, sy: 0.92, sz: 0.14 });
-            pushStone({ x: mx, y: y + 0.56, z: mz, sx: z === -1.5 ? 0.92 : 0.28, sy: 0.2, sz: z === -1.5 ? 0.28 : 0.92 });
+    // 4. Right-Wing Gallery (connecting Main Hall & Watchtower)
+    for (let gy = 2; gy <= 5; gy++) {
+      const y = gy * u;
+      for (let gx = 3; gx <= 6; gx++) {
+        for (let gz = -2; gz <= 1; gz++) {
+          const isWin = (gy === 3 || gy === 4) && ((gz === 1 && gx === 4) || (gx === 6 && gz === 0));
+          if (isWin) windowSpecs.push({ x: gx * u, y, z: gz * u, sx: 0.85, sy: 0.9, sz: 0.85 });
+          else pushStone(gx * u, y, gz * u);
+        }
+      }
+    }
+    for (let gx = 3; gx <= 6; gx++) {
+      if (gx % 2 === 1) pushStone(gx * u, 3.0, 0.5, 0.85, 0.85, 0.85);
+    }
+
+    // 5. Tall Square Watchtower (back-right) + Quoins + Battlements + Stepped Slate Pyramid + Guild Flag
+    for (let gy = 2; gy <= 13; gy++) {
+      const y = gy * u;
+      for (let gx = 3; gx <= 7; gx++) {
+        for (let gz = -7; gz <= -3; gz++) {
+          const isOuter = gx === 3 || gx === 7 || gz === -7 || gz === -3;
+          if (!isOuter) continue;
+          const x = gx * u;
+          const z = gz * u;
+          const isWin = (gy === 10 || gy === 11) && ((gz === -3 && gx === 5) || (gx === 3 && gz === -5));
+          if (isWin) {
+            windowSpecs.push({ x, y, z, sx: 0.85, sy: 0.94, sz: 0.85 });
           } else {
-            pushStone({ x, y, z });
+            pushStone(x, y, z);
           }
         }
       }
     }
-    // Stone chimney on left-back roof slope + two-tone roof shingle split
-    pushStone({ x: -1.65, y: 5.0, z: -1.45, sx: 0.68, sy: 0.9, sz: 0.68 });
-    pushStone({ x: -1.65, y: 5.85, z: -1.45, sx: 0.64, sy: 0.9, sz: 0.64 });
-    stoneLightSpecs.push({ x: -1.65, y: 6.4, z: -1.45, sx: 0.78, sy: 0.24, sz: 0.78 });
+    // Watchtower corbelled battlements & 4-tier slate pyramid cap
+    for (let gx = 2; gx <= 8; gx++) {
+      for (let gz = -8; gz <= -2; gz++) {
+        const isEdge = gx === 2 || gx === 8 || gz === -8 || gz === -2;
+        if (!isEdge) continue;
+        if ((gx + gz) % 2 === 0) pushStone(gx * u, 7.0, gz * u);
+        pushStone(gx * u, 6.6, gz * u);
+      }
+    }
+    for (let tier = 0; tier < 3; tier++) {
+      const y = 7.45 + tier * 0.45;
+      const minG = 3 + tier;
+      const maxG = 7 - tier;
+      for (let gx = minG; gx <= maxG; gx++) {
+        for (let gz = -7 + tier; gz <= -3 - tier; gz++) {
+          pushRoof(gx * u, y, gz * u);
+        }
+      }
+    }
 
-    // Watchtower corner stone quoins + corbelled battlements + stepped slate pyramid cap + finial
-    for (let y = 1.5; y <= 6.5; y += 1) {
-      for (const [qx, qz] of [
-        [1.45, -1.45],
-        [3.55, -1.45],
-        [3.55, -3.55],
-      ] as const) {
-        (y % 2 === 0.5 ? stoneLightSpecs : stoneDarkSpecs).push({
-          x: qx,
-          y,
-          z: qz,
-          sx: 0.35,
-          sy: 0.55,
-          sz: 0.35,
-        });
-      }
+    const bannerGroup = new THREE.Group();
+    bannerGroup.position.set(2.5, 8.9, -2.5);
+    const pole = new THREE.Mesh(voxelGeo, darkWoodMat);
+    pole.scale.set(0.22, 1.8, 0.22);
+    pole.position.y = 0.35;
+    const flagMat = new THREE.MeshStandardMaterial({
+      color: 0x9146ff,
+      emissive: 0x5b21b6,
+      emissiveIntensity: 0.55,
+      roughness: 0.55,
+    });
+    const flagCloth = new THREE.Mesh(voxelGeo, flagMat);
+    flagCloth.scale.set(1.5, 0.85, 0.16);
+    flagCloth.position.set(0.4, 0.55, 0);
+    bannerGroup.add(pole, flagCloth);
+    islandGroup.add(bannerGroup);
+
+    // 6. Intricate Multi-Tier Wooden Scaffolding (right watchtower + left manor)
+    scaffSpecs.push(
+      { x: 4.15, y: 3.3, z: -3.4, sx: 0.32, sy: 12.2, sz: 0.32 },
+      { x: 4.15, y: 3.3, z: -1.2, sx: 0.32, sy: 12.2, sz: 0.32 },
+      { x: 4.15, y: 2.2, z: 0.35, sx: 0.32, sy: 7.4, sz: 0.32 },
+      { x: 4.95, y: 3.3, z: -3.4, sx: 0.32, sy: 12.2, sz: 0.32 },
+      { x: 4.95, y: 3.3, z: -1.2, sx: 0.32, sy: 12.2, sz: 0.32 },
+      { x: 4.95, y: 2.2, z: 0.35, sx: 0.32, sy: 7.4, sz: 0.32 },
+      { x: 4.55, y: 2.1, z: -1.5, sx: 2.1, sy: 0.28, sz: 7.8 },
+      { x: 4.55, y: 3.8, z: -2.3, sx: 2.1, sy: 0.28, sz: 4.8 },
+      { x: 4.55, y: 5.4, z: -2.3, sx: 2.1, sy: 0.28, sz: 4.8 },
+      { x: 4.95, y: 2.95, z: -2.3, sx: 0.22, sy: 0.22, sz: 4.6 },
+      { x: 4.95, y: 4.6, z: -2.3, sx: 0.22, sy: 0.22, sz: 4.6 },
+      // Left scaffolding
+      { x: -3.15, y: 1.9, z: -0.9, sx: 0.28, sy: 6.2, sz: 0.28 },
+      { x: -3.15, y: 1.9, z: 0.9, sx: 0.28, sy: 6.2, sz: 0.28 },
+      { x: -2.8, y: 2.0, z: 0.0, sx: 1.7, sy: 0.26, sz: 3.9 },
+      { x: -2.8, y: 3.2, z: 0.0, sx: 1.7, sy: 0.26, sz: 3.9 },
+      // Courtyard crates & wooden bench
+      { x: 2.1, y: 0.72, z: 1.6, sx: 0.95, sy: 0.95, sz: 0.95 },
+      { x: 2.7, y: 0.68, z: 1.5, sx: 0.78, sy: 0.85, sz: 0.78 },
+      { x: 1.1, y: 0.62, z: 2.6, sx: 1.7, sy: 0.42, sz: 0.72 },
+    );
+    for (let r = 0; r < 7; r++) {
+      scaffSpecs.push({ x: 4.98, y: 1.1 + r * 0.65, z: -2.3, sx: 0.2, sy: 0.2, sz: 1.4 });
     }
-    for (let x = 1.3; x <= 3.7; x += 0.8) {
-      for (let z = -3.7; z <= -1.3; z += 0.8) {
-        if (Math.abs(x - 2.5) < 0.45 && Math.abs(z + 2.5) < 0.45) continue;
-        pushStone({ x, y: 7.2, z, sx: 0.72, sy: 0.55, sz: 0.72 });
-      }
-    }
-    for (let x = 1.8; x <= 3.2; x += 0.7) {
-      for (let z = -3.2; z <= -1.8; z += 0.7) {
-        roofSpecs.push({ x, y: 7.75, z, sx: 0.72, sy: 0.55, sz: 0.72 });
-      }
-    }
-    roofSpecs.push(
-      { x: 2.5, y: 8.35, z: -2.5, sx: 0.9, sy: 0.65, sz: 0.9 },
-      { x: 2.5, y: 8.92, z: -2.5, sx: 0.36, sy: 0.55, sz: 0.36 },
+    lanternSpecs.push(
+      { x: 4.95, y: 3.45, z: -1.2, sx: 0.45, sy: 0.55, sz: 0.45 },
+      { x: 0.65, y: 0.78, z: 3.45, sx: 0.4, sy: 0.5, sz: 0.4 },
+      { x: -2.35, y: 1.85, z: 1.15, sx: 0.4, sy: 0.5, sz: 0.4 },
     );
 
-    // 4. Intricate 3-Tier Right Scaffolding + 2-Tier Left Scaffolding + Courtyard Props
-    const scaffSpecs: VoxelSpec[] = [
-      { x: 4.15, y: 3.1, z: -3.2, sx: 0.18, sy: 6.0, sz: 0.18 },
-      { x: 4.15, y: 3.1, z: -1.1, sx: 0.18, sy: 6.0, sz: 0.18 },
-      { x: 4.15, y: 2.1, z: 0.4, sx: 0.18, sy: 3.8, sz: 0.18 },
-      { x: 5.05, y: 3.1, z: -3.2, sx: 0.18, sy: 6.0, sz: 0.18 },
-      { x: 5.05, y: 3.1, z: -1.1, sx: 0.18, sy: 6.0, sz: 0.18 },
-      { x: 5.05, y: 2.1, z: 0.4, sx: 0.18, sy: 3.8, sz: 0.18 },
-      { x: 4.6, y: 2.2, z: -1.4, sx: 1.12, sy: 0.16, sz: 3.8 },
-      { x: 4.6, y: 3.8, z: -2.15, sx: 1.12, sy: 0.16, sz: 2.3 },
-      { x: 4.6, y: 5.3, z: -2.15, sx: 1.12, sy: 0.16, sz: 2.3 },
-      { x: 5.05, y: 2.95, z: -2.15, sx: 0.12, sy: 0.12, sz: 2.2 },
-      { x: 5.05, y: 4.55, z: -2.15, sx: 0.12, sy: 0.12, sz: 2.2 },
-      { x: 4.2, y: 6.05, z: -2.15, sx: 1.4, sy: 0.16, sz: 0.18 },
-      { x: 5.08, y: 1.3, z: -2.2, sx: 0.12, sy: 0.12, sz: 0.75 },
-      { x: 5.08, y: 1.9, z: -2.2, sx: 0.12, sy: 0.12, sz: 0.75 },
-      { x: 5.08, y: 2.5, z: -2.2, sx: 0.12, sy: 0.12, sz: 0.75 },
-      { x: 5.08, y: 3.1, z: -2.2, sx: 0.12, sy: 0.12, sz: 0.75 },
-      { x: 5.08, y: 3.7, z: -2.2, sx: 0.12, sy: 0.12, sz: 0.75 },
-      { x: 5.08, y: 4.3, z: -2.2, sx: 0.12, sy: 0.12, sz: 0.75 },
-      { x: -3.05, y: 2.0, z: -0.9, sx: 0.16, sy: 3.2, sz: 0.16 },
-      { x: -3.05, y: 2.0, z: 0.9, sx: 0.16, sy: 3.2, sz: 0.16 },
-      { x: -2.6, y: 2.1, z: 0.0, sx: 0.95, sy: 0.15, sz: 1.95 },
-      { x: -2.6, y: 3.3, z: 0.0, sx: 0.95, sy: 0.15, sz: 1.95 },
-      { x: -3.05, y: 2.7, z: 0.0, sx: 0.12, sy: 0.12, sz: 1.8 },
-      // Courtyard crates, barrels, stone well & wooden bench
-      { x: 2.2, y: 0.82, z: 1.6, sx: 0.56, sy: 0.56, sz: 0.56 },
-      { x: 2.8, y: 0.78, z: 1.5, sx: 0.46, sy: 0.48, sz: 0.46 },
-      { x: 1.1, y: 0.72, z: 2.8, sx: 0.95, sy: 0.24, sz: 0.42 },
-      { x: 4.5, y: 2.55, z: -2.8, sx: 0.42, sy: 0.42, sz: 0.42 },
-      { x: 4.5, y: 4.15, z: -1.6, sx: 0.4, sy: 0.44, sz: 0.4 },
-    ];
-
-    // Stone gable infill + courtyard stone well
-    for (const gz of [1.2, -2.0]) {
-      pushStone({ x: -1.5, y: 4.3, z: gz, sx: 0.9, sy: 0.65, sz: 0.75 });
-      pushStone({ x: 0.5, y: 4.3, z: gz, sx: 0.9, sy: 0.65, sz: 0.75 });
-    }
-    pushStone({ x: 3.0, y: 0.72, z: 2.9, sx: 0.85, sy: 0.58, sz: 0.85 });
-
-    // 5. Clustered Multi-Voxel Pine Trees, Shrubs & Wildflowers
+    // 7. Fine-Detail Clustered Sub-Voxel Pine Trees, Shrubs, Cobblestones & Flowers
     const trunkSpecs: VoxelSpec[] = [
-      { x: -4.4, y: 1.15, z: -1.8, sx: 0.5, sy: 1.75, sz: 0.5 },
-      { x: -4.1, y: 1.05, z: 2.5, sx: 0.46, sy: 1.4, sz: 0.46 },
-      { x: 4.2, y: 1.05, z: 2.6, sx: 0.46, sy: 1.4, sz: 0.46 },
-      { x: 4.6, y: 0.9, z: -3.9, sx: 0.36, sy: 1.05, sz: 0.36 },
+      { x: -4.2, y: 1.15, z: -1.6, sx: 0.85, sy: 3.4, sz: 0.85 },
+      { x: -4.0, y: 1.0, z: 2.6, sx: 0.78, sy: 2.8, sz: 0.78 },
+      { x: 4.1, y: 1.0, z: 2.6, sx: 0.78, sy: 2.8, sz: 0.78 },
     ];
-    const pineSpecs: VoxelSpec[] = [];
-    const addVoxelTreeCanopy = (cx: number, baseY: number, cz: number, tiers: number) => {
+    const addFineTree = (cx: number, baseY: number, cz: number, tiers: number) => {
       for (let t = 0; t < tiers; t++) {
         const r = tiers - t;
-        const y = baseY + t * 0.58;
+        const y = baseY + t * 0.44;
         for (let dx = -r; dx <= r; dx++) {
           for (let dz = -r; dz <= r; dz++) {
             if (Math.abs(dx) + Math.abs(dz) > r + 1) continue;
             const target = (dx + dz + t) % 3 === 0 ? mossSpecs : pineSpecs;
             target.push({
-              x: cx + dx * 0.48,
-              y: y + ((dx * dz) % 2) * 0.08,
-              z: cz + dz * 0.48,
-              sx: 0.54,
-              sy: 0.56,
-              sz: 0.54,
+              x: cx + dx * 0.36,
+              y: y + ((dx * dz) % 2) * 0.06,
+              z: cz + dz * 0.36,
+              sx: 0.82,
+              sy: 0.84,
+              sz: 0.82,
             });
           }
         }
       }
-      pineSpecs.push({ x: cx, y: baseY + tiers * 0.58, z: cz, sx: 0.48, sy: 0.54, sz: 0.48 });
+      pineSpecs.push({ x: cx, y: baseY + tiers * 0.44, z: cz, sx: 0.75, sy: 0.85, sz: 0.75 });
     };
-    addVoxelTreeCanopy(-4.4, 2.05, -1.8, 4);
-    addVoxelTreeCanopy(-4.1, 1.8, 2.5, 3);
-    addVoxelTreeCanopy(4.2, 1.8, 2.6, 3);
-    addVoxelTreeCanopy(4.6, 1.45, -3.9, 2);
+    addFineTree(-4.2, 2.0, -1.6, 4);
+    addFineTree(-4.0, 1.7, 2.6, 3);
+    addFineTree(4.1, 1.7, 2.6, 3);
 
-    // Courtyard voxel shrubs & pink/gold wildflowers
+    // Shrubs & courtyard stepping stones
     for (const [sx, sz] of [
-      [-3.2, 3.6],
-      [-2.5, 4.1],
+      [-3.1, 3.6],
+      [-2.4, 4.1],
       [1.8, 3.8],
-      [3.1, 0.8],
+      [3.2, 0.9],
       [4.2, -0.4],
     ] as const) {
-      mossSpecs.push({ x: sx, y: 0.62, z: sz, sx: 0.58, sy: 0.52, sz: 0.58 });
-      pineSpecs.push({ x: sx + 0.25, y: 0.82, z: sz - 0.15, sx: 0.42, sy: 0.42, sz: 0.42 });
+      mossSpecs.push({ x: sx, y: 0.38, z: sz, sx: 1.05, sy: 0.9, sz: 1.05 });
+      pineSpecs.push({ x: sx + 0.22, y: 0.62, z: sz - 0.14, sx: 0.72, sy: 0.72, sz: 0.72 });
+    }
+    for (const [cx, cz] of [
+      [-1.0, 4.9],
+      [-0.4, 4.6],
+      [0.6, 3.6],
+      [1.6, 3.1],
+      [2.5, 2.5],
+    ] as const) {
+      stoneLightSpecs.push({ x: cx, y: 0.28, z: cz, sx: 1.05, sy: 0.25, sz: 1.05 });
     }
 
-    // Glowing violet crystal shards nestled in the front garden & mossy rocks
-    windowSpecs.push(
-      { x: -3.55, y: 0.68, z: 3.25, sx: 0.24, sy: 0.42, sz: 0.24 },
-      { x: -1.9, y: 0.66, z: 4.65, sx: 0.22, sy: 0.36, sz: 0.22 },
-      { x: 3.45, y: 0.68, z: 1.15, sx: 0.24, sy: 0.44, sz: 0.24 },
-      { x: 2.95, y: 0.64, z: 3.45, sx: 0.2, sy: 0.34, sz: 0.2 },
-    );
+    const blossomPinkMat = new THREE.MeshStandardMaterial({ color: 0xe672a5, roughness: 0.62 });
+    const blossomGoldMat = new THREE.MeshStandardMaterial({ color: 0xffd166, roughness: 0.58 });
 
-    const blossomPinkMat = new THREE.MeshStandardMaterial({ color: 0xe06c9f, roughness: 0.65 });
-    const blossomGoldMat = new THREE.MeshStandardMaterial({ color: 0xffd166, roughness: 0.6 });
-
-    const roofLightSpecs = roofSpecs.filter((_, idx) => idx % 3 === 0);
-    const roofDarkSpecs = roofSpecs.filter((_, idx) => idx % 3 !== 0);
-
-    islandGroup.add(buildVoxelInstances(boxGeo, grassMat, grassSpecs));
-    islandGroup.add(buildVoxelInstances(boxGeo, mossMat, mossSpecs));
-    islandGroup.add(buildVoxelInstances(boxGeo, dirtMat, dirtSpecs));
-    islandGroup.add(buildVoxelInstances(boxGeo, stoneLightMat, stoneLightSpecs));
-    islandGroup.add(buildVoxelInstances(boxGeo, stoneMidMat, stoneMidSpecs));
-    islandGroup.add(buildVoxelInstances(boxGeo, stoneDarkMat, stoneDarkSpecs));
-    islandGroup.add(buildVoxelInstances(boxGeo, darkWoodMat, [...timberSpecs, ...trunkSpecs]));
-    islandGroup.add(buildVoxelInstances(boxGeo, woodMat, scaffSpecs));
-    islandGroup.add(buildVoxelInstances(boxGeo, roofMat, roofDarkSpecs));
-    islandGroup.add(buildVoxelInstances(boxGeo, roofLightMat, roofLightSpecs));
-    islandGroup.add(buildVoxelInstances(boxGeo, pineMat, pineSpecs));
+    islandGroup.add(buildVoxelInstances(voxelGeo, grassMat, grassSpecs));
+    islandGroup.add(buildVoxelInstances(voxelGeo, mossMat, mossSpecs));
+    islandGroup.add(buildVoxelInstances(voxelGeo, dirtMat, dirtSpecs));
+    islandGroup.add(buildVoxelInstances(voxelGeo, stoneLightMat, stoneLightSpecs));
+    islandGroup.add(buildVoxelInstances(voxelGeo, stoneMidMat, stoneMidSpecs));
+    islandGroup.add(buildVoxelInstances(voxelGeo, stoneDarkMat, stoneDarkSpecs));
+    islandGroup.add(buildVoxelInstances(voxelGeo, darkWoodMat, [...timberSpecs, ...trunkSpecs]));
+    islandGroup.add(buildVoxelInstances(voxelGeo, woodMat, scaffSpecs));
+    islandGroup.add(buildVoxelInstances(voxelGeo, roofMat, roofDarkSpecs));
+    islandGroup.add(buildVoxelInstances(voxelGeo, roofLightMat, roofLightSpecs));
+    islandGroup.add(buildVoxelInstances(voxelGeo, pineMat, pineSpecs));
     islandGroup.add(
-      buildVoxelInstances(boxGeo, blossomPinkMat, [
-        { x: -2.9, y: 0.62, z: 3.2, sx: 0.24, sy: 0.26, sz: 0.24 },
-        { x: 0.9, y: 0.62, z: 3.9, sx: 0.24, sy: 0.26, sz: 0.24 },
-        { x: 3.3, y: 0.62, z: 1.9, sx: 0.24, sy: 0.26, sz: 0.24 },
+      buildVoxelInstances(voxelGeo, blossomPinkMat, [
+        { x: -2.9, y: 0.38, z: 3.2, sx: 0.45, sy: 0.48, sz: 0.45 },
+        { x: 0.9, y: 0.38, z: 3.9, sx: 0.45, sy: 0.48, sz: 0.45 },
+        { x: 3.3, y: 0.38, z: 1.9, sx: 0.45, sy: 0.48, sz: 0.45 },
       ]),
     );
     islandGroup.add(
-      buildVoxelInstances(boxGeo, blossomGoldMat, [
-        { x: -2.4, y: 0.62, z: 3.5, sx: 0.24, sy: 0.26, sz: 0.24 },
-        { x: 2.3, y: 0.62, z: 3.3, sx: 0.24, sy: 0.26, sz: 0.24 },
+      buildVoxelInstances(voxelGeo, blossomGoldMat, [
+        { x: -2.4, y: 0.38, z: 3.5, sx: 0.45, sy: 0.48, sz: 0.45 },
+        { x: 2.3, y: 0.38, z: 3.3, sx: 0.45, sy: 0.48, sz: 0.45 },
       ]),
     );
-    islandGroup.add(buildVoxelInstances(boxGeo, crystalMat, windowSpecs, false, false));
-    islandGroup.add(
-      buildVoxelInstances(
-        boxGeo,
-        lanternMat,
-        [
-          ...porchSpecs,
-          { x: -1.85, y: 1.35, z: 2.35, sx: 0.28, sy: 0.36, sz: 0.28 },
-          { x: -0.15, y: 1.35, z: 2.35, sx: 0.28, sy: 0.36, sz: 0.28 },
-          { x: 0.55, y: 0.92, z: 3.7, sx: 0.22, sy: 0.28, sz: 0.22 },
-          { x: -2.4, y: 2.0, z: 1.2, sx: 0.22, sy: 0.28, sz: 0.22 },
-          { x: 5.02, y: 3.45, z: -1.1, sx: 0.24, sy: 0.3, sz: 0.24 },
-          { x: 2.1, y: 3.2, z: -2.2, sx: 0.35, sy: 0.35, sz: 0.35 },
-        ],
-        false,
-        false,
-      ),
-    );
+    islandGroup.add(buildVoxelInstances(voxelGeo, crystalMat, windowSpecs, false, false));
+    islandGroup.add(buildVoxelInstances(voxelGeo, lanternMat, lanternSpecs, false, false));
 
-    // Fluttering violet guild banner on top of the watchtower spire
-    const bannerGroup = new THREE.Group();
-    bannerGroup.position.set(2.5, 9.28, -2.5);
-    const pole = new THREE.Mesh(boxGeo, darkWoodMat);
-    pole.scale.set(0.1, 0.8, 0.1);
-    pole.position.y = 0.3;
-    const flagMat = new THREE.MeshStandardMaterial({
-      color: 0x9146ff,
-      emissive: 0x5b21b6,
-      emissiveIntensity: 0.6,
-      roughness: 0.55,
-    });
-    const flagCloth = new THREE.Mesh(boxGeo, flagMat);
-    flagCloth.scale.set(0.75, 0.42, 0.08);
-    flagCloth.position.set(0.4, 0.46, 0);
-    bannerGroup.add(pole, flagCloth);
-    islandGroup.add(bannerGroup);
-
-    // 6. 4 Animated 3D Voxel Co-Builder Characters on the courtyard & lawn
+    // 8. 4 Animated Voxel Co-Builder Characters on the courtyard & lawn
     const voxelBuilders: { group: THREE.Group; baseY: number; phase: number }[] = [];
-    const skinMat = new THREE.MeshStandardMaterial({ color: 0xf6cba8, roughness: 0.72 });
-    const hairMat = new THREE.MeshStandardMaterial({ color: 0x3b2820, roughness: 0.85 });
-    const legMat = new THREE.MeshStandardMaterial({ color: 0x2f3348, roughness: 0.88 });
+    const skinMat = new THREE.MeshStandardMaterial({ color: 0xf6cba8, roughness: 0.7 });
+    const hairMat = new THREE.MeshStandardMaterial({ color: 0x3b2820, roughness: 0.84 });
+    const legMat = new THREE.MeshStandardMaterial({ color: 0x2f3348, roughness: 0.86 });
     const addVoxelBuilder = (x: number, y: number, z: number, shirtColor: number, rotY: number, phase: number) => {
       const g = new THREE.Group();
-      const shirtMat = new THREE.MeshStandardMaterial({ color: shirtColor, roughness: 0.68 });
-      const head = new THREE.Mesh(boxGeo, skinMat);
-      head.scale.set(0.36, 0.36, 0.36);
-      head.position.y = 0.78;
-      const hair = new THREE.Mesh(boxGeo, hairMat);
-      hair.scale.set(0.38, 0.14, 0.38);
-      hair.position.y = 0.94;
-      const body = new THREE.Mesh(boxGeo, shirtMat);
-      body.scale.set(0.34, 0.38, 0.24);
-      body.position.y = 0.42;
-      const leftLeg = new THREE.Mesh(boxGeo, legMat);
-      leftLeg.scale.set(0.14, 0.26, 0.16);
-      leftLeg.position.set(-0.08, 0.12, 0);
-      const rightLeg = new THREE.Mesh(boxGeo, legMat);
-      rightLeg.scale.set(0.14, 0.26, 0.16);
-      rightLeg.position.set(0.08, 0.12, 0);
+      const shirtMat = new THREE.MeshStandardMaterial({ color: shirtColor, roughness: 0.66 });
+      const head = new THREE.Mesh(voxelGeo, skinMat);
+      head.scale.set(0.68, 0.68, 0.68);
+      head.position.y = 0.72;
+      const hair = new THREE.Mesh(voxelGeo, hairMat);
+      hair.scale.set(0.72, 0.25, 0.72);
+      hair.position.y = 0.86;
+      const body = new THREE.Mesh(voxelGeo, shirtMat);
+      body.scale.set(0.64, 0.72, 0.44);
+      body.position.y = 0.38;
+      const leftLeg = new THREE.Mesh(voxelGeo, legMat);
+      leftLeg.scale.set(0.26, 0.48, 0.28);
+      leftLeg.position.set(-0.07, 0.11, 0);
+      const rightLeg = new THREE.Mesh(voxelGeo, legMat);
+      rightLeg.scale.set(0.26, 0.48, 0.28);
+      rightLeg.position.set(0.07, 0.11, 0);
       g.add(head, hair, body, leftLeg, rightLeg);
       g.position.set(x, y, z);
       g.rotation.y = rotY;
       islandGroup.add(g);
       voxelBuilders.push({ group: g, baseY: y, phase });
     };
-    addVoxelBuilder(-2.55, 0.5, 3.25, 0xd96b98, 0.45, 0.0);
-    addVoxelBuilder(-0.15, 0.5, 4.15, 0x9146ff, -0.35, 1.4);
-    addVoxelBuilder(2.15, 0.5, 2.75, 0x4ca6ff, -0.8, 2.8);
-    addVoxelBuilder(3.15, 0.5, 1.45, 0xf5b942, -1.1, 4.2);
+    addVoxelBuilder(-2.55, 0.24, 3.25, 0xd96b98, 0.45, 0.0);
+    addVoxelBuilder(-0.15, 0.24, 4.15, 0x9146ff, -0.35, 1.4);
+    addVoxelBuilder(2.15, 0.24, 2.75, 0x4ca6ff, -0.8, 2.8);
+    addVoxelBuilder(3.15, 0.24, 1.45, 0xf5b942, -1.1, 4.2);
 
-    // Distant floating background islands + waterfall cliff peaks + volumetric twilight voxel cloud banks
+    // 9. Distant Waterfall Cliff Peaks + Lush Volumetric Twilight Cloud Banks
     const bgIslands = new THREE.Group();
     const cloudMat = new THREE.MeshStandardMaterial({
-      color: 0xc9b4e6,
-      emissive: 0x5c3d7b,
-      emissiveIntensity: 0.35,
+      color: 0xd5c2f0,
+      emissive: 0x6f4e96,
+      emissiveIntensity: 0.38,
       roughness: 0.95,
       transparent: true,
-      opacity: 0.72,
+      opacity: 0.58,
     });
     const cloudWarmMat = new THREE.MeshStandardMaterial({
-      color: 0xf4c7a1,
-      emissive: 0xe7ad84,
-      emissiveIntensity: 0.3,
+      color: 0xf7d2b2,
+      emissive: 0xe6ad84,
+      emissiveIntensity: 0.34,
       roughness: 0.95,
       transparent: true,
-      opacity: 0.68,
+      opacity: 0.55,
     });
     const cloudCoolSpecs: VoxelSpec[] = [];
     const cloudWarmSpecs: VoxelSpec[] = [];
@@ -672,18 +620,20 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
       for (let i = 0; i < count; i++) {
         specs.push({
           x: cx + (i - count / 2) * 1.45,
-          y: cy + Math.sin(i * 1.3) * 0.45,
-          z: cz + Math.cos(i * 0.9) * 0.7,
-          sx: 1.9 + (i % 2) * 0.7,
-          sy: 1.15 + ((i + 1) % 2) * 0.45,
-          sz: 1.7,
+          y: cy + Math.sin(i * 1.1) * 0.55,
+          z: cz + Math.cos(i * 0.85) * 0.9,
+          sx: 4.5 + (i % 2) * 1.8,
+          sy: 2.6 + ((i + 1) % 2) * 1.1,
+          sz: 3.8,
         });
       }
     };
-    addVoxelCloud(cloudCoolSpecs, -14, 1.5, -13, 8);
-    addVoxelCloud(cloudCoolSpecs, -11, -3.5, 4, 7);
-    addVoxelCloud(cloudWarmSpecs, 14, 2.2, -12, 8);
-    addVoxelCloud(cloudWarmSpecs, 11, -3.2, 6, 7);
+    addVoxelCloud(cloudCoolSpecs, -13, 1.6, -13, 8);
+    addVoxelCloud(cloudCoolSpecs, -10, -2.5, -6, 7);
+    addVoxelCloud(cloudCoolSpecs, -9, -4.0, 5, 6);
+    addVoxelCloud(cloudWarmSpecs, 13, 2.2, -12, 8);
+    addVoxelCloud(cloudWarmSpecs, 10, -2.2, -5, 7);
+    addVoxelCloud(cloudWarmSpecs, 9, -3.5, 6, 6);
 
     const waterfallMat = new THREE.MeshStandardMaterial({
       color: 0xdff4ff,
@@ -693,17 +643,17 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
       transparent: true,
       opacity: 0.85,
     });
-    bgIslands.add(buildVoxelInstances(boxGeo, cloudMat, cloudCoolSpecs, false, false));
-    bgIslands.add(buildVoxelInstances(boxGeo, cloudWarmMat, cloudWarmSpecs, false, false));
+    bgIslands.add(buildVoxelInstances(voxelGeo, cloudMat, cloudCoolSpecs, false, false));
+    bgIslands.add(buildVoxelInstances(voxelGeo, cloudWarmMat, cloudWarmSpecs, false, false));
     bgIslands.add(
       buildVoxelInstances(
-        boxGeo,
+        voxelGeo,
         grassMat,
         [
-          { x: -14, y: 2.5, z: -16, sx: 3.8, sy: 0.75, sz: 3.8 },
-          { x: -15.5, y: 4.1, z: -16.5, sx: 2.1, sy: 0.65, sz: 2.1 },
-          { x: 15, y: 1.8, z: -17, sx: 3.4, sy: 0.7, sz: 3.4 },
-          { x: 16.5, y: 3.6, z: -17.5, sx: 2.2, sy: 0.65, sz: 2.2 },
+          { x: -14, y: 2.5, z: -16, sx: 7.2, sy: 1.4, sz: 7.2 },
+          { x: -15.5, y: 4.1, z: -16.5, sx: 4.2, sy: 1.3, sz: 4.2 },
+          { x: 15, y: 1.8, z: -17, sx: 6.8, sy: 1.4, sz: 6.8 },
+          { x: 16.5, y: 3.6, z: -17.5, sx: 4.4, sy: 1.3, sz: 4.4 },
         ],
         false,
         false,
@@ -711,13 +661,13 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
     );
     bgIslands.add(
       buildVoxelInstances(
-        boxGeo,
+        voxelGeo,
         stoneDarkMat,
         [
-          { x: -14, y: 1.0, z: -16, sx: 2.8, sy: 2.4, sz: 2.8 },
-          { x: -15.5, y: 3.0, z: -16.5, sx: 1.8, sy: 1.8, sz: 1.8 },
-          { x: 15, y: 0.2, z: -17, sx: 2.5, sy: 2.6, sz: 2.5 },
-          { x: 16.5, y: 2.4, z: -17.5, sx: 1.8, sy: 1.8, sz: 1.8 },
+          { x: -14, y: 1.0, z: -16, sx: 5.4, sy: 4.6, sz: 5.4 },
+          { x: -15.5, y: 3.0, z: -16.5, sx: 3.6, sy: 3.6, sz: 3.6 },
+          { x: 15, y: 0.2, z: -17, sx: 5.0, sy: 5.0, sz: 5.0 },
+          { x: 16.5, y: 2.4, z: -17.5, sx: 3.6, sy: 3.6, sz: 3.6 },
         ],
         false,
         false,
@@ -725,11 +675,11 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
     );
     bgIslands.add(
       buildVoxelInstances(
-        boxGeo,
+        voxelGeo,
         waterfallMat,
         [
-          { x: -14.2, y: 0.6, z: -14.2, sx: 0.65, sy: 3.8, sz: 0.45 },
-          { x: 14.6, y: 0.1, z: -15.4, sx: 0.72, sy: 3.9, sz: 0.48 },
+          { x: -14.2, y: 0.6, z: -14.2, sx: 1.25, sy: 7.4, sz: 0.9 },
+          { x: 14.6, y: 0.1, z: -15.4, sx: 1.4, sy: 7.6, sz: 0.95 },
         ],
         false,
         false,
@@ -737,7 +687,7 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
     );
     scene.add(bgIslands);
 
-    // Dual-color floating violet + warm gold fireflies + under-island violet glow motes
+    // Dual-color floating violet + warm gold fireflies + dense under-island violet glow motes
     const makeMotes = (color: number, count: number, minY = -2.5, maxY = 6.5, size = 0.16) => {
       const pos = new Float32Array(count * 3);
       for (let i = 0; i < count; i++) {
@@ -749,15 +699,15 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
       g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
       return new THREE.Points(g, new THREE.PointsMaterial({ color, size, transparent: true, opacity: 0.88 }));
     };
-    scene.add(makeMotes(0xd8bfff, 48));
-    scene.add(makeMotes(0xb87cff, 64, -6.0, -1.8, 0.22));
-    scene.add(makeMotes(0xffcb77, 26));
+    scene.add(makeMotes(0xd8bfff, 56));
+    scene.add(makeMotes(0xb87cff, 84, -5.8, -1.6, 0.22));
+    scene.add(makeMotes(0xffcb77, 32));
 
     // 3D Firework particle cubes
     const bursts: BurstCube[] = [];
-    const burstGeo = new THREE.BoxGeometry(0.24, 0.24, 0.24);
+    const burstGeo = new THREE.BoxGeometry(0.22, 0.22, 0.22);
     burstFnRef.current = (colorHex: number) => {
-      const mat = new THREE.MeshStandardMaterial({ color: colorHex, emissive: colorHex, emissiveIntensity: 2.2 });
+      const mat = new THREE.MeshStandardMaterial({ color: colorHex, emissive: colorHex, emissiveIntensity: 1.9 });
       for (let i = 0; i < 20; i++) {
         const mesh = new THREE.Mesh(burstGeo, mat);
         mesh.position.set(0.5, 5.5, -1);
@@ -767,35 +717,37 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
         bursts.push({
           mesh,
           vx: Math.cos(ang) * spd,
-          vy: 0.12 + Math.random() * 0.09,
+          vy: 0.07 + Math.random() * 0.09,
           vz: Math.sin(ang) * spd,
-          life: 50,
+          life: 48,
         });
       }
     };
 
+    // 3D anchor points placed around the perimeter so they never block the castle silhouette
     const ideaAnchors = [
-      new THREE.Vector3(-2.6, 5.4, 1.8),
-      new THREE.Vector3(3.2, 6.4, 0.4),
-      new THREE.Vector3(-2.4, 5.6, -2.4),
-      new THREE.Vector3(2.4, 4.6, 2.8),
+      new THREE.Vector3(-4.2, 4.8, 0.5),
+      new THREE.Vector3(4.8, 4.2, 2.2),
+      new THREE.Vector3(-3.2, 2.6, 4.6),
+      new THREE.Vector3(5.6, 6.2, -1.5),
     ];
     const builderAnchors = [
-      new THREE.Vector3(-2.2, 1.8, 3.0),
-      new THREE.Vector3(2.2, 1.8, 3.0),
-      new THREE.Vector3(4.6, 4.4, -2.2),
+      new THREE.Vector3(-2.5, 1.5, 3.2),
+      new THREE.Vector3(2.2, 1.5, 2.8),
+      new THREE.Vector3(3.2, 1.5, 1.5),
     ];
 
-    const ro = typeof ResizeObserver !== "undefined"
-      ? new ResizeObserver(() => {
-          const w = Math.max(320, container.clientWidth);
-          const h = Math.max(180, container.clientHeight);
-          camera.aspect = w / h;
-          camera.updateProjectionMatrix();
-          renderer.setSize(w, h);
-          composer.setSize(w, h);
-        })
-      : null;
+    const ro =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() => {
+            const w = Math.max(320, container.clientWidth);
+            const h = Math.max(180, container.clientHeight);
+            camera.aspect = w / h;
+            camera.updateProjectionMatrix();
+            renderer.setSize(w, h);
+            composer.setSize(w, h);
+          })
+        : null;
     ro?.observe(container);
 
     let raf = 0;
@@ -810,16 +762,16 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
       const isVoting = phase === "voting";
       const isBuilding = phase === "executing" || phase === "planning";
 
-      islandGroup.position.y = Math.sin(t * 1.0) * 0.12;
-      bgIslands.position.y = Math.sin(t * 0.6) * 0.18;
+      islandGroup.position.y = Math.sin(t * 1.0) * 0.1;
+      bgIslands.position.y = Math.sin(t * 0.6) * 0.16;
       bannerGroup.rotation.y = Math.sin(t * 2.6) * 0.22;
       crystalLight.intensity = isVoting
-        ? 7.8 + Math.sin(t * 4.0) * 1.2
+        ? 6.2 + Math.sin(t * 4.0) * 0.9
         : isCollecting
-          ? 7.0 + Math.sin(t * 4.5) * 1.1
-          : 5.6 + Math.sin(t * 3.0) * 0.9;
-      porchLight.intensity = (isBuilding ? 6.6 : 5.2) + Math.sin(t * (isBuilding ? 7.5 : 5.2)) * 0.45;
-      underGlow.intensity = isVoting ? 6.0 + Math.sin(t * 3.2) * 1.0 : 4.2;
+          ? 5.6 + Math.sin(t * 4.5) * 0.8
+          : 4.6 + Math.sin(t * 3.0) * 0.6;
+      porchLight.intensity = (isBuilding ? 4.4 : 3.6) + Math.sin(t * (isBuilding ? 7.5 : 5.2)) * 0.3;
+      underGlow.intensity = isVoting ? 5.2 + Math.sin(t * 3.2) * 0.8 : 3.8;
 
       if (isBuilding && frame % 140 === 0) {
         burstFnRef.current?.(0xffb44c);
@@ -827,7 +779,7 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
 
       const bounceSpeed = isCollecting || isBuilding ? 3.8 : 2.4;
       for (const vb of voxelBuilders) {
-        vb.group.position.y = vb.baseY + Math.abs(Math.sin(t * bounceSpeed + vb.phase)) * (isBuilding ? 0.12 : 0.08);
+        vb.group.position.y = vb.baseY + Math.abs(Math.sin(t * bounceSpeed + vb.phase)) * (isBuilding ? 0.12 : 0.07);
         vb.group.rotation.y += Math.sin(t * 1.1 + vb.phase) * 0.004;
       }
 
@@ -852,21 +804,24 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
 
       if (frame % 2 === 0) {
         const curIdeas = (stateRef.current.round?.ideas.filter((i) => !i.hidden) ?? []).slice(-4);
-        const bubbleCount = curIdeas.length > 0 ? curIdeas.length : 4;
-        const nextIdeas: Record<string, ProjectedLabel> = {};
-        for (let idx = 0; idx < bubbleCount; idx++) {
-          const id = curIdeas[idx]?.id ?? `demo-${idx}`;
-          vec.copy(ideaAnchors[idx % ideaAnchors.length]!);
-          vec.y += islandGroup.position.y;
-          vec.project(camera);
-          nextIdeas[id] = {
-            id,
-            x: (vec.x * 0.5 + 0.5) * 100,
-            y: (-vec.y * 0.5 + 0.5) * 100,
-            visible: vec.z < 1,
-          };
+        if (curIdeas.length > 0) {
+          const nextIdeas: Record<string, ProjectedLabel> = {};
+          for (let idx = 0; idx < curIdeas.length; idx++) {
+            const id = curIdeas[idx]!.id;
+            vec.copy(ideaAnchors[idx % ideaAnchors.length]!);
+            vec.y += islandGroup.position.y;
+            vec.project(camera);
+            nextIdeas[id] = {
+              id,
+              x: (vec.x * 0.5 + 0.5) * 100,
+              y: (-vec.y * 0.5 + 0.5) * 100,
+              visible: vec.z < 1,
+            };
+          }
+          setProjectedIdeas(nextIdeas);
+        } else {
+          setProjectedIdeas({});
         }
-        setProjectedIdeas(nextIdeas);
         const curBuilders = (stateRef.current.coBuilders ?? []).slice(0, 3);
         if (curBuilders.length > 0) {
           const nextBuilders: Record<string, ProjectedLabel> = {};
@@ -914,28 +869,6 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
     >
       {!webglReady && <img className="workshop-scene__art" src="/art/voxel-workshop.jpg" alt="Voxel Workshop Stage" />}
 
-      {ideas.length === 0 &&
-        (["violet", "slate", "blue", "gold"] as const).map((tone, idx) => {
-          const pos = projectedIdeas[`demo-${idx}`];
-          if (!pos?.visible) return null;
-          return (
-            <div
-              key={`demo-${idx}`}
-              className={`stage-chip stage-chip--${tone}`}
-              style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
-              aria-hidden="true"
-            >
-              {tone === "gold" ? (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.3h6c0-1 .4-1.8 1-2.3A7 7 0 0 0 12 2z" />
-                </svg>
-              ) : (
-                <span className="stage-chip__dots">•••</span>
-              )}
-            </div>
-          );
-        })}
-
       {ideas.map((idea) => {
         const pos = projectedIdeas[idea.id];
         if (!pos?.visible) return null;
@@ -952,19 +885,23 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
         );
       })}
 
-      {coBuilders.map((b) => {
+      {(state.coBuilders ?? []).slice(0, 3).map((b) => {
         const pos = projectedBuilders[b.login];
         if (!pos?.visible) return null;
         return (
           <div
             key={b.login}
-            className="workshop-pin workshop-pin--3d"
+            className="workshop-builder-pin"
             style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
           >
-            @{b.displayName || b.login} · {b.shipped}×
+            <span className="workshop-builder-pin__dot" aria-hidden="true" />
+            <span>@{b.displayName || b.login}</span>
+            <span className="workshop-builder-pin__count">{b.shipped}</span>
           </div>
         );
       })}
+
+      <span className="workshop-orbit-hint">360° Interactive · Drag to rotate · Scroll to zoom</span>
     </div>
   );
 }
