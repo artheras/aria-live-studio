@@ -100,10 +100,16 @@ function OverlayCard({ state, now }: { state: LiveState; now: number }) {
 
   if (!round || phase === "idle") {
     return (
-      <div className="ov-card ov-card--small" data-phase="idle">
-        <span className="ov-brand">Aria Live</span>
+      <div className="ov-card ov-card--small ov-card--stage" data-phase="idle">
+        <span className="ov-stage-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 2l2.1 6.9L21 11l-6.9 2.1L12 20l-2.1-6.9L3 11l6.9-2.1L12 2z" />
+          </svg>
+          Interactive Stage
+        </span>
+        <span className="ov-sep" />
         <p className="ov-small">
-          Type <b>{COMMANDS.idea} &lt;your idea&gt;</b> when a round opens
+          Build. Chat. Shape the scene — Type <b>{COMMANDS.idea} &lt;your idea&gt;</b> when a round opens
         </p>
       </div>
     );

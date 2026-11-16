@@ -24,12 +24,25 @@
 .ov-card {
   position: relative;
   padding: 26px 30px 24px;
-  background: var(--ov-bg);
+  background: linear-gradient(180deg, rgba(24, 18, 38, 0.9), rgba(14, 10, 24, 0.92));
   border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(167, 139, 250, 0.36);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55), 0 0 36px rgba(145, 70, 255, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(14px);
   overflow: hidden;
   text-shadow: var(--ov-shadow);
+}
+.ov-stage-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #f3e8ff;
+}
+.ov-stage-title svg {
+  color: #b589ff;
 }
 .ov-card::before {
   content: "";

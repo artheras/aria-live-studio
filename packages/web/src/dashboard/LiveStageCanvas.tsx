@@ -778,12 +778,28 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
     const animate = () => {
       frame += 1;
       const t = frame * 0.016;
+      const phase = stateRef.current.round?.phase ?? "idle";
+      const isCollecting = phase === "collecting";
+      const isVoting = phase === "voting";
+      const isBuilding = phase === "executing" || phase === "planning";
+
       islandGroup.position.y = Math.sin(t * 1.0) * 0.12;
       bgIslands.position.y = Math.sin(t * 0.6) * 0.18;
-      crystalLight.intensity = 5.6 + Math.sin(t * 3.0) * 0.9;
-      porchLight.intensity = 5.2 + Math.sin(t * 5.2) * 0.35;
+      crystalLight.intensity = isVoting
+        ? 7.8 + Math.sin(t * 4.0) * 1.2
+        : isCollecting
+          ? 7.0 + Math.sin(t * 4.5) * 1.1
+          : 5.6 + Math.sin(t * 3.0) * 0.9;
+      porchLight.intensity = (isBuilding ? 6.6 : 5.2) + Math.sin(t * (isBuilding ? 7.5 : 5.2)) * 0.45;
+      underGlow.intensity = isVoting ? 6.0 + Math.sin(t * 3.2) * 1.0 : 4.2;
+
+      if (isBuilding && frame % 140 === 0) {
+        burstFnRef.current?.(0xffb44c);
+      }
+
+      const bounceSpeed = isCollecting || isBuilding ? 3.8 : 2.4;
       for (const vb of voxelBuilders) {
-        vb.group.position.y = vb.baseY + Math.abs(Math.sin(t * 2.4 + vb.phase)) * 0.08;
+        vb.group.position.y = vb.baseY + Math.abs(Math.sin(t * bounceSpeed + vb.phase)) * (isBuilding ? 0.12 : 0.08);
         vb.group.rotation.y += Math.sin(t * 1.1 + vb.phase) * 0.004;
       }
 
