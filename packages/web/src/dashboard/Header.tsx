@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Connection } from "@aria-live/shared";
+import type { Connection, LiveState } from "@aria-live/shared";
 import type { AriaApi, Me } from "../lib/api";
 import type { LiveStatus } from "../lib/useLive";
 import { timeAgo, useNow } from "../lib/time";
@@ -92,6 +92,7 @@ export function Header({
   live,
   me,
   api,
+  agentStatus,
   onSettings,
   onAgent,
   onLogout,
@@ -100,10 +101,13 @@ export function Header({
   live: LiveStatus;
   me: Me;
   api: AriaApi;
+  agentStatus?: LiveState["agentStatus"];
   onSettings: () => void;
   onAgent: () => void;
   onLogout: () => void;
 }) {
+  const now = useNow(10_000);
+  const agentOnline = Boolean(agentStatus && now - agentStatus.lastSeenAt < 90_000);
   const channel = connection.channel ?? me.user;
   const name = channel?.displayName || channel?.login || "—";
   return (
@@ -133,11 +137,21 @@ export function Header({
       </span>
       <button
         type="button"
-        className={`chip chip--btn ${me.executor.ok ? "chip--good" : "chip--muted"}`}
+        className={`chip chip--btn ${me.executor.ok || agentOnline ? "chip--good" : "chip--muted"}`}
         onClick={onAgent}
-        title={me.executor.ok ? `Executor: ${me.executor.kind}` : me.executor.reason || "Connect a coding agent via MCP"}
+        title={
+          agentOnline && agentStatus
+            ? `Connected via MCP: ${agentStatus.name}`
+            : me.executor.ok
+              ? `Executor: ${me.executor.kind}`
+              : me.executor.reason || "Connect a coding agent via MCP"
+        }
       >
-        {me.executor.ok ? `Agent: ${me.executor.kind}` : "Agent: MCP"}
+        {agentOnline && agentStatus
+          ? `Agent: ${agentStatus.name}`
+          : me.executor.ok
+            ? `Agent: ${me.executor.kind}`
+            : "Agent: Waiting"}
       </button>
       {live !== "open" && (
         <span className="chip chip--warn" role="status">

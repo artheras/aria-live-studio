@@ -291,6 +291,8 @@ export interface LiveState {
   celebrations?: StreamCelebration[];
   /** Top viewers whose winning ideas were successfully shipped. */
   coBuilders?: CoBuilder[];
+  /** Latest connected MCP coding agent heartbeat. */
+  agentStatus?: { name: string; lastSeenAt: number } | null;
   stats: {
     rounds: number;
     ideas: number;
@@ -313,6 +315,7 @@ export interface RoundSummary {
   openedAt: number;
   closedAt: number | null;
   prompt: string;
+  modifiers?: string[];
   ideaCount: number;
   voters: number;
   winner: { number: number; text: string; author: TwitchUser; votes: number } | null;

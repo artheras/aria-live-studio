@@ -56,6 +56,7 @@ function DashboardInner({ state, live, me, api, clockOffset = 0, onLogout }: Das
         live={live}
         me={me}
         api={api}
+        agentStatus={state.agentStatus}
         onSettings={() => setDrawer("settings")}
         onAgent={() => setDrawer("agent")}
         onLogout={logout}

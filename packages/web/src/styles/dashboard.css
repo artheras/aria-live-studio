@@ -246,15 +246,18 @@ a.chip:hover { border-color: var(--info); }
       "main ideas"
       "side ideas";
     grid-template-rows: auto 1fr;
+    align-items: stretch;
   }
   .grid__side {
     display: flex;
     flex-direction: column;
     gap: 16px;
+    height: 100%;
   }
   .panel--activity {
-    height: clamp(240px, calc(100vh - 590px), 440px);
-    min-height: 0;
+    flex: 1;
+    height: auto;
+    min-height: 220px;
   }
 }
 

@@ -39,6 +39,9 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
   const lastCelebrationIdRef = useRef<string | null>(null);
   const pointerRef = useRef<{ x: number; y: number }>({ x: 140, y: 240 });
   const hitsRef = useRef(0);
+  const tierRef = useRef(1);
+  const hpRef = useRef(25);
+  const maxHpRef = useRef(25);
 
   stateRef.current = state;
 
@@ -232,7 +235,15 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
         ctx.stroke();
         if (Math.hypot(p.x - cx, p.y - cy) < bossR) {
           hitsRef.current += 1;
-          wavesRef.current.push({ r: 12, maxR: 84, color: "#9146FF", alpha: 0.7 });
+          hpRef.current = Math.max(0, hpRef.current - 1);
+          if (hpRef.current === 0) {
+            tierRef.current += 1;
+            maxHpRef.current = 25 + (tierRef.current - 1) * 5;
+            hpRef.current = maxHpRef.current;
+            wavesRef.current.push({ r: 16, maxR: 340, color: "#2FD48A", alpha: 1 });
+          } else {
+            wavesRef.current.push({ r: 12, maxR: 84, color: "#9146FF", alpha: 0.7 });
+          }
           for (let k = 0; k < 6; k++) {
             const sa = (k / 6) * Math.PI * 2 + t;
             sparksRef.current.push({
@@ -266,6 +277,18 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
       ctx.fillText(`PHASE // ${phase.toUpperCase()}`, 18, 28);
       ctx.fillText(`ORBITERS // ${ideas.length}`, 18, 44);
       ctx.fillText(`HITS // ${hitsRef.current}`, 18, 60);
+
+      // Top-right Boss HP bar
+      const barW = 132;
+      const barX = w - barW - 18;
+      const barY = 24;
+      const hpFrac = Math.max(0, Math.min(1, hpRef.current / maxHpRef.current));
+      ctx.fillStyle = "rgba(255, 255, 255, 0.65)";
+      ctx.fillText(`CORE MK-${tierRef.current} // ${hpRef.current}/${maxHpRef.current}`, barX, barY - 6);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.1)";
+      ctx.fillRect(barX, barY, barW, 5);
+      ctx.fillStyle = hpFrac > 0.35 ? "#9146FF" : "#F5B942";
+      ctx.fillRect(barX, barY, barW * hpFrac, 5);
 
       raf = requestAnimationFrame(draw);
     };

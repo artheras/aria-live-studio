@@ -441,6 +441,7 @@ export class RoundEngine {
       openedAt: r.openedAt,
       closedAt: this.deps.now(),
       prompt: r.prompt,
+      ...(r.modifiers?.length ? { modifiers: r.modifiers } : {}),
       ideaCount: r.ideas.length,
       voters: r.voters,
       winner: w ? { number: wt?.number ?? w.number, text: w.text, author: w.author, votes: wt?.votes ?? 0 } : null,
@@ -984,6 +985,16 @@ export class RoundEngine {
       }
     }
     if (updated) this.changed();
+  }
+
+  /** Record the latest MCP coding agent heartbeat without spamming snapshots. */
+  touchAgent(name: string): void {
+    const clean = streamSafeLine(name, 48) || "MCP";
+    const now = this.deps.now();
+    const prev = this.s.agentStatus;
+    if (prev && prev.name === clean && now - prev.lastSeenAt < 15_000) return;
+    this.s.agentStatus = { name: clean, lastSeenAt: now };
+    this.changed();
   }
 
   // ── Twitch extras (written back by the service after Helix answered) ──

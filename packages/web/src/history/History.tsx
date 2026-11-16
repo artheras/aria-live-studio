@@ -38,6 +38,15 @@ export function HistoryCard({ r }: { r: RoundSummary }) {
         <time className="muted">{dateTime(r.openedAt)}</time>
       </header>
       <p className="hcard__prompt">{r.prompt ? `“${r.prompt}”` : <span className="muted">No theme</span>}</p>
+      {r.modifiers?.length ? (
+        <div className="task__badges">
+          {r.modifiers.map((m) => (
+            <span key={m} className="badge badge--mod">
+              // {m}
+            </span>
+          ))}
+        </div>
+      ) : null}
       <dl className="hcard__facts">
         <div>
           <dt>Ideas</dt>
