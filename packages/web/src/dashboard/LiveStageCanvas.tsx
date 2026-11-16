@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
+import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import type { LiveState } from "@aria-live/shared";
 import { truncate } from "../lib/time";
 
@@ -50,11 +54,11 @@ function buildVoxelInstances(
 }
 
 /**
- * Real interactive 3D Three.js Voxel Workshop:
- * - Drag 360° with OrbitControls, scroll to zoom
- * - Soft shadows, glowing Twitch-violet crystal windows, warm doorway lantern
- * - 3D-projected live !idea speech bubbles & Co-Builder flags
- * - Safe no-op fallback in headless/jsdom environments without WebGL
+ * High-craft 3D Three.js Voxel Workshop matching the twilight diorama mockups:
+ * - Twilight sky gradient dome + drifting 3D voxel clouds
+ * - UnrealBloomPass HDR glow on Twitch-violet windows, doorway lantern, and embers
+ * - Detailed floating island, gabled timber/stone cottage, scaffolding, trees & voxel builders
+ * - 360° OrbitControls + 3D-projected live !idea bubbles & Co-Builder flags
  */
 export function LiveStageCanvas({ state }: { state: LiveState }) {
   const mountRef = useRef<HTMLDivElement>(null);
@@ -94,162 +98,290 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
 
     const width = Math.max(320, container.clientWidth || 640);
     const height = Math.max(180, container.clientHeight || 360);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    renderer.setPixelRatio(dpr);
     renderer.setSize(width, height);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.12;
+    renderer.toneMappingExposure = 1.08;
     container.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x110f1d);
-    scene.fog = new THREE.FogExp2(0x110f1d, 0.032);
+    scene.fog = new THREE.FogExp2(0x281e3d, 0.018);
 
-    const camera = new THREE.PerspectiveCamera(42, width / height, 0.1, 100);
-    camera.position.set(11.5, 8.8, 12.2);
+    const camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 140);
+    camera.position.set(13.2, 9.6, 13.8);
+
+    const composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+    const bloom = new UnrealBloomPass(new THREE.Vector2(width, height), 0.52, 0.45, 0.78);
+    composer.addPass(bloom);
+    composer.addPass(new OutputPass());
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.06;
     controls.autoRotate = true;
-    controls.autoRotateSpeed = 0.55;
-    controls.minDistance = 7;
-    controls.maxDistance = 24;
-    controls.maxPolarAngle = Math.PI * 0.48;
-    controls.target.set(0, 1.4, 0);
+    controls.autoRotateSpeed = 0.42;
+    controls.minDistance = 8;
+    controls.maxDistance = 26;
+    controls.maxPolarAngle = Math.PI * 0.49;
+    controls.target.set(0, 1.8, 0);
 
-    // Lighting: twilight hemisphere + warm amber sun + violet window crystal + doorway lantern
-    const hemi = new THREE.HemisphereLight(0xb589ff, 0x1b172b, 0.95);
-    scene.add(hemi);
+    // Twilight gradient sky dome (deep violet zenith -> dusty mauve -> warm amber horizon)
+    const skyGeo = new THREE.SphereGeometry(65, 24, 16);
+    const skyMat = new THREE.ShaderMaterial({
+      side: THREE.BackSide,
+      depthWrite: false,
+      uniforms: {
+        topColor: { value: new THREE.Color(0x16122c) },
+        midColor: { value: new THREE.Color(0x4b2f69) },
+        horizonColor: { value: new THREE.Color(0xdc9872) },
+      },
+      vertexShader: `
+        varying vec3 vWorldPosition;
+        void main() {
+          vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+          vWorldPosition = worldPosition.xyz;
+          gl_Position = projectionMatrix * viewMatrix * worldPosition;
+        }
+      `,
+      fragmentShader: `
+        uniform vec3 topColor;
+        uniform vec3 midColor;
+        uniform vec3 horizonColor;
+        varying vec3 vWorldPosition;
+        void main() {
+          float h = normalize(vWorldPosition).y;
+          vec3 col = mix(horizonColor, midColor, smoothstep(-0.15, 0.22, h));
+          col = mix(col, topColor, smoothstep(0.18, 0.72, h));
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `,
+    });
+    scene.add(new THREE.Mesh(skyGeo, skyMat));
 
-    const sun = new THREE.DirectionalLight(0xffcfa0, 1.85);
-    sun.position.set(10, 14, 8);
+    // Lighting
+    scene.add(new THREE.HemisphereLight(0xc7a3ff, 0x261e38, 1.05));
+
+    const sun = new THREE.DirectionalLight(0xffcb96, 2.2);
+    sun.position.set(12, 15, 9);
     sun.castShadow = true;
     sun.shadow.mapSize.set(1024, 1024);
     sun.shadow.camera.near = 2;
-    sun.shadow.camera.far = 36;
-    sun.shadow.camera.left = -8;
-    sun.shadow.camera.right = 8;
-    sun.shadow.camera.top = 8;
-    sun.shadow.camera.bottom = -8;
+    sun.shadow.camera.far = 42;
+    sun.shadow.camera.left = -10;
+    sun.shadow.camera.right = 10;
+    sun.shadow.camera.top = 10;
+    sun.shadow.camera.bottom = -10;
+    sun.shadow.bias = -0.0006;
     scene.add(sun);
 
-    const crystalLight = new THREE.PointLight(0x9146ff, 4.5, 9);
-    crystalLight.position.set(0, 2.5, 0.4);
+    const rimLight = new THREE.DirectionalLight(0x8c5cff, 0.9);
+    rimLight.position.set(-10, 6, -10);
+    scene.add(rimLight);
+
+    const crystalLight = new THREE.PointLight(0x9146ff, 5.5, 11);
+    crystalLight.position.set(0, 2.8, 0.5);
     scene.add(crystalLight);
 
-    const lanternLight = new THREE.PointLight(0xffb84d, 3.2, 6);
-    lanternLight.position.set(0.8, 1.4, 2.3);
+    const lanternLight = new THREE.PointLight(0xffb44c, 4.2, 7.5);
+    lanternLight.position.set(0.7, 1.4, 2.6);
     scene.add(lanternLight);
 
     const islandGroup = new THREE.Group();
     scene.add(islandGroup);
 
-    const boxGeo = new THREE.BoxGeometry(0.96, 0.96, 0.96);
-    const stoneMat = new THREE.MeshStandardMaterial({ color: 0x5c5b6e, roughness: 0.88 });
-    const darkStoneMat = new THREE.MeshStandardMaterial({ color: 0x3b384a, roughness: 0.92 });
-    const grassMat = new THREE.MeshStandardMaterial({ color: 0x457d54, roughness: 0.82 });
-    const woodMat = new THREE.MeshStandardMaterial({ color: 0x8b5a36, roughness: 0.8 });
-    const roofMat = new THREE.MeshStandardMaterial({ color: 0x2f3142, roughness: 0.72 });
+    const boxGeo = new THREE.BoxGeometry(0.97, 0.97, 0.97);
+    const stoneMat = new THREE.MeshStandardMaterial({ color: 0x67657a, roughness: 0.86 });
+    const darkStoneMat = new THREE.MeshStandardMaterial({ color: 0x3f3a4f, roughness: 0.92 });
+    const dirtMat = new THREE.MeshStandardMaterial({ color: 0x523f35, roughness: 0.94 });
+    const grassMat = new THREE.MeshStandardMaterial({ color: 0x4b8758, roughness: 0.8 });
+    const pineMat = new THREE.MeshStandardMaterial({ color: 0x2f6841, roughness: 0.82 });
+    const woodMat = new THREE.MeshStandardMaterial({ color: 0x8f5b36, roughness: 0.78 });
+    const darkWoodMat = new THREE.MeshStandardMaterial({ color: 0x573722, roughness: 0.85 });
+    const roofMat = new THREE.MeshStandardMaterial({ color: 0x2b2d3e, roughness: 0.7 });
+    const cloudMat = new THREE.MeshStandardMaterial({ color: 0xeadcf2, roughness: 0.95, transparent: true, opacity: 0.82 });
     const crystalMat = new THREE.MeshStandardMaterial({
-      color: 0xc89eff,
+      color: 0xd9b8ff,
       emissive: 0x9146ff,
-      emissiveIntensity: 1.7,
-      roughness: 0.25,
-    });
-    const lanternMat = new THREE.MeshStandardMaterial({
-      color: 0xffe099,
-      emissive: 0xffa62b,
-      emissiveIntensity: 1.9,
+      emissiveIntensity: 2.3,
       roughness: 0.2,
     });
+    const lanternMat = new THREE.MeshStandardMaterial({
+      color: 0xffe4a3,
+      emissive: 0xffa62b,
+      emissiveIntensity: 2.5,
+      roughness: 0.15,
+    });
 
-    // 1. Floating island base (7x7 grass top + tapered stone underside)
+    // 1. Sculpted 9x9 floating island base + rocky taper + hanging roots
     const grassSpecs: VoxelSpec[] = [];
+    const dirtSpecs: VoxelSpec[] = [];
     const underSpecs: VoxelSpec[] = [];
-    for (let x = -3; x <= 3; x++) {
-      for (let z = -3; z <= 3; z++) {
-        const corner = Math.abs(x) === 3 && Math.abs(z) === 3;
-        if (corner) continue;
-        grassSpecs.push({ x, y: 0, z });
-        if (Math.abs(x) <= 2 && Math.abs(z) <= 2) {
-          underSpecs.push({ x, y: -1, z });
+    const pathSpecs: VoxelSpec[] = [];
+
+    for (let x = -4; x <= 4; x++) {
+      for (let z = -4; z <= 4; z++) {
+        const dist = Math.abs(x) + Math.abs(z);
+        if (dist > 6) continue;
+        const isPath = x === 0 && z >= 2 && z <= 4;
+        if (isPath) {
+          pathSpecs.push({ x, y: 0.05, z, sx: 0.85, sy: 0.95, sz: 0.85 });
+        } else {
+          grassSpecs.push({ x, y: 0, z });
         }
-        if (Math.abs(x) <= 1 && Math.abs(z) <= 1) {
-          underSpecs.push({ x, y: -2, z });
-        }
+        if (dist <= 5) dirtSpecs.push({ x, y: -1, z });
+        if (dist <= 3) underSpecs.push({ x, y: -2, z });
+        if (dist <= 2) underSpecs.push({ x, y: -3, z });
       }
     }
-    underSpecs.push({ x: 0, y: -3, z: 0 });
+    underSpecs.push({ x: 0, y: -4, z: 0 }, { x: -1, y: -4, z: 0 }, { x: 0, y: -5, z: 0 });
+    // Hanging roots
+    dirtSpecs.push(
+      { x: -3, y: -1.6, z: 1, sx: 0.25, sy: 1.4, sz: 0.25 },
+      { x: 2, y: -2.5, z: 2, sx: 0.25, sy: 1.8, sz: 0.25 },
+      { x: -1, y: -3.6, z: -2, sx: 0.22, sy: 1.5, sz: 0.22 },
+    );
+
     islandGroup.add(buildVoxelInstances(boxGeo, grassMat, grassSpecs));
+    islandGroup.add(buildVoxelInstances(boxGeo, stoneMat, pathSpecs));
+    islandGroup.add(buildVoxelInstances(boxGeo, dirtMat, dirtSpecs));
     islandGroup.add(buildVoxelInstances(boxGeo, darkStoneMat, underSpecs));
 
-    // 2. Workshop stone walls + front steps
+    // 2. Detailed Gabled Workshop Cottage (stone walls, timber corner posts, glowing purple windows)
     const wallSpecs: VoxelSpec[] = [];
+    const timberSpecs: VoxelSpec[] = [];
     const windowSpecs: VoxelSpec[] = [];
+
     for (let y = 1; y <= 2; y++) {
-      for (let x = -1; x <= 1; x++) {
-        for (let z = -1; z <= 1; z++) {
-          const isWin = y === 1 && ((x === -1 && z === 0) || (x === 0 && z === 1));
+      for (let x = -1.5; x <= 1.5; x += 1) {
+        for (let z = -1.5; z <= 1.5; z += 1) {
+          const isCorner = Math.abs(x) === 1.5 && Math.abs(z) === 1.5;
+          const isWin = y === 1 && ((x === -1.5 && Math.abs(z) < 1) || (z === 1.5 && Math.abs(x) < 1));
+          const isDoor = y === 1 && x === 0.5 && z === 1.5;
+          if (isDoor) continue;
           if (isWin) windowSpecs.push({ x, y, z });
+          else if (isCorner) timberSpecs.push({ x, y, z });
           else wallSpecs.push({ x, y, z });
         }
       }
     }
-    // Stone steps in front
-    wallSpecs.push({ x: 0, y: 0.6, z: 2, sx: 1, sy: 0.4, sz: 0.8 });
+    // Front stone steps & porch
+    wallSpecs.push({ x: 0.5, y: 0.55, z: 2.3, sx: 1.3, sy: 0.45, sz: 0.8 });
+    // Door
+    timberSpecs.push({ x: 0.5, y: 1.15, z: 1.4, sx: 0.9, sy: 1.3, sz: 0.25 });
+    // Dormer crystal window
+    windowSpecs.push({ x: 0, y: 3.7, z: 1.1, sx: 0.75, sy: 0.75, sz: 0.75 });
+    // Stone chimney
+    wallSpecs.push({ x: -1.3, y: 3.5, z: -1.1, sx: 0.7, sy: 2.2, sz: 0.7 });
+
     islandGroup.add(buildVoxelInstances(boxGeo, stoneMat, wallSpecs));
+    islandGroup.add(buildVoxelInstances(boxGeo, darkWoodMat, timberSpecs));
     islandGroup.add(buildVoxelInstances(boxGeo, crystalMat, windowSpecs, false, false));
 
-    // 3. Pitched roof & chimney
+    // 3. Stepped pitched slate roof
     const roofSpecs: VoxelSpec[] = [];
-    for (let x = -1; x <= 1; x++) {
-      for (let z = -1; z <= 1; z++) {
-        roofSpecs.push({ x, y: 3, z });
+    for (let z = -2; z <= 2; z++) {
+      for (let x = -2; x <= 2; x++) {
+        roofSpecs.push({ x, y: 3, z, sx: 0.95, sy: 0.65, sz: 0.95 });
       }
+      for (let x = -1; x <= 1; x++) {
+        roofSpecs.push({ x, y: 3.65, z, sx: 0.95, sy: 0.65, sz: 0.95 });
+      }
+      roofSpecs.push({ x: 0, y: 4.3, z, sx: 0.95, sy: 0.65, sz: 0.95 });
     }
-    roofSpecs.push({ x: 0, y: 4, z: -1 }, { x: 0, y: 4, z: 0 }, { x: 0, y: 4, z: 1 });
     islandGroup.add(buildVoxelInstances(boxGeo, roofMat, roofSpecs));
 
-    // 4. Timber scaffolding (right side) + trees (left side) + lantern
-    const woodSpecs: VoxelSpec[] = [
-      { x: 2, y: 1, z: 0, sx: 0.22, sy: 1.1, sz: 0.22 },
-      { x: 2, y: 2, z: 0, sx: 0.22, sy: 1.1, sz: 0.22 },
-      { x: 2, y: 1, z: 1, sx: 0.22, sy: 1.1, sz: 0.22 },
-      { x: 2, y: 2, z: 1, sx: 0.22, sy: 1.1, sz: 0.22 },
-      { x: 2, y: 2.4, z: 0.5, sx: 0.9, sy: 0.16, sz: 1.4 },
-      { x: -2, y: 1, z: -1, sx: 0.45, sy: 1, sz: 0.45 },
-      { x: -2, y: 1, z: 2, sx: 0.45, sy: 1, sz: 0.45 },
+    // 4. Right-side multi-level scaffolding, crane & crates
+    const scaffSpecs: VoxelSpec[] = [
+      { x: 2.6, y: 1.2, z: -0.6, sx: 0.2, sy: 2.2, sz: 0.2 },
+      { x: 2.6, y: 1.2, z: 1.0, sx: 0.2, sy: 2.2, sz: 0.2 },
+      { x: 3.5, y: 1.2, z: -0.6, sx: 0.2, sy: 2.2, sz: 0.2 },
+      { x: 3.5, y: 1.2, z: 1.0, sx: 0.2, sy: 2.2, sz: 0.2 },
+      { x: 3.05, y: 2.1, z: 0.2, sx: 1.25, sy: 0.16, sz: 1.9 },
+      { x: 3.05, y: 3.1, z: 0.2, sx: 0.2, sy: 1.8, sz: 0.2 },
+      { x: 2.5, y: 3.9, z: 0.2, sx: 1.3, sy: 0.18, sz: 0.2 },
+      // Crates
+      { x: 2.6, y: 0.85, z: 2.1, sx: 0.65, sy: 0.65, sz: 0.65 },
+      { x: 3.2, y: 0.75, z: 1.8, sx: 0.5, sy: 0.5, sz: 0.5 },
     ];
-    islandGroup.add(buildVoxelInstances(boxGeo, woodMat, woodSpecs));
+    islandGroup.add(buildVoxelInstances(boxGeo, woodMat, scaffSpecs));
 
-    const leafSpecs: VoxelSpec[] = [
-      { x: -2, y: 2, z: -1, sx: 1.15, sy: 0.9, sz: 1.15 },
-      { x: -2, y: 2.8, z: -1, sx: 0.75, sy: 0.8, sz: 0.75 },
-      { x: -2, y: 2, z: 2, sx: 1.05, sy: 0.85, sz: 1.05 },
-      { x: -2, y: 2.7, z: 2, sx: 0.65, sy: 0.7, sz: 0.65 },
+    // 5. Lush layered pine trees (left & back)
+    const trunkSpecs: VoxelSpec[] = [
+      { x: -3.0, y: 1.0, z: -1.2, sx: 0.45, sy: 1.3, sz: 0.45 },
+      { x: -2.6, y: 1.0, z: 1.8, sx: 0.42, sy: 1.1, sz: 0.42 },
+      { x: 1.6, y: 1.0, z: -3.0, sx: 0.42, sy: 1.2, sz: 0.42 },
     ];
-    islandGroup.add(buildVoxelInstances(boxGeo, grassMat, leafSpecs));
+    islandGroup.add(buildVoxelInstances(boxGeo, darkWoodMat, trunkSpecs));
 
-    islandGroup.add(buildVoxelInstances(boxGeo, lanternMat, [{ x: 0.75, y: 1.35, z: 1.65, sx: 0.3, sy: 0.4, sz: 0.3 }], false, false));
+    const pineSpecs: VoxelSpec[] = [
+      // Tree 1
+      { x: -3.0, y: 2.0, z: -1.2, sx: 1.5, sy: 0.8, sz: 1.5 },
+      { x: -3.0, y: 2.75, z: -1.2, sx: 1.1, sy: 0.8, sz: 1.1 },
+      { x: -3.0, y: 3.45, z: -1.2, sx: 0.65, sy: 0.75, sz: 0.65 },
+      // Tree 2
+      { x: -2.6, y: 1.9, z: 1.8, sx: 1.35, sy: 0.75, sz: 1.35 },
+      { x: -2.6, y: 2.6, z: 1.8, sx: 0.85, sy: 0.75, sz: 0.85 },
+      // Tree 3
+      { x: 1.6, y: 1.95, z: -3.0, sx: 1.4, sy: 0.75, sz: 1.4 },
+      { x: 1.6, y: 2.65, z: -3.0, sx: 0.9, sy: 0.75, sz: 0.9 },
+    ];
+    islandGroup.add(buildVoxelInstances(boxGeo, pineMat, pineSpecs));
 
-    // Crystal spire at the top (pulses when executing or level >= 2)
-    const spireMesh = new THREE.Mesh(new THREE.OctahedronGeometry(0.42, 0), crystalMat);
-    spireMesh.position.set(0, 5.1, 0);
-    islandGroup.add(spireMesh);
+    // Doorway lantern + garden lanterns
+    islandGroup.add(
+      buildVoxelInstances(
+        boxGeo,
+        lanternMat,
+        [
+          { x: 1.1, y: 1.45, z: 1.9, sx: 0.28, sy: 0.36, sz: 0.28 },
+          { x: -0.9, y: 0.8, z: 3.1, sx: 0.26, sy: 0.34, sz: 0.26 },
+        ],
+        false,
+        false,
+      ),
+    );
 
-    // Floating ambient motes
-    const moteCount = 36;
+    // 6. Voxel Builder avatars standing on the terrace
+    const builderHeads: VoxelSpec[] = [
+      { x: -1.2, y: 1.35, z: 2.4, sx: 0.42, sy: 0.42, sz: 0.42 },
+      { x: 1.8, y: 1.35, z: 2.5, sx: 0.42, sy: 0.42, sz: 0.42 },
+      { x: 3.0, y: 2.75, z: 0.2, sx: 0.42, sy: 0.42, sz: 0.42 },
+    ];
+    const builderBodies: VoxelSpec[] = [
+      { x: -1.2, y: 0.9, z: 2.4, sx: 0.44, sy: 0.55, sz: 0.35 },
+      { x: 1.8, y: 0.9, z: 2.5, sx: 0.44, sy: 0.55, sz: 0.35 },
+      { x: 3.0, y: 2.35, z: 0.2, sx: 0.44, sy: 0.55, sz: 0.35 },
+    ];
+    islandGroup.add(buildVoxelInstances(boxGeo, lanternMat, builderHeads));
+    islandGroup.add(buildVoxelInstances(boxGeo, crystalMat, builderBodies));
+
+    // 7. Drifting 3D voxel cloud clusters around the island
+    const cloudsGroup = new THREE.Group();
+    const cloudSpecs: VoxelSpec[] = [
+      { x: -9, y: 3.5, z: -7, sx: 2.4, sy: 1.1, sz: 1.8 },
+      { x: -7.6, y: 4.1, z: -7, sx: 1.5, sy: 0.9, sz: 1.4 },
+      { x: 9.5, y: 4.4, z: -5, sx: 2.6, sy: 1.1, sz: 1.8 },
+      { x: 10.6, y: 5.0, z: -5, sx: 1.4, sy: 0.85, sz: 1.4 },
+      { x: -8, y: -1.5, z: 8, sx: 2.8, sy: 1.0, sz: 2.0 },
+    ];
+    cloudsGroup.add(buildVoxelInstances(boxGeo, cloudMat, cloudSpecs, false, false));
+    scene.add(cloudsGroup);
+
+    // Floating glowing ember motes
+    const moteCount = 48;
     const motePos = new Float32Array(moteCount * 3);
     for (let i = 0; i < moteCount; i++) {
-      motePos[i * 3] = (Math.random() - 0.5) * 12;
-      motePos[i * 3 + 1] = Math.random() * 7 - 1.5;
-      motePos[i * 3 + 2] = (Math.random() - 0.5) * 12;
+      motePos[i * 3] = (Math.random() - 0.5) * 14;
+      motePos[i * 3 + 1] = Math.random() * 8 - 2;
+      motePos[i * 3 + 2] = (Math.random() - 0.5) * 14;
     }
     const moteGeo = new THREE.BufferGeometry();
     moteGeo.setAttribute("position", new THREE.BufferAttribute(motePos, 3));
-    const moteMat = new THREE.PointsMaterial({ color: 0xc89eff, size: 0.14, transparent: true, opacity: 0.75 });
+    const moteMat = new THREE.PointsMaterial({ color: 0xd8bfff, size: 0.16, transparent: true, opacity: 0.85 });
     const motes = new THREE.Points(moteGeo, moteMat);
     scene.add(motes);
 
@@ -257,33 +389,33 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
     const bursts: BurstCube[] = [];
     const burstGeo = new THREE.BoxGeometry(0.22, 0.22, 0.22);
     burstFnRef.current = (colorHex: number) => {
-      const mat = new THREE.MeshStandardMaterial({ color: colorHex, emissive: colorHex, emissiveIntensity: 1.6 });
-      for (let i = 0; i < 18; i++) {
+      const mat = new THREE.MeshStandardMaterial({ color: colorHex, emissive: colorHex, emissiveIntensity: 2.2 });
+      for (let i = 0; i < 20; i++) {
         const mesh = new THREE.Mesh(burstGeo, mat);
-        mesh.position.set(0, 3.8, 0);
+        mesh.position.set(0, 4.5, 0);
         scene.add(mesh);
-        const ang = (i / 18) * Math.PI * 2 + Math.random() * 0.3;
-        const spd = 0.06 + Math.random() * 0.08;
+        const ang = (i / 20) * Math.PI * 2 + Math.random() * 0.3;
+        const spd = 0.06 + Math.random() * 0.09;
         bursts.push({
           mesh,
           vx: Math.cos(ang) * spd,
-          vy: 0.1 + Math.random() * 0.09,
+          vy: 0.11 + Math.random() * 0.09,
           vz: Math.sin(ang) * spd,
-          life: 48,
+          life: 50,
         });
       }
     };
 
     const ideaAnchors = [
-      new THREE.Vector3(-2.4, 3.6, 1.4),
-      new THREE.Vector3(2.4, 4.1, 0.8),
-      new THREE.Vector3(-1.8, 4.5, -1.6),
-      new THREE.Vector3(1.8, 3.4, -1.8),
+      new THREE.Vector3(-2.6, 4.1, 1.8),
+      new THREE.Vector3(2.8, 4.4, 1.0),
+      new THREE.Vector3(-2.0, 4.8, -2.0),
+      new THREE.Vector3(2.0, 3.8, -2.2),
     ];
     const builderAnchors = [
-      new THREE.Vector3(2.5, 1.4, -2.0),
-      new THREE.Vector3(-2.5, 1.4, -2.2),
-      new THREE.Vector3(2.5, 1.4, 2.2),
+      new THREE.Vector3(-1.2, 1.8, 2.4),
+      new THREE.Vector3(1.8, 1.8, 2.5),
+      new THREE.Vector3(3.0, 3.2, 0.2),
     ];
 
     const ro = typeof ResizeObserver !== "undefined"
@@ -293,6 +425,7 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
           camera.aspect = w / h;
           camera.updateProjectionMatrix();
           renderer.setSize(w, h);
+          composer.setSize(w, h);
         })
       : null;
     ro?.observe(container);
@@ -304,10 +437,9 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
     const animate = () => {
       frame += 1;
       const t = frame * 0.016;
-      islandGroup.position.y = Math.sin(t * 1.1) * 0.12;
-      spireMesh.rotation.y = t * 0.9;
-      spireMesh.position.y = 5.05 + Math.sin(t * 2.2) * 0.14;
-      crystalLight.intensity = 4.2 + Math.sin(t * 3.1) * 0.7;
+      islandGroup.position.y = Math.sin(t * 1.05) * 0.12;
+      cloudsGroup.position.x = Math.sin(t * 0.18) * 0.6;
+      crystalLight.intensity = 5.0 + Math.sin(t * 3.0) * 0.9;
 
       for (let i = bursts.length - 1; i >= 0; i--) {
         const b = bursts[i]!;
@@ -318,8 +450,7 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
         b.mesh.rotation.x += 0.1;
         b.mesh.rotation.y += 0.12;
         b.life -= 1;
-        const s = Math.max(0.01, b.life / 48);
-        b.mesh.scale.setScalar(s);
+        b.mesh.scale.setScalar(Math.max(0.01, b.life / 50));
         if (b.life <= 0) {
           scene.remove(b.mesh);
           bursts.splice(i, 1);
@@ -327,9 +458,8 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
       }
 
       controls.update();
-      renderer.render(scene, camera);
+      composer.render();
 
-      // Update 3D-projected HTML labels every 2 frames to keep React overhead near zero
       if (frame % 2 === 0) {
         const curIdeas = (stateRef.current.round?.ideas.filter((i) => !i.hidden) ?? []).slice(-4);
         if (curIdeas.length > 0) {
@@ -374,6 +504,7 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
       cancelAnimationFrame(raf);
       ro?.disconnect();
       controls.dispose();
+      composer.dispose();
       renderer.dispose();
       if (renderer.domElement.parentNode === container) {
         container.removeChild(renderer.domElement);
