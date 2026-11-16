@@ -874,10 +874,32 @@ export class RoundEngine {
     ex.error = result.error ? streamSafeLine(result.error, 1000) : null;
     ex.previewUrl = sanitizePreviewUrl(result.previewUrl);
     r.phase = "done";
+    if (result.status === "succeeded" && r.winnerId) {
+      const winner = r.ideas.find((i) => i.id === r.winnerId);
+      if (winner) this.recordCoBuilder(winner.author);
+    }
     this.activity("execution", `Execution ${result.status}${ex.error ? `: ${ex.error}` : ""}`);
     this.changed();
     this.milestone({ kind: "build_finished", round: r, execution: ex });
     return ex;
+  }
+
+  private recordCoBuilder(author: TwitchUser): void {
+    const list = [...(this.s.coBuilders ?? [])];
+    const login = author.login.toLowerCase();
+    const existing = list.find((b) => b.login === login);
+    if (existing) {
+      existing.shipped += 1;
+      existing.displayName = author.displayName || existing.displayName;
+    } else {
+      list.push({
+        login,
+        displayName: author.displayName || author.login,
+        shipped: 1,
+      });
+    }
+    list.sort((a, b) => b.shipped - a.shipped);
+    this.s.coBuilders = list.slice(0, 10);
   }
 
   /** Record a Twitch native celebration (Channel Points, Bits, Raid, Subscribe) for the overlay. */

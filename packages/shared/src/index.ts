@@ -259,6 +259,12 @@ export interface StreamCelebration {
   amount?: number;
 }
 
+export interface CoBuilder {
+  login: string;
+  displayName: string;
+  shipped: number;
+}
+
 export interface LiveState {
   version: number;
   connection: Connection;
@@ -268,6 +274,8 @@ export interface LiveState {
   activity: Activity[];
   /** Recent Twitch native celebrations (Channel Points, Bits, Raids, Subs) for the OBS overlay. */
   celebrations?: StreamCelebration[];
+  /** Top viewers whose winning ideas were successfully shipped. */
+  coBuilders?: CoBuilder[];
   stats: {
     rounds: number;
     ideas: number;

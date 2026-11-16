@@ -536,6 +536,9 @@ describe("round engine: moderator actions, eligibility, +1 by number", () => {
       error: null,
     });
     expect(okEngine.round!.execution!.previewUrl).toBe("http://127.0.0.1:4173/preview");
+    expect(okEngine.state.coBuilders).toEqual([
+      { login: "alice", displayName: "ALICE", shipped: 1 },
+    ]);
 
     const { engine: badEngine } = collecting();
     badEngine.submitIdea(A, "dark mode");
@@ -547,14 +550,15 @@ describe("round engine: moderator actions, eligibility, +1 by number", () => {
     badEngine.approveTask("streamer");
     badEngine.beginExecution("aria-code");
     badEngine.finishExecution({
-      status: "succeeded",
+      status: "failed",
       branch: "b",
       workdir: "/tmp/w",
       changedFiles: ["a.ts"],
       summary: "ok",
       previewUrl: "javascript:alert(1)",
-      error: null,
+      error: "boom",
     });
     expect(badEngine.round!.execution!.previewUrl).toBeNull();
+    expect(badEngine.state.coBuilders ?? []).toHaveLength(0);
   });
 });

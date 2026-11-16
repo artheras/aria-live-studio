@@ -406,3 +406,59 @@
   .ov-bal__bar,
   .ov-ring__fill { transition: none; }
 }
+
+.ov-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.ov-brand__icon {
+  display: block;
+  border-radius: 5px;
+}
+.ov-brand__icon.is-active {
+  animation: ovPulse 1.4s ease-in-out infinite;
+}
+.ov-built-for {
+  margin: 8px 0 0;
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.85);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ov-shipped-badge {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(47, 212, 138, 0.16);
+  border: 1px solid rgba(47, 212, 138, 0.4);
+  color: #7dffc1;
+}
+.ov-cobuilders {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.ov-cobuilders__label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.55);
+  font-weight: 700;
+}
+.ov-cobuilder {
+  font-size: 13px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.9);
+}
+.ov-cobuilder b {
+  color: #ffd166;
+}

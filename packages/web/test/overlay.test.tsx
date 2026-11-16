@@ -86,11 +86,15 @@ describe("overlay", () => {
           text: "Boosted #1 (+2)",
         },
       ],
+      coBuilders: [{ login: "viewer2", displayName: "viewer2", shipped: 2 }],
     };
 
     const { container } = render(<OverlayView state={state} connected />);
     expect(container.textContent).toContain("channel points");
     expect(container.textContent).toContain("Boosted #1 (+2)");
+    expect(container.textContent).toContain("Built for @viewer2");
+    expect(container.textContent).toContain("2× Shipped");
+    expect(container.textContent).toContain("Co-Builders");
     expect(container.textContent).toContain("src/Boss.tsx");
     expect(container.textContent).toContain("src/Boss.css");
     const iframe = container.querySelector("iframe.ov-preview");

@@ -39,9 +39,20 @@ const ONLY: Record<Eligibility, string | null> = {
 
 function Header({ round, label, only }: { round: Round; label: string; only?: Eligibility }) {
   const badge = only ? ONLY[only] : null;
+  const active = round.phase === "planning" || round.phase === "executing";
   return (
     <div className="ov-head">
-      <span className="ov-brand">Aria Live</span>
+      <span className="ov-brand">
+        <img
+          className={`ov-brand__icon ${active ? "is-active" : ""}`}
+          src="/aria-glyph-inverse.png"
+          width={22}
+          height={22}
+          alt=""
+          aria-hidden="true"
+        />
+        Aria Live
+      </span>
       <span className="ov-sep" />
       <span className="ov-kicker">
         Round {round.index} · {label}
@@ -207,11 +218,23 @@ function OverlayCard({ state, now }: { state: LiveState; now: number }) {
       const tone = ok ? "good" : ex?.status === "cancelled" ? "warn" : "bad";
       const text = ok ? "Shipped!" : ex?.status === "cancelled" ? "Build cancelled" : "Build didn't make it";
       const line = ok ? ex?.summary : ex?.error ?? ex?.summary;
+      const w = winnerIdea(round);
+      const winnerLogin = w?.author.login.toLowerCase();
+      const winnerRecord = winnerLogin ? state.coBuilders?.find((b) => b.login === winnerLogin) : undefined;
+      const topBuilders = state.coBuilders?.slice(0, 3) ?? [];
       return (
         <div className={`ov-card ov-done ov-done--${tone}`} data-phase="done">
           <Header round={round} label="Result" />
           <h1 className="ov-title">{text}</h1>
           {round.task && <p className="ov-sub">{truncate(round.task.title, 70)}</p>}
+          {w && !w.hidden && (
+            <p className="ov-built-for">
+              Built for <strong>@{w.author.displayName || w.author.login}</strong>
+              {winnerRecord && winnerRecord.shipped > 0 && (
+                <span className="ov-shipped-badge">{winnerRecord.shipped}× Shipped</span>
+              )}
+            </p>
+          )}
           {line && <p className="ov-line">{truncate(line, 110)}</p>}
           {ok && ex?.changedFiles.length ? (
             <ul className="ov-files">
@@ -235,6 +258,16 @@ function OverlayCard({ state, now }: { state: LiveState; now: number }) {
               <b>{ex.changedFiles.length}</b> {ex.changedFiles.length === 1 ? "file" : "files"} changed
               {ok && ex.clipUrl && <span className="ov-clip"> · Clip saved</span>}
             </p>
+          )}
+          {topBuilders.length > 0 && (
+            <div className="ov-cobuilders" aria-label="Top co-builders">
+              <span className="ov-cobuilders__label">Co-Builders</span>
+              {topBuilders.map((b) => (
+                <span key={b.login} className="ov-cobuilder">
+                  @{b.displayName || b.login} <b>{b.shipped}×</b>
+                </span>
+              ))}
+            </div>
           )}
         </div>
       );
