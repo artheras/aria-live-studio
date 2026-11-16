@@ -113,7 +113,7 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
 
     // Classic 45-deg isometric hero view matching the reference workshop composition
     const camera = new THREE.PerspectiveCamera(35, width / height, 0.1, 160);
-    camera.position.set(13.6, 9.6, 13.8);
+    camera.position.set(14.5, 10.1, 14.7);
 
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
@@ -129,7 +129,7 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
     controls.minDistance = 8.5;
     controls.maxDistance = 26;
     controls.maxPolarAngle = Math.PI * 0.49;
-    controls.target.set(0.25, 2.35, -0.15);
+    controls.target.set(0.25, 2.75, -0.15);
 
     // Twilight sky dome with directional golden-peach sunset glow on upper-right
     const skyGeo = new THREE.SphereGeometry(76, 24, 16);
@@ -319,13 +319,14 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
           const z = gz * u;
           const isDoor = gz === 2 && (gx === -2 || gx === -1) && (gy === 2 || gy === 3);
           const isFrontWin = gz === 2 && (gx === 0 || gx === 1) && (gy === 4 || gy === 5);
+          const isBackWin = gz === -4 && (gx === -3 || gx === 0) && (gy === 4 || gy === 5);
           const isSideWin = gx === -5 && (gz === -1 || gz === 0) && (gy === 4 || gy === 5);
           const isCorner = (gx === -5 || gx === 2) && (gz === -4 || gz === 2);
 
           if (isDoor) {
             // Recessed dark wooden double doors instead of blinding solid glow
             timberSpecs.push({ x, y, z: z - 0.12, sx: 0.95, sy: 0.95, sz: 0.55 });
-          } else if (isFrontWin || isSideWin) {
+          } else if (isFrontWin || isBackWin || isSideWin) {
             windowSpecs.push({ x, y, z, sx: 0.82, sy: 0.92, sz: 0.82 });
           } else if (isCorner) {
             timberSpecs.push({ x, y, z });
@@ -366,11 +367,13 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
           }
         }
       }
-      // Wooden bargeboard eaves on front & back gable
-      timberSpecs.push(
-        { x: (-halfW - 0.5) * u, y: y + 0.08, z: 1.65, sx: 0.72, sy: 0.48, sz: 0.45 },
-        { x: (halfW - 1.5) * u, y: y + 0.08, z: 1.65, sx: 0.72, sy: 0.48, sz: 0.45 },
-      );
+      // Wooden bargeboard eaves tucked cleanly under the pitched roof edges (skip top ridge)
+      if (tier < 5) {
+        timberSpecs.push(
+          { x: (-halfW - 0.5) * u, y: y - 0.08, z: 1.65, sx: 0.68, sy: 0.44, sz: 0.42 },
+          { x: (halfW - 1.5) * u, y: y - 0.08, z: 1.65, sx: 0.68, sy: 0.44, sz: 0.42 },
+        );
+      }
     }
     // Right-side roof dormer & left-back stone chimney
     pushStone(-1.6, 5.2, -1.6, 1.2, 2.6, 1.2);
@@ -402,7 +405,9 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
           if (!isOuter) continue;
           const x = gx * u;
           const z = gz * u;
-          const isWin = (gy === 10 || gy === 11) && ((gz === -3 && gx === 5) || (gx === 3 && gz === -5));
+          const isWin =
+            (gy === 10 || gy === 11) &&
+            ((gz === -3 && gx === 5) || (gx === 3 && gz === -5) || (gz === -7 && gx === 5) || (gx === 7 && gz === -5));
           if (isWin) {
             windowSpecs.push({ x, y, z, sx: 0.85, sy: 0.94, sz: 0.85 });
           } else {
@@ -478,6 +483,7 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
       { x: 4.95, y: 3.45, z: -1.2, sx: 0.45, sy: 0.55, sz: 0.45 },
       { x: 0.65, y: 0.78, z: 3.45, sx: 0.4, sy: 0.5, sz: 0.4 },
       { x: -2.35, y: 1.85, z: 1.15, sx: 0.4, sy: 0.5, sz: 0.4 },
+      { x: -1.4, y: 1.45, z: -2.35, sx: 0.42, sy: 0.52, sz: 0.42 },
     );
 
     // 7. Fine-Detail Clustered Sub-Voxel Pine Trees, Shrubs, Cobblestones & Flowers
@@ -485,6 +491,7 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
       { x: -4.2, y: 1.15, z: -1.6, sx: 0.85, sy: 3.4, sz: 0.85 },
       { x: -4.0, y: 1.0, z: 2.6, sx: 0.78, sy: 2.8, sz: 0.78 },
       { x: 4.1, y: 1.0, z: 2.6, sx: 0.78, sy: 2.8, sz: 0.78 },
+      { x: -2.2, y: 0.95, z: -4.0, sx: 0.72, sy: 2.4, sz: 0.72 },
     ];
     const addFineTree = (cx: number, baseY: number, cz: number, tiers: number) => {
       for (let t = 0; t < tiers; t++) {
@@ -510,6 +517,7 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
     addFineTree(-4.2, 2.0, -1.6, 4);
     addFineTree(-4.0, 1.7, 2.6, 3);
     addFineTree(4.1, 1.7, 2.6, 3);
+    addFineTree(-2.2, 1.6, -4.0, 3);
 
     // Shrubs & courtyard stepping stones
     for (const [sx, sz] of [
@@ -596,44 +604,47 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
     addVoxelBuilder(2.15, 0.24, 2.75, 0x4ca6ff, -0.8, 2.8);
     addVoxelBuilder(3.15, 0.24, 1.45, 0xf5b942, -1.1, 4.2);
 
-    // 9. Distant Waterfall Cliff Peaks + Lush Volumetric Twilight Cloud Banks
+    // 9. Distant Waterfall Cliff Peaks + Soft Volumetric Cloud Puffs
     const bgIslands = new THREE.Group();
+    const cloudGeo = new THREE.SphereGeometry(1, 12, 10);
     const cloudMat = new THREE.MeshStandardMaterial({
-      color: 0xd5c2f0,
-      emissive: 0x6f4e96,
-      emissiveIntensity: 0.38,
-      roughness: 0.95,
+      color: 0xdcccf5,
+      emissive: 0x7655a0,
+      emissiveIntensity: 0.35,
+      roughness: 0.98,
       transparent: true,
-      opacity: 0.58,
+      opacity: 0.34,
+      depthWrite: false,
     });
     const cloudWarmMat = new THREE.MeshStandardMaterial({
-      color: 0xf7d2b2,
+      color: 0xfad8bc,
       emissive: 0xe6ad84,
-      emissiveIntensity: 0.34,
-      roughness: 0.95,
+      emissiveIntensity: 0.32,
+      roughness: 0.98,
       transparent: true,
-      opacity: 0.55,
+      opacity: 0.32,
+      depthWrite: false,
     });
     const cloudCoolSpecs: VoxelSpec[] = [];
     const cloudWarmSpecs: VoxelSpec[] = [];
     const addVoxelCloud = (specs: VoxelSpec[], cx: number, cy: number, cz: number, count: number) => {
       for (let i = 0; i < count; i++) {
         specs.push({
-          x: cx + (i - count / 2) * 1.45,
-          y: cy + Math.sin(i * 1.1) * 0.55,
-          z: cz + Math.cos(i * 0.85) * 0.9,
-          sx: 4.5 + (i % 2) * 1.8,
-          sy: 2.6 + ((i + 1) % 2) * 1.1,
-          sz: 3.8,
+          x: cx + (i - count / 2) * 1.65,
+          y: cy + Math.sin(i * 1.1) * 0.65,
+          z: cz + Math.cos(i * 0.85) * 1.1,
+          sx: 2.6 + (i % 2) * 1.1,
+          sy: 1.45 + ((i + 1) % 2) * 0.65,
+          sz: 2.2,
         });
       }
     };
-    addVoxelCloud(cloudCoolSpecs, -13, 1.6, -13, 8);
-    addVoxelCloud(cloudCoolSpecs, -10, -2.5, -6, 7);
-    addVoxelCloud(cloudCoolSpecs, -9, -4.0, 5, 6);
-    addVoxelCloud(cloudWarmSpecs, 13, 2.2, -12, 8);
-    addVoxelCloud(cloudWarmSpecs, 10, -2.2, -5, 7);
-    addVoxelCloud(cloudWarmSpecs, 9, -3.5, 6, 6);
+    addVoxelCloud(cloudCoolSpecs, -13, 1.6, -13, 9);
+    addVoxelCloud(cloudCoolSpecs, -10, -2.5, -6, 8);
+    addVoxelCloud(cloudCoolSpecs, -9, -4.0, 5, 7);
+    addVoxelCloud(cloudWarmSpecs, 13, 2.2, -12, 9);
+    addVoxelCloud(cloudWarmSpecs, 10, -2.2, -5, 8);
+    addVoxelCloud(cloudWarmSpecs, 9, -3.5, 6, 7);
 
     const waterfallMat = new THREE.MeshStandardMaterial({
       color: 0xdff4ff,
@@ -643,8 +654,8 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
       transparent: true,
       opacity: 0.85,
     });
-    bgIslands.add(buildVoxelInstances(voxelGeo, cloudMat, cloudCoolSpecs, false, false));
-    bgIslands.add(buildVoxelInstances(voxelGeo, cloudWarmMat, cloudWarmSpecs, false, false));
+    bgIslands.add(buildVoxelInstances(cloudGeo, cloudMat, cloudCoolSpecs, false, false));
+    bgIslands.add(buildVoxelInstances(cloudGeo, cloudWarmMat, cloudWarmSpecs, false, false));
     bgIslands.add(
       buildVoxelInstances(
         voxelGeo,
