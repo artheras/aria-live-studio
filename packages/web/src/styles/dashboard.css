@@ -1698,6 +1698,18 @@ input[type="checkbox"] {
   }
 }
 
+.field__eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.field__hint {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+}
 .prompt-form--stacked {
   flex-direction: column;
   align-items: stretch;

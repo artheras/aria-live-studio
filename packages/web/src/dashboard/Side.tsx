@@ -20,7 +20,7 @@ export function ActivityFeed({ activity }: { activity: Activity[] }) {
     <section className="panel panel--activity" aria-labelledby="activity-h">
       <header className="panel__head">
         <h2 id="activity-h">Activity Feed</h2>
-        <span className="muted num">{items.length}</span>
+        <span className="muted num">{items.length > 0 ? `${items.length} events` : "View all"}</span>
       </header>
       <div className="panel__body panel__body--scroll">
         {items.length === 0 ? (

@@ -65,13 +65,14 @@ function PromptForm({
         }}
       >
         <label className="field field--grow">
-          <span>Round theme (optional)</span>
+          <span className="field__eyebrow">Round theme (optional)</span>
           <input
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            placeholder="e.g. Boss fight mechanic, UI polish..."
+            placeholder="e.g., Floating Islands, Boss fight mechanic..."
             maxLength={140}
           />
+          <span className="field__hint">This sets the vibe for your community build.</span>
         </label>
         <Btn type="submit" variant="primary" size="lg" pending={pending} className="btn--full">
           {label}
@@ -312,7 +313,7 @@ export function RoundControl({ round, settings, me, api, clockOffset, onConnectA
     title = "Ready for a new round";
     body = (
       <>
-        <p className="lede">Open a round and chat starts submitting ideas with <code>!idea</code>.</p>
+        <p className="lede">Start a new interactive session and invite your community to join the build.</p>
         <PromptForm label="Open round" onSubmit={openRound} pending={pending} />
       </>
     );

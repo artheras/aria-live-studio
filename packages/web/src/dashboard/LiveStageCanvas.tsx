@@ -106,7 +106,7 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
     scene.fog = new THREE.FogExp2(0x2d2142, 0.014);
 
     const camera = new THREE.PerspectiveCamera(36, width / height, 0.1, 160);
-    camera.position.set(13.2, 8.6, 14.2);
+    camera.position.set(14.0, 9.2, 15.0);
 
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
@@ -234,34 +234,37 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
       else stoneMidSpecs.push(spec);
     };
 
-    // 1. Craggy 11x11 floating rocky island + mossy grass terrace + overhanging cliff boulders
+    // 1. Craggy 13x13 floating rocky island + two-tier mossy grass terrace + overhanging cliff boulders
     const grassSpecs: VoxelSpec[] = [];
     const mossSpecs: VoxelSpec[] = [];
     const dirtSpecs: VoxelSpec[] = [];
 
-    for (let x = -5; x <= 5; x++) {
-      for (let z = -5; z <= 5; z++) {
+    for (let x = -6; x <= 6; x++) {
+      for (let z = -6; z <= 6; z++) {
         const dist = Math.abs(x) + Math.abs(z);
-        if (dist > 7) continue;
+        if (dist > 8) continue;
         const onTerrace = x >= -2 && x <= 3 && z >= -3 && z <= 1;
         if (onTerrace) {
           pushStone({ x, y: 0.5, z });
         } else if ((x + z) % 3 === 0) {
-          mossSpecs.push({ x, y: 0.06, z });
+          mossSpecs.push({ x, y: 0.08, z });
         } else {
           grassSpecs.push({ x, y: 0, z });
         }
-        if (dist <= 6) dirtSpecs.push({ x, y: -1, z });
-        if (dist <= 4 || (dist === 5 && (x * z) % 2 === 0)) stoneDarkSpecs.push({ x, y: -2, z });
-        if (dist <= 3) stoneDarkSpecs.push({ x, y: -3, z });
-        if (dist <= 1 || (dist === 2 && x === 0)) stoneDarkSpecs.push({ x, y: -4, z });
+        if (dist <= 7) dirtSpecs.push({ x, y: -1, z });
+        if (dist <= 5 || (dist === 6 && (x * z) % 2 === 0)) stoneDarkSpecs.push({ x, y: -2, z });
+        if (dist <= 4) stoneDarkSpecs.push({ x, y: -3, z });
+        if (dist <= 2 || (dist === 3 && (x + z) % 2 === 0)) stoneDarkSpecs.push({ x, y: -4, z });
       }
     }
     stoneDarkSpecs.push(
-      { x: 0, y: -5, z: 0 },
-      { x: -1, y: -4.6, z: 1 },
-      { x: 2, y: -2.6, z: 2, sx: 0.85, sy: 1.1, sz: 0.85 },
-      { x: -3, y: -2.4, z: 2, sx: 0.8, sy: 0.95, sz: 0.8 },
+      { x: 0, y: -5.2, z: 0 },
+      { x: -1, y: -4.8, z: 1 },
+      { x: 1, y: -4.7, z: -1 },
+      { x: 2.5, y: -2.8, z: 2.5, sx: 0.9, sy: 1.25, sz: 0.9 },
+      { x: -3.5, y: -2.6, z: 2.5, sx: 0.85, sy: 1.1, sz: 0.85 },
+      { x: 4.5, y: -2.1, z: -1.5, sx: 0.85, sy: 1.0, sz: 0.85 },
+      { x: -4.5, y: -2.1, z: -1.5, sx: 0.85, sy: 1.0, sz: 0.85 },
     );
     // Mossy grass lips & stone retaining wall along terrace edge
     for (let x = -3; x <= 4; x += 1) {
@@ -466,43 +469,54 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
       { x: -2.6, y: 2.1, z: 0.0, sx: 0.95, sy: 0.15, sz: 1.95 },
       { x: -2.6, y: 3.3, z: 0.0, sx: 0.95, sy: 0.15, sz: 1.95 },
       { x: -3.05, y: 2.7, z: 0.0, sx: 0.12, sy: 0.12, sz: 1.8 },
-      // Courtyard crates, barrel & wooden bench
+      // Courtyard crates, barrels, stone well & wooden bench
       { x: 2.2, y: 0.82, z: 1.6, sx: 0.56, sy: 0.56, sz: 0.56 },
       { x: 2.8, y: 0.78, z: 1.5, sx: 0.46, sy: 0.48, sz: 0.46 },
       { x: 1.1, y: 0.72, z: 2.8, sx: 0.95, sy: 0.24, sz: 0.42 },
+      { x: 4.5, y: 2.55, z: -2.8, sx: 0.42, sy: 0.42, sz: 0.42 },
+      { x: 4.5, y: 4.15, z: -1.6, sx: 0.4, sy: 0.44, sz: 0.4 },
     ];
+
+    // Stone gable infill + courtyard stone well
+    for (const gz of [1.2, -2.0]) {
+      pushStone({ x: -1.5, y: 4.3, z: gz, sx: 0.9, sy: 0.65, sz: 0.75 });
+      pushStone({ x: 0.5, y: 4.3, z: gz, sx: 0.9, sy: 0.65, sz: 0.75 });
+    }
+    pushStone({ x: 3.0, y: 0.72, z: 2.9, sx: 0.85, sy: 0.58, sz: 0.85 });
 
     // 5. Clustered Multi-Voxel Pine Trees, Shrubs & Wildflowers
     const trunkSpecs: VoxelSpec[] = [
-      { x: -4.0, y: 1.1, z: -1.6, sx: 0.48, sy: 1.6, sz: 0.48 },
-      { x: -3.8, y: 1.0, z: 2.2, sx: 0.44, sy: 1.3, sz: 0.44 },
-      { x: 3.8, y: 1.0, z: 2.5, sx: 0.44, sy: 1.3, sz: 0.44 },
+      { x: -4.4, y: 1.15, z: -1.8, sx: 0.5, sy: 1.75, sz: 0.5 },
+      { x: -4.1, y: 1.05, z: 2.5, sx: 0.46, sy: 1.4, sz: 0.46 },
+      { x: 4.2, y: 1.05, z: 2.6, sx: 0.46, sy: 1.4, sz: 0.46 },
+      { x: 4.6, y: 0.9, z: -3.9, sx: 0.36, sy: 1.05, sz: 0.36 },
     ];
     const pineSpecs: VoxelSpec[] = [];
     const addVoxelTreeCanopy = (cx: number, baseY: number, cz: number, tiers: number) => {
       for (let t = 0; t < tiers; t++) {
         const r = tiers - t;
-        const y = baseY + t * 0.62;
+        const y = baseY + t * 0.58;
         for (let dx = -r; dx <= r; dx++) {
           for (let dz = -r; dz <= r; dz++) {
             if (Math.abs(dx) + Math.abs(dz) > r + 1) continue;
             const target = (dx + dz + t) % 3 === 0 ? mossSpecs : pineSpecs;
             target.push({
-              x: cx + dx * 0.52,
+              x: cx + dx * 0.48,
               y: y + ((dx * dz) % 2) * 0.08,
-              z: cz + dz * 0.52,
-              sx: 0.56,
-              sy: 0.58,
-              sz: 0.56,
+              z: cz + dz * 0.48,
+              sx: 0.54,
+              sy: 0.56,
+              sz: 0.54,
             });
           }
         }
       }
-      pineSpecs.push({ x: cx, y: baseY + tiers * 0.62, z: cz, sx: 0.5, sy: 0.55, sz: 0.5 });
+      pineSpecs.push({ x: cx, y: baseY + tiers * 0.58, z: cz, sx: 0.48, sy: 0.54, sz: 0.48 });
     };
-    addVoxelTreeCanopy(-4.0, 2.0, -1.6, 3);
-    addVoxelTreeCanopy(-3.8, 1.75, 2.2, 2);
-    addVoxelTreeCanopy(3.8, 1.75, 2.5, 2);
+    addVoxelTreeCanopy(-4.4, 2.05, -1.8, 4);
+    addVoxelTreeCanopy(-4.1, 1.8, 2.5, 3);
+    addVoxelTreeCanopy(4.2, 1.8, 2.6, 3);
+    addVoxelTreeCanopy(4.6, 1.45, -3.9, 2);
 
     // Courtyard voxel shrubs & pink/gold wildflowers
     for (const [sx, sz] of [
@@ -605,10 +619,10 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
         });
       }
     };
-    addVoxelCloud(cloudCoolSpecs, -14, 1.5, -13, 6);
-    addVoxelCloud(cloudCoolSpecs, -11, -3.5, 4, 5);
-    addVoxelCloud(cloudWarmSpecs, 14, 2.2, -12, 6);
-    addVoxelCloud(cloudWarmSpecs, 11, -3.2, 6, 5);
+    addVoxelCloud(cloudCoolSpecs, -14, 1.5, -13, 8);
+    addVoxelCloud(cloudCoolSpecs, -11, -3.5, 4, 7);
+    addVoxelCloud(cloudWarmSpecs, 14, 2.2, -12, 8);
+    addVoxelCloud(cloudWarmSpecs, 11, -3.2, 6, 7);
 
     bgIslands.add(buildVoxelInstances(boxGeo, cloudMat, cloudCoolSpecs, false, false));
     bgIslands.add(buildVoxelInstances(boxGeo, cloudWarmMat, cloudWarmSpecs, false, false));
