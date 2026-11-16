@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Round } from "@aria-live/shared";
 import type { AriaApi } from "../lib/api";
 import { computeBallot, totalVotes } from "../lib/round";
@@ -96,6 +96,8 @@ function IdeaList({ round, api }: { round: Round; api: AriaApi }) {
 function IdleOverlayPreview({ api }: { api: AriaApi }) {
   const { toast } = useActions();
   const [url, setUrl] = useState<string | null>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(0.38);
 
   useEffect(() => {
     let active = true;
@@ -110,6 +112,19 @@ function IdleOverlayPreview({ api }: { api: AriaApi }) {
       active = false;
     };
   }, [api]);
+
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el) return;
+    const update = () => {
+      if (el.clientWidth > 0) setScale(el.clientWidth / 1280);
+    };
+    update();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [url]);
 
   return (
     <div className="idle-preview">
@@ -137,9 +152,14 @@ function IdleOverlayPreview({ api }: { api: AriaApi }) {
         )}
       </div>
       {url && (
-        <div className="idle-preview__stage">
-          <span className="idle-preview__badge">OBS Overlay Live Preview</span>
-          <iframe className="idle-preview__frame" src={url} title="Live OBS Overlay preview" />
+        <div className="idle-preview__stage" ref={stageRef}>
+          <span className="idle-preview__badge">OBS Overlay Live Preview (1280×720)</span>
+          <iframe
+            className="idle-preview__frame"
+            src={url}
+            title="Live OBS Overlay preview"
+            style={{ transform: `scale(${scale})` }}
+          />
         </div>
       )}
     </div>
