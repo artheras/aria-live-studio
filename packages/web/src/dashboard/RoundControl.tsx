@@ -66,19 +66,31 @@ function PromptForm({
       >
         <label className="field field--grow">
           <span className="field__eyebrow">Round theme (optional)</span>
-          <input
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            placeholder="e.g., Floating Islands, Boss fight mechanic..."
-            maxLength={140}
-          />
+          <span className="field-input-wrap">
+            <svg className="field-input-wrap__icon" width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 2l2.1 6.9L21 11l-6.9 2.1L12 20l-2.1-6.9L3 11l6.9-2.1L12 2z" />
+            </svg>
+            <input
+              id="round-theme-input"
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              placeholder="e.g., Floating Islands, Boss fight mechanic..."
+              maxLength={140}
+            />
+          </span>
           <span className="field__hint">This sets the vibe for your community build.</span>
         </label>
         <Btn type="submit" variant="primary" size="lg" pending={pending} className="btn--full">
           {label}
         </Btn>
       </form>
-      <p className="muted prompt-caption">Your round will be live for your community to join and build.</p>
+      <p className="muted prompt-caption">
+        <svg className="prompt-caption__icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+          <path d="M12 2l7 3v6c0 5-3.5 9-7 11-3.5-2-7-6-7-11V5l7-3z" />
+          <path d="M9.5 12l2 2 3.5-3.5" />
+        </svg>
+        Your round will be live for your community to join and build.
+      </p>
       <details className="prompt-options">
         <summary>Presets &amp; round rules{modifiers.length ? ` (${modifiers.length} active)` : ""}</summary>
         <div className="prompt-options__body">

@@ -311,6 +311,16 @@ export function IdeasPanel({
                 <div className="workshop-bar__actions">
                   <button
                     type="button"
+                    className="btn btn--ghost btn--sm"
+                    onClick={() => {
+                      const input = document.getElementById("round-theme-input") as HTMLInputElement | null;
+                      input?.focus();
+                    }}
+                  >
+                    Send Idea
+                  </button>
+                  <button
+                    type="button"
                     className={`focus-pill ${focusMode ? "is-on" : ""}`}
                     aria-pressed={focusMode}
                     onClick={() => setFocusMode((f) => !f)}

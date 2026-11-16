@@ -587,7 +587,41 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
       ),
     );
 
-    // Distant floating background islands + volumetric twilight voxel cloud banks
+    // 6. 4 Animated 3D Voxel Co-Builder Characters on the courtyard & lawn
+    const voxelBuilders: { group: THREE.Group; baseY: number; phase: number }[] = [];
+    const skinMat = new THREE.MeshStandardMaterial({ color: 0xf6cba8, roughness: 0.72 });
+    const hairMat = new THREE.MeshStandardMaterial({ color: 0x3b2820, roughness: 0.85 });
+    const legMat = new THREE.MeshStandardMaterial({ color: 0x2f3348, roughness: 0.88 });
+    const addVoxelBuilder = (x: number, y: number, z: number, shirtColor: number, rotY: number, phase: number) => {
+      const g = new THREE.Group();
+      const shirtMat = new THREE.MeshStandardMaterial({ color: shirtColor, roughness: 0.68 });
+      const head = new THREE.Mesh(boxGeo, skinMat);
+      head.scale.set(0.36, 0.36, 0.36);
+      head.position.y = 0.78;
+      const hair = new THREE.Mesh(boxGeo, hairMat);
+      hair.scale.set(0.38, 0.14, 0.38);
+      hair.position.y = 0.94;
+      const body = new THREE.Mesh(boxGeo, shirtMat);
+      body.scale.set(0.34, 0.38, 0.24);
+      body.position.y = 0.42;
+      const leftLeg = new THREE.Mesh(boxGeo, legMat);
+      leftLeg.scale.set(0.14, 0.26, 0.16);
+      leftLeg.position.set(-0.08, 0.12, 0);
+      const rightLeg = new THREE.Mesh(boxGeo, legMat);
+      rightLeg.scale.set(0.14, 0.26, 0.16);
+      rightLeg.position.set(0.08, 0.12, 0);
+      g.add(head, hair, body, leftLeg, rightLeg);
+      g.position.set(x, y, z);
+      g.rotation.y = rotY;
+      islandGroup.add(g);
+      voxelBuilders.push({ group: g, baseY: y, phase });
+    };
+    addVoxelBuilder(-2.55, 0.5, 3.25, 0xd96b98, 0.45, 0.0);
+    addVoxelBuilder(-0.15, 0.5, 4.15, 0x9146ff, -0.35, 1.4);
+    addVoxelBuilder(2.15, 0.5, 2.75, 0x4ca6ff, -0.8, 2.8);
+    addVoxelBuilder(3.15, 0.5, 1.45, 0xf5b942, -1.1, 4.2);
+
+    // Distant floating background islands + waterfall cliff peaks + volumetric twilight voxel cloud banks
     const bgIslands = new THREE.Group();
     const cloudMat = new THREE.MeshStandardMaterial({
       color: 0xc9b4e6,
@@ -624,6 +658,14 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
     addVoxelCloud(cloudWarmSpecs, 14, 2.2, -12, 8);
     addVoxelCloud(cloudWarmSpecs, 11, -3.2, 6, 7);
 
+    const waterfallMat = new THREE.MeshStandardMaterial({
+      color: 0xdff4ff,
+      emissive: 0x7fd4ff,
+      emissiveIntensity: 0.45,
+      roughness: 0.25,
+      transparent: true,
+      opacity: 0.85,
+    });
     bgIslands.add(buildVoxelInstances(boxGeo, cloudMat, cloudCoolSpecs, false, false));
     bgIslands.add(buildVoxelInstances(boxGeo, cloudWarmMat, cloudWarmSpecs, false, false));
     bgIslands.add(
@@ -631,8 +673,10 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
         boxGeo,
         grassMat,
         [
-          { x: -14, y: 2.5, z: -16, sx: 3.5, sy: 0.7, sz: 3.5 },
-          { x: 15, y: 1.5, z: -17, sx: 2.8, sy: 0.65, sz: 2.8 },
+          { x: -14, y: 2.5, z: -16, sx: 3.8, sy: 0.75, sz: 3.8 },
+          { x: -15.5, y: 4.1, z: -16.5, sx: 2.1, sy: 0.65, sz: 2.1 },
+          { x: 15, y: 1.8, z: -17, sx: 3.4, sy: 0.7, sz: 3.4 },
+          { x: 16.5, y: 3.6, z: -17.5, sx: 2.2, sy: 0.65, sz: 2.2 },
         ],
         false,
         false,
@@ -643,8 +687,22 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
         boxGeo,
         stoneDarkMat,
         [
-          { x: -14, y: 1.4, z: -16, sx: 2.4, sy: 1.6, sz: 2.4 },
-          { x: 15, y: 0.6, z: -17, sx: 1.9, sy: 1.2, sz: 1.9 },
+          { x: -14, y: 1.0, z: -16, sx: 2.8, sy: 2.4, sz: 2.8 },
+          { x: -15.5, y: 3.0, z: -16.5, sx: 1.8, sy: 1.8, sz: 1.8 },
+          { x: 15, y: 0.2, z: -17, sx: 2.5, sy: 2.6, sz: 2.5 },
+          { x: 16.5, y: 2.4, z: -17.5, sx: 1.8, sy: 1.8, sz: 1.8 },
+        ],
+        false,
+        false,
+      ),
+    );
+    bgIslands.add(
+      buildVoxelInstances(
+        boxGeo,
+        waterfallMat,
+        [
+          { x: -14.2, y: 0.6, z: -14.2, sx: 0.65, sy: 3.8, sz: 0.45 },
+          { x: 14.6, y: 0.1, z: -15.4, sx: 0.72, sy: 3.9, sz: 0.48 },
         ],
         false,
         false,
@@ -724,6 +782,10 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
       bgIslands.position.y = Math.sin(t * 0.6) * 0.18;
       crystalLight.intensity = 5.6 + Math.sin(t * 3.0) * 0.9;
       porchLight.intensity = 5.2 + Math.sin(t * 5.2) * 0.35;
+      for (const vb of voxelBuilders) {
+        vb.group.position.y = vb.baseY + Math.abs(Math.sin(t * 2.4 + vb.phase)) * 0.08;
+        vb.group.rotation.y += Math.sin(t * 1.1 + vb.phase) * 0.004;
+      }
 
       for (let i = bursts.length - 1; i >= 0; i--) {
         const b = bursts[i]!;
@@ -746,21 +808,21 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
 
       if (frame % 2 === 0) {
         const curIdeas = (stateRef.current.round?.ideas.filter((i) => !i.hidden) ?? []).slice(-4);
-        if (curIdeas.length > 0) {
-          const nextIdeas: Record<string, ProjectedLabel> = {};
-          curIdeas.forEach((idea, idx) => {
-            vec.copy(ideaAnchors[idx % ideaAnchors.length]!);
-            vec.y += islandGroup.position.y;
-            vec.project(camera);
-            nextIdeas[idea.id] = {
-              id: idea.id,
-              x: (vec.x * 0.5 + 0.5) * 100,
-              y: (-vec.y * 0.5 + 0.5) * 100,
-              visible: vec.z < 1,
-            };
-          });
-          setProjectedIdeas(nextIdeas);
+        const bubbleCount = curIdeas.length > 0 ? curIdeas.length : 4;
+        const nextIdeas: Record<string, ProjectedLabel> = {};
+        for (let idx = 0; idx < bubbleCount; idx++) {
+          const id = curIdeas[idx]?.id ?? `demo-${idx}`;
+          vec.copy(ideaAnchors[idx % ideaAnchors.length]!);
+          vec.y += islandGroup.position.y;
+          vec.project(camera);
+          nextIdeas[id] = {
+            id,
+            x: (vec.x * 0.5 + 0.5) * 100,
+            y: (-vec.y * 0.5 + 0.5) * 100,
+            visible: vec.z < 1,
+          };
         }
+        setProjectedIdeas(nextIdeas);
         const curBuilders = (stateRef.current.coBuilders ?? []).slice(0, 3);
         if (curBuilders.length > 0) {
           const nextBuilders: Record<string, ProjectedLabel> = {};
@@ -807,6 +869,28 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
       title="Drag to orbit 360° · Scroll to zoom · Double-click for voxel burst"
     >
       {!webglReady && <img className="workshop-scene__art" src="/art/voxel-workshop.jpg" alt="Voxel Workshop Stage" />}
+
+      {ideas.length === 0 &&
+        (["violet", "slate", "blue", "gold"] as const).map((tone, idx) => {
+          const pos = projectedIdeas[`demo-${idx}`];
+          if (!pos?.visible) return null;
+          return (
+            <div
+              key={`demo-${idx}`}
+              className={`stage-chip stage-chip--${tone}`}
+              style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
+              aria-hidden="true"
+            >
+              {tone === "gold" ? (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.3h6c0-1 .4-1.8 1-2.3A7 7 0 0 0 12 2z" />
+                </svg>
+              ) : (
+                <span className="stage-chip__dots">•••</span>
+              )}
+            </div>
+          );
+        })}
 
       {ideas.map((idea) => {
         const pos = projectedIdeas[idea.id];
