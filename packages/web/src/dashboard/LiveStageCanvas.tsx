@@ -147,9 +147,12 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
         uniform vec3 horizonColor;
         varying vec3 vWorldPosition;
         void main() {
-          float h = normalize(vWorldPosition).y;
+          vec3 dir = normalize(vWorldPosition);
+          float h = dir.y;
           vec3 col = mix(horizonColor, midColor, smoothstep(-0.18, 0.2, h));
           col = mix(col, topColor, smoothstep(0.18, 0.72, h));
+          float sunGlow = pow(max(dot(dir, normalize(vec3(0.65, 0.16, -0.72))), 0.0), 4.0);
+          col = mix(col, vec3(0.98, 0.79, 0.58), sunGlow * 0.45);
           gl_FragColor = vec4(col, 1.0);
         }
       `,
@@ -380,6 +383,7 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
       { x: -0.5, y: 4.4, z: 1.72, sx: 1.18, sy: 0.16, sz: 0.3 },
       { x: -0.5, y: 4.95, z: 1.85, sx: 0.12, sy: 1.05, sz: 0.14 },
     );
+    pushStone({ x: -0.5, y: 5.56, z: 1.8, sx: 1.16, sy: 0.2, sz: 0.28 });
     roofSpecs.push({ x: 1.45, y: 5.15, z: -0.25, sx: 0.72, sy: 0.36, sz: 0.9 });
 
     // 3. Tall Square Castle Watchtower (back-right) + Stone Quoins + Pyramidal Roof Cap
@@ -392,6 +396,7 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
             const mx = z === -1.5 ? 2.5 : 1.15;
             const mz = z === -1.5 ? -1.15 : -2.5;
             pushStone({ x: mx, y, z: mz, sx: 0.14, sy: 0.92, sz: 0.14 });
+            pushStone({ x: mx, y: y + 0.56, z: mz, sx: z === -1.5 ? 0.92 : 0.28, sy: 0.2, sz: z === -1.5 ? 0.28 : 0.92 });
           } else {
             pushStone({ x, y, z });
           }
@@ -690,7 +695,9 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
       frame += 1;
       const t = frame * 0.016;
       islandGroup.position.y = Math.sin(t * 1.0) * 0.12;
+      bgIslands.position.y = Math.sin(t * 0.6) * 0.18;
       crystalLight.intensity = 5.6 + Math.sin(t * 3.0) * 0.9;
+      porchLight.intensity = 5.2 + Math.sin(t * 5.2) * 0.35;
 
       for (let i = bursts.length - 1; i >= 0; i--) {
         const b = bursts[i]!;
