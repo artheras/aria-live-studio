@@ -67,8 +67,7 @@ function DashboardInner({ state, live, me, api, clockOffset = 0, onLogout }: Das
         </p>
       )}
       <ScopeBanner connection={state.connection} />
-      <StatsStrip stats={state.stats} />
-      <main className="grid">
+      <main className="grid grid--workshop">
         <div className="grid__main">
           <RoundControl
             round={state.round}
@@ -78,14 +77,17 @@ function DashboardInner({ state, live, me, api, clockOffset = 0, onLogout }: Das
             clockOffset={clockOffset}
             onConnectAgent={() => setDrawer("agent")}
           />
+          <ActivityFeed activity={state.activity ?? []} />
+          <CommandHelp />
         </div>
         <div className="grid__ideas">
-          <IdeasPanel state={state} round={state.round} api={api} maxIdeas={state.settings.maxIdeasPerRound} />
-        </div>
-        <div className="grid__side">
-          <ActivityFeed activity={state.activity ?? []} />
-          <CoBuildersRoster coBuilders={state.coBuilders} />
-          <CommandHelp />
+          <IdeasPanel
+            state={state}
+            round={state.round}
+            api={api}
+            maxIdeas={state.settings.maxIdeasPerRound}
+            onOpenSettings={() => setDrawer("settings")}
+          />
         </div>
       </main>
       <Drawer open={drawer === "settings"} title="Settings" onClose={close}>

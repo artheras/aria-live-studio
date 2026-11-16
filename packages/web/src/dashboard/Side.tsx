@@ -1,6 +1,6 @@
 import type { Activity, LiveState } from "@aria-live/shared";
 import { COMMANDS, EXTEND_MAX_SEC, EXTEND_MIN_SEC, MOD_COMMANDS } from "@aria-live/shared";
-import { clock } from "../lib/time";
+import { timeAgo, useNow } from "../lib/time";
 
 const KIND: Record<Activity["kind"], { label: string; icon: string }> = {
   idea: { label: "Idea", icon: "+" },
@@ -14,11 +14,13 @@ const KIND: Record<Activity["kind"], { label: string; icon: string }> = {
 };
 
 export function ActivityFeed({ activity }: { activity: Activity[] }) {
+  const now = useNow(15_000);
   const items = activity.slice(-150).reverse();
   return (
     <section className="panel panel--activity" aria-labelledby="activity-h">
       <header className="panel__head">
-        <h2 id="activity-h">Activity</h2>
+        <h2 id="activity-h">Activity Feed</h2>
+        <span className="muted num">{items.length}</span>
       </header>
       <div className="panel__body panel__body--scroll">
         {items.length === 0 ? (
@@ -29,7 +31,7 @@ export function ActivityFeed({ activity }: { activity: Activity[] }) {
               const k = KIND[a.kind] ?? KIND.system;
               return (
                 <li key={a.id} className={`feed__item feed__item--${a.kind}`}>
-                  <span className="feed__icon" aria-hidden="true">
+                  <span className={`feed__icon feed__icon--${a.kind}`} aria-hidden="true">
                     {k.icon}
                   </span>
                   <div className="feed__body">
@@ -39,7 +41,7 @@ export function ActivityFeed({ activity }: { activity: Activity[] }) {
                       {a.text}
                     </p>
                   </div>
-                  <time className="feed__at num">{clock(a.at)}</time>
+                  <time className="feed__at num">{timeAgo(a.at, now)}</time>
                 </li>
               );
             })}

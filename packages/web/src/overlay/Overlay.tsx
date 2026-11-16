@@ -303,6 +303,11 @@ function OverlayCard({ state, now }: { state: LiveState; now: number }) {
               ))}
             </ul>
           ) : null}
+          {!compact && ok && !ex?.previewUrl && (
+            <div className="ov-shrine-wrap">
+              <img className="ov-shrine" src="/art/voxel-shrine.jpg" alt="" aria-hidden="true" />
+            </div>
+          )}
           {!compact && ok && ex?.previewUrl && (
             <div className="ov-preview-wrap">
               <iframe

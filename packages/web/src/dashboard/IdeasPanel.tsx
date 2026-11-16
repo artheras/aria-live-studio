@@ -194,11 +194,13 @@ export function IdeasPanel({
   round,
   api,
   maxIdeas,
+  onOpenSettings,
 }: {
   state?: LiveState;
   round: Round | null;
   api: AriaApi;
   maxIdeas: number;
+  onOpenSettings?: () => void;
 }) {
   const phase = round?.phase ?? "idle";
   const showBallot = round && phase !== "idle" && phase !== "collecting" && round.candidates.length > 0;
@@ -219,14 +221,14 @@ export function IdeasPanel({
   const activeView = (!round || phase === "idle") && view === "stage" ? (state ? "arena" : "overlay") : view;
 
   return (
-    <section className="panel panel--ideas" aria-labelledby="ideas-h">
+    <section className="panel panel--ideas panel--workshop" aria-labelledby="ideas-h">
       <header className="panel__head">
         <div className="panel__head-left">
           <h2 id="ideas-h">
             {activeView === "arena"
-              ? "Interactive Stage"
+              ? "Workshop Preview"
               : activeView === "overlay"
-                ? "Broadcast Monitor"
+                ? "OBS Monitor"
                 : activeView === "build"
                   ? "Live Build"
                   : showBallot
@@ -288,45 +290,49 @@ export function IdeasPanel({
       <div className="panel__body panel__body--scroll">
         {activeView === "arena" && state ? (
           <div className="monitor-wrap">
-            <div className="monitor-bezel">
-              <div className="monitor-bezel__bar">
-                <span className="monitor-bezel__ch">
-                  <span className="monitor-bezel__led" aria-hidden="true" />
-                  CH-02 // VOXEL WORKSHOP
-                </span>
-                <button
-                  type="button"
-                  className={`monitor-hint monitor-hint--btn ${focusMode ? "is-active" : ""}`}
-                  aria-pressed={focusMode}
-                  onClick={() => setFocusMode((f) => !f)}
-                >
-                  {focusMode ? "FOCUS: ON" : "FOCUS MODE"}
-                </button>
-              </div>
-              <div className="idle-preview__stage monitor-stage">
-                <span className="reticle reticle--tl" aria-hidden="true" />
-                <span className="reticle reticle--tr" aria-hidden="true" />
-                <span className="reticle reticle--bl" aria-hidden="true" />
-                <span className="reticle reticle--br" aria-hidden="true" />
+            <div className="monitor-bezel monitor-bezel--workshop">
+              <div className="idle-preview__stage monitor-stage--workshop">
                 <LiveStageCanvas state={state} />
               </div>
             </div>
             {!focusMode && (
-              <div className="monitor-footer">
-                <div className="monitor-stat">
-                  <span className="monitor-stat__label">Stream</span>
-                  <span className="monitor-stat__val num">
-                    {state.connection.isLive ? `LIVE · ${state.connection.viewerCount ?? 0}` : "OFFLINE"}
-                  </span>
+              <div className="workshop-bar">
+                <span className="workshop-bar__status">
+                  <span className={`workshop-dot ${phase !== "idle" ? "is-live" : ""}`} aria-hidden="true" />
+                  {phase === "idle" ? "Round not active" : `${visible} ideas · ${state.stats.votes} votes`}
+                </span>
+                <span className="workshop-bar__hint">
+                  {state.connection.isLive
+                    ? `LIVE · ${state.connection.viewerCount ?? 0} viewers`
+                    : `${state.coBuilders?.length ?? 0} Co-Builders`}
+                </span>
+                <div className="workshop-bar__actions">
+                  <button
+                    type="button"
+                    className={`monitor-hint monitor-hint--btn ${focusMode ? "is-active" : ""}`}
+                    aria-pressed={focusMode}
+                    onClick={() => setFocusMode((f) => !f)}
+                  >
+                    Focus Mode
+                  </button>
+                  {onOpenSettings && (
+                    <Btn size="sm" variant="ghost" onClick={onOpenSettings}>
+                      Manage Settings
+                    </Btn>
+                  )}
                 </div>
-                <div className="monitor-stat">
-                  <span className="monitor-stat__label">Ideas</span>
-                  <span className="monitor-stat__val num">{visible}</span>
-                </div>
-                <div className="monitor-stat">
-                  <span className="monitor-stat__label">Co-Builders</span>
-                  <span className="monitor-stat__val num">{state.coBuilders?.length ?? 0}</span>
-                </div>
+              </div>
+            )}
+            {focusMode && (
+              <div className="workshop-bar">
+                <span className="workshop-bar__status">Focus Mode active</span>
+                <button
+                  type="button"
+                  className="monitor-hint monitor-hint--btn is-active"
+                  onClick={() => setFocusMode(false)}
+                >
+                  Exit Focus
+                </button>
               </div>
             )}
           </div>

@@ -58,25 +58,26 @@ function PromptForm({
   return (
     <div className="prompt-wrap">
       <form
-        className="prompt-form"
+        className="prompt-form prompt-form--stacked"
         onSubmit={(e) => {
           e.preventDefault();
           onSubmit(prompt.trim(), modifiers);
         }}
       >
         <label className="field field--grow">
-          <span>Theme for this round (optional)</span>
+          <span>Round theme (optional)</span>
           <input
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            placeholder="e.g. features for the boss fight"
+            placeholder="e.g. Boss fight mechanic, UI polish..."
             maxLength={140}
           />
         </label>
-        <Btn type="submit" variant="primary" size="lg" pending={pending}>
+        <Btn type="submit" variant="primary" size="lg" pending={pending} className="btn--full">
           {label}
         </Btn>
       </form>
+      <p className="muted prompt-caption">Your round will be live for your community to join and build.</p>
       <div className="theme-chips" aria-label="Theme presets">
         {THEME_PRESETS.map((preset) => (
           <button

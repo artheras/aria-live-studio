@@ -1664,3 +1664,189 @@ input[type="checkbox"] {
   font-weight: 700;
   color: var(--text);
 }
+
+/* ── Workshop 2-Column Layout (matching Voxel Workshop mockup) ─────────── */
+.grid--workshop {
+  grid-template-columns: minmax(340px, 400px) minmax(0, 1fr);
+  grid-template-areas: "main ideas";
+  align-items: stretch;
+  gap: 18px;
+}
+.grid--workshop .grid__main {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.grid--workshop .panel--activity {
+  flex: 1;
+  height: auto;
+  min-height: 220px;
+}
+.grid--workshop .panel--ideas {
+  height: auto;
+  min-height: calc(100vh - 110px);
+}
+@media (max-width: 1120px) {
+  .grid--workshop {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "main"
+      "ideas";
+  }
+  .grid--workshop .panel--ideas {
+    min-height: 480px;
+  }
+}
+
+.prompt-form--stacked {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+.btn--full {
+  width: 100%;
+  justify-content: center;
+}
+.prompt-caption {
+  margin: 0;
+  font-size: 12px;
+}
+
+.feed__icon {
+  border-radius: 50%;
+  width: 26px;
+  height: 26px;
+  font-size: 12px;
+}
+.feed__icon--idea { background: rgba(145, 70, 255, 0.2); color: #c79eff; }
+.feed__icon--vote { background: rgba(47, 212, 138, 0.2); color: #7dffc1; }
+.feed__icon--round { background: rgba(245, 185, 66, 0.2); color: #ffd166; }
+.feed__icon--task,
+.feed__icon--execution { background: rgba(92, 184, 255, 0.2); color: #90d0ff; }
+.feed__icon--rejected { background: rgba(255, 92, 108, 0.2); color: #ffadb6; }
+
+.monitor-bezel--workshop {
+  padding: 0;
+  overflow: hidden;
+  border-color: rgba(145, 70, 255, 0.32);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(145, 70, 255, 0.14);
+}
+.monitor-stage--workshop {
+  aspect-ratio: 16 / 9;
+  border: 0;
+  border-radius: 0;
+}
+.workshop-scene {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  cursor: pointer;
+}
+.workshop-scene__art {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.workshop-scene__vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 45%, transparent 52%, rgba(9, 10, 16, 0.55) 100%);
+}
+.workshop-scene__fx {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.workshop-bubble {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 10px;
+  background: rgba(16, 17, 28, 0.88);
+  border: 1px solid rgba(145, 70, 255, 0.55);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+  font-size: 12px;
+  color: #fff;
+  backdrop-filter: blur(8px);
+  animation: workshopFloat 4s ease-in-out infinite alternate;
+}
+.workshop-bubble.is-boosted {
+  border-color: rgba(245, 185, 66, 0.8);
+}
+.workshop-bubble--0 { top: 14%; left: 10%; }
+.workshop-bubble--1 { top: 24%; right: 10%; animation-delay: 0.7s; }
+.workshop-bubble--2 { top: 48%; left: 7%; animation-delay: 1.4s; }
+.workshop-bubble--3 { top: 58%; right: 8%; animation-delay: 2.1s; }
+.workshop-bubble__user {
+  font-weight: 700;
+  color: #d8bfff;
+}
+.workshop-bubble__boost {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #ffd166;
+}
+.workshop-cobuilders {
+  position: absolute;
+  left: 14px;
+  bottom: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.workshop-pin {
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(14, 15, 24, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: rgba(255, 255, 255, 0.9);
+}
+.workshop-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 4px 2px;
+}
+.workshop-bar__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+.workshop-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.workshop-dot.is-live {
+  background: var(--good);
+  box-shadow: 0 0 8px var(--good);
+}
+.workshop-bar__hint {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+}
+.workshop-bar__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+@keyframes workshopFloat {
+  from { transform: translateY(0); }
+  to { transform: translateY(-5px); }
+}
