@@ -179,32 +179,38 @@ a.chip:hover { border-color: var(--info); }
   border: 1px solid rgba(92, 184, 255, 0.35);
 }
 
-/* ── Stats ─────────────────────────────────────────────────────────────── */
+/* ── Stats (Unified Telemetry Bar) ─────────────────────────────────────── */
 .stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-  margin: 16px 20px 0;
-}
-.stat {
+  margin: 14px 20px 0;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 10px 16px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  overflow: hidden;
+}
+.stat {
+  padding: 8px 16px;
   display: flex;
   align-items: baseline;
   justify-content: space-between;
+  border-right: 1px solid var(--border);
+}
+.stat:last-child {
+  border-right: 0;
 }
 .stat dt {
   color: var(--muted);
-  font-size: 12px;
+  font-family: var(--mono);
+  font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.09em;
   font-weight: 600;
 }
 .stat dd {
   margin: 0;
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 700;
 }
 
@@ -1456,4 +1462,134 @@ input[type="checkbox"] {
   font-family: var(--mono);
   font-size: 12px;
   color: var(--good);
+}
+
+/* ── Broadcast Monitor & Hardware Controls ─────────────────────────────── */
+.panel {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+.panel__head-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sfx-toggle {
+  appearance: none;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-2);
+  color: var(--muted);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+.sfx-toggle.is-on {
+  border-color: rgba(47, 212, 138, 0.45);
+  background: var(--good-soft);
+  color: var(--good);
+}
+.monitor-tabs {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  gap: 2px;
+}
+.monitor-tab {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.monitor-tab.is-active {
+  background: var(--panel-3);
+  color: var(--text);
+}
+.monitor-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.monitor-bezel {
+  border-radius: var(--radius);
+  border: 1px solid var(--border-strong);
+  background: #090a0f;
+  padding: 10px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 10px 28px rgba(0, 0, 0, 0.35);
+}
+.monitor-bezel__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 2px 8px;
+}
+.monitor-bezel__ch {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--text-2);
+}
+.monitor-bezel__led {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--good);
+  box-shadow: 0 0 8px var(--good);
+}
+.monitor-bezel__tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.monitor-stage {
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    radial-gradient(circle at 20% 20%, rgba(145, 70, 255, 0.14), rgba(8, 9, 14, 0.98));
+  background-size: 24px 24px, 24px 24px, auto;
+}
+.reticle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  pointer-events: none;
+  z-index: 2;
+  border-color: rgba(255, 255, 255, 0.25);
+  border-style: solid;
+  border-width: 0;
+}
+.reticle--tl { top: 8px; left: 8px; border-top-width: 1px; border-left-width: 1px; }
+.reticle--tr { top: 8px; right: 8px; border-top-width: 1px; border-right-width: 1px; }
+.reticle--bl { bottom: 8px; left: 8px; border-bottom-width: 1px; border-left-width: 1px; }
+.reticle--br { bottom: 8px; right: 8px; border-bottom-width: 1px; border-right-width: 1px; }
+.monitor-standby {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.monitor-standby__code {
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0.16em;
+  color: var(--text-2);
 }

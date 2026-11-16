@@ -93,15 +93,16 @@ function IdeaList({ round, api }: { round: Round; api: AriaApi }) {
   );
 }
 
-function IdleOverlayPreview({ api }: { api: AriaApi }) {
+function BroadcastMonitor({ api, livePreviewUrl }: { api: AriaApi; livePreviewUrl?: string | null }) {
   const { toast } = useActions();
   const [url, setUrl] = useState<string | null>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.38);
+  const activeUrl = livePreviewUrl || url;
 
   useEffect(() => {
     let active = true;
-    if (typeof api.overlayUrl !== "function") return;
+    if (livePreviewUrl || typeof api.overlayUrl !== "function") return;
     api
       .overlayUrl()
       .then((u) => {
@@ -111,7 +112,7 @@ function IdleOverlayPreview({ api }: { api: AriaApi }) {
     return () => {
       active = false;
     };
-  }, [api]);
+  }, [api, livePreviewUrl]);
 
   useEffect(() => {
     const el = stageRef.current;
@@ -124,44 +125,55 @@ function IdleOverlayPreview({ api }: { api: AriaApi }) {
     const ro = new ResizeObserver(update);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [url]);
+  }, [activeUrl]);
 
   return (
-    <div className="idle-preview">
-      <div className="idle-preview__head">
-        <div>
-          <p className="idle-preview__title">No round open.</p>
-          <p className="muted">Open a round and chat's ideas will appear here live.</p>
+    <div className="monitor-wrap">
+      <div className="monitor-bezel">
+        <div className="monitor-bezel__bar">
+          <span className="monitor-bezel__ch">
+            <span className="monitor-bezel__led" aria-hidden="true" />
+            {livePreviewUrl ? "CH-02 // LIVE BUILD SANDBOX" : "CH-01 // OBS OVERLAY 1280×720"}
+          </span>
+          {activeUrl && (
+            <div className="monitor-bezel__tools">
+              <Btn
+                size="sm"
+                variant="ghost"
+                onClick={async () => {
+                  const ok = await copyText(activeUrl);
+                  toast(ok ? "success" : "info", ok ? "URL copied" : "Copy failed");
+                }}
+              >
+                Copy URL
+              </Btn>
+              <a className="btn btn--secondary btn--sm" href={activeUrl} target="_blank" rel="noreferrer">
+                Pop out
+              </a>
+            </div>
+          )}
         </div>
-        {url && (
-          <div className="actions">
-            <Btn
-              size="sm"
-              variant="ghost"
-              onClick={async () => {
-                const ok = await copyText(url);
-                toast(ok ? "success" : "info", ok ? "Overlay URL copied" : "Copy failed");
-              }}
-            >
-              Copy OBS URL
-            </Btn>
-            <a className="btn btn--secondary btn--sm" href={url} target="_blank" rel="noreferrer">
-              Open
-            </a>
-          </div>
-        )}
+        <div className="idle-preview__stage monitor-stage" ref={stageRef}>
+          <span className="reticle reticle--tl" aria-hidden="true" />
+          <span className="reticle reticle--tr" aria-hidden="true" />
+          <span className="reticle reticle--bl" aria-hidden="true" />
+          <span className="reticle reticle--br" aria-hidden="true" />
+          {activeUrl ? (
+            <iframe
+              className="idle-preview__frame"
+              src={activeUrl}
+              title={livePreviewUrl ? "Live build sandbox" : "Live OBS Overlay monitor"}
+              sandbox={livePreviewUrl ? "allow-scripts allow-same-origin" : undefined}
+              style={{ transform: `scale(${scale})` }}
+            />
+          ) : (
+            <div className="monitor-standby">
+              <span className="monitor-standby__code">STANDBY</span>
+              <span className="muted">Waiting for overlay endpoint</span>
+            </div>
+          )}
+        </div>
       </div>
-      {url && (
-        <div className="idle-preview__stage" ref={stageRef}>
-          <span className="idle-preview__badge">OBS Overlay Live Preview (1280×720)</span>
-          <iframe
-            className="idle-preview__frame"
-            src={url}
-            title="Live OBS Overlay preview"
-            style={{ transform: `scale(${scale})` }}
-          />
-        </div>
-      )}
     </div>
   );
 }
@@ -170,24 +182,74 @@ export function IdeasPanel({ round, api, maxIdeas }: { round: Round | null; api:
   const phase = round?.phase ?? "idle";
   const showBallot = round && phase !== "idle" && phase !== "collecting" && round.candidates.length > 0;
   const visible = round?.ideas.filter((i) => !i.hidden).length ?? 0;
+  const previewUrl = phase === "done" && round?.execution?.status === "succeeded" ? round.execution.previewUrl : null;
+  const [view, setView] = useState<"stage" | "overlay" | "build">(() =>
+    previewUrl ? "build" : round && phase !== "idle" ? "stage" : "overlay",
+  );
+
+  useEffect(() => {
+    if (previewUrl) setView("build");
+    else if (round && phase !== "idle") setView("stage");
+    else setView("overlay");
+  }, [round?.id, phase, previewUrl]);
+
+  const activeView = (!round || phase === "idle") && view === "stage" ? "overlay" : view;
+
   return (
     <section className="panel panel--ideas" aria-labelledby="ideas-h">
       <header className="panel__head">
-        <h2 id="ideas-h">{showBallot ? "Ballot" : "Ideas"}</h2>
-        {round && !showBallot && (
-          <span className="panel__count num">
-            {visible}/{maxIdeas}
-          </span>
-        )}
-        {showBallot && phase === "voting" && <span className="live-tag">Live</span>}
+        <div className="panel__head-left">
+          <h2 id="ideas-h">{activeView === "overlay" ? "Broadcast Monitor" : activeView === "build" ? "Live Build" : showBallot ? "Ballot" : "Ideas"}</h2>
+          {activeView === "stage" && round && !showBallot && (
+            <span className="panel__count num">
+              {visible}/{maxIdeas}
+            </span>
+          )}
+          {activeView === "stage" && showBallot && phase === "voting" && <span className="live-tag">Live</span>}
+        </div>
+        <div className="monitor-tabs" role="tablist" aria-label="Stage view">
+          {round && phase !== "idle" && (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeView === "stage"}
+              className={`monitor-tab ${activeView === "stage" ? "is-active" : ""}`}
+              onClick={() => setView("stage")}
+            >
+              {showBallot ? "Ballot" : "Ideas"}
+            </button>
+          )}
+          {previewUrl && (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeView === "build"}
+              className={`monitor-tab ${activeView === "build" ? "is-active" : ""}`}
+              onClick={() => setView("build")}
+            >
+              Build
+            </button>
+          )}
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeView === "overlay"}
+            className={`monitor-tab ${activeView === "overlay" ? "is-active" : ""}`}
+            onClick={() => setView("overlay")}
+          >
+            OBS
+          </button>
+        </div>
       </header>
       <div className="panel__body panel__body--scroll">
-        {!round || phase === "idle" ? (
-          <IdleOverlayPreview api={api} />
+        {activeView === "overlay" ? (
+          <BroadcastMonitor api={api} />
+        ) : activeView === "build" && previewUrl ? (
+          <BroadcastMonitor api={api} livePreviewUrl={previewUrl} />
         ) : showBallot ? (
           <Ballot round={round} />
         ) : (
-          <IdeaList round={round} api={api} />
+          <IdeaList round={round!} api={api} />
         )}
       </div>
     </section>

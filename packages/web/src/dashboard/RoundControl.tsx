@@ -7,7 +7,7 @@ import { clock, duration, useNow } from "../lib/time";
 import { executorInfo } from "../lib/agents";
 import { Btn, Spinner, useActions } from "./actions";
 import { TaskCard, TaskEditor } from "./TaskCard";
-import { playCue } from "../lib/sound";
+import { isSfxEnabled, playCue, setSfxEnabled } from "../lib/sound";
 
 const KEY = "round";
 
@@ -257,6 +257,7 @@ export function RoundControl({ round, settings, me, api, clockOffset, onConnectA
   const [editing, setEditing] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   const [note, setNote] = useState("");
+  const [sfx, setSfx] = useState(() => isSfxEnabled());
   const now = useNow(1000) + clockOffset;
 
   const phase = round?.phase ?? "idle";
@@ -593,26 +594,22 @@ export function RoundControl({ round, settings, me, api, clockOffset, onConnectA
               {m}
             </span>
           ))}
+          <button
+            type="button"
+            className={`sfx-toggle ${sfx ? "is-on" : ""}`}
+            aria-pressed={sfx}
+            onClick={() => {
+              const next = !sfx;
+              setSfxEnabled(next);
+              setSfx(next);
+              if (next) playCue("open");
+            }}
+          >
+            SFX {sfx ? "ON" : "OFF"}
+          </button>
           <span className={`phase-tag phase-tag--${phase}`}>{phase === "awaiting_approval" && task?.status === "approved" ? "Ready to build" : PHASE_LABEL[phase]}</span>
         </div>
         {body}
-        <details className="demo-sim" style={{ marginTop: "1rem", opacity: 0.85 }}>
-          <summary style={{ cursor: "pointer", fontSize: "0.85rem" }}>Demo simulator (test chat &amp; Twitch events without going live)</summary>
-          <div className="actions" style={{ marginTop: "0.5rem" }}>
-            <Btn size="sm" variant="ghost" disabled={pending || phase !== "collecting"} onClick={() => act(() => api.demoSimulate("idea"))}>
-              Simulate !idea
-            </Btn>
-            <Btn size="sm" variant="ghost" disabled={pending || phase !== "voting"} onClick={() => act(() => api.demoSimulate("vote", { number: 1 }))}>
-              Simulate !vote 1
-            </Btn>
-            <Btn size="sm" variant="ghost" disabled={pending || (phase !== "collecting" && phase !== "voting")} onClick={() => act(() => api.demoSimulate("boost", { number: 1 }))}>
-              Channel Points Boost #1
-            </Btn>
-            <Btn size="sm" variant="ghost" disabled={pending} onClick={() => act(() => api.demoSimulate("raid"))}>
-              Simulate Raid
-            </Btn>
-          </div>
-        </details>
       </div>
     </section>
   );
