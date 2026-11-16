@@ -348,11 +348,35 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
         [
           { x: 1.1, y: 1.45, z: 1.9, sx: 0.28, sy: 0.36, sz: 0.28 },
           { x: -0.9, y: 0.8, z: 3.1, sx: 0.26, sy: 0.34, sz: 0.26 },
+          // Pulley bucket hanging from right crane + terrace flower highlights
+          { x: 2.1, y: 3.1, z: 0.2, sx: 0.35, sy: 0.35, sz: 0.35 },
+          { x: -2.2, y: 0.62, z: 2.8, sx: 0.18, sy: 0.18, sz: 0.18 },
+          { x: 1.4, y: 0.62, z: 3.5, sx: 0.18, sy: 0.18, sz: 0.18 },
         ],
         false,
         false,
       ),
     );
+
+    // Distant floating background voxel islands for 3D depth parallax
+    const bgIslands = new THREE.Group();
+    const bgGrass: VoxelSpec[] = [
+      { x: -12, y: 2.2, z: -14, sx: 3.2, sy: 0.7, sz: 3.2 },
+      { x: 14, y: 1.2, z: -15, sx: 2.6, sy: 0.6, sz: 2.6 },
+    ];
+    const bgRock: VoxelSpec[] = [
+      { x: -12, y: 1.3, z: -14, sx: 2.2, sy: 1.4, sz: 2.2 },
+      { x: -12, y: 0.2, z: -14, sx: 1.1, sy: 1.1, sz: 1.1 },
+      { x: 14, y: 0.4, z: -15, sx: 1.8, sy: 1.1, sz: 1.8 },
+    ];
+    const bgTree: VoxelSpec[] = [
+      { x: -12.4, y: 3.2, z: -14.2, sx: 1.1, sy: 1.5, sz: 1.1 },
+      { x: 14.2, y: 2.1, z: -15.1, sx: 0.9, sy: 1.2, sz: 0.9 },
+    ];
+    bgIslands.add(buildVoxelInstances(boxGeo, grassMat, bgGrass, false, false));
+    bgIslands.add(buildVoxelInstances(boxGeo, darkStoneMat, bgRock, false, false));
+    bgIslands.add(buildVoxelInstances(boxGeo, pineMat, bgTree, false, false));
+    scene.add(bgIslands);
 
     // 6. Voxel Builder avatars standing on the terrace
     const builderHeads: VoxelSpec[] = [

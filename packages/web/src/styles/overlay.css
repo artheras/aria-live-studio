@@ -521,12 +521,10 @@
 }
 
 .ov-shrine-wrap {
-  margin-top: 12px;
+  margin-top: 10px;
   border-radius: 12px;
   overflow: hidden;
-  border: 1px solid rgba(145, 70, 255, 0.4);
-  background: #141420;
-  box-shadow: 0 0 28px rgba(145, 70, 255, 0.22);
+  background: transparent;
 }
 .ov-shrine {
   display: block;
@@ -534,7 +532,17 @@
   height: 210px;
   object-fit: cover;
   object-position: center 62%;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 22%, #000 90%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 22%, #000 90%, transparent 100%);
 }
 .ov-done--showcase {
-  box-shadow: 0 0 36px rgba(145, 70, 255, 0.25), 0 18px 48px rgba(0, 0, 0, 0.6);
+  text-align: center;
+  background: rgba(20, 20, 32, 0.94);
+  box-shadow: 0 0 36px rgba(145, 70, 255, 0.28), 0 18px 48px rgba(0, 0, 0, 0.65);
+}
+.ov-done--showcase .ov-head,
+.ov-done--showcase .ov-built-for,
+.ov-done--showcase .ov-files,
+.ov-done--showcase .ov-cobuilders {
+  justify-content: center;
 }

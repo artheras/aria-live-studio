@@ -311,11 +311,14 @@ export function IdeasPanel({
                 <div className="workshop-bar__actions">
                   <button
                     type="button"
-                    className={`monitor-hint monitor-hint--btn ${focusMode ? "is-active" : ""}`}
+                    className={`focus-pill ${focusMode ? "is-on" : ""}`}
                     aria-pressed={focusMode}
                     onClick={() => setFocusMode((f) => !f)}
                   >
-                    Focus Mode
+                    <span>Focus Mode</span>
+                    <span className="focus-pill__track" aria-hidden="true">
+                      <span className="focus-pill__thumb" />
+                    </span>
                   </button>
                   {onOpenSettings && (
                     <Btn size="sm" variant="ghost" onClick={onOpenSettings}>
