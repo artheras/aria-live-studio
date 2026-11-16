@@ -78,36 +78,41 @@ function PromptForm({
         </Btn>
       </form>
       <p className="muted prompt-caption">Your round will be live for your community to join and build.</p>
-      <div className="theme-chips" aria-label="Theme presets">
-        {THEME_PRESETS.map((preset) => (
-          <button
-            key={preset}
-            type="button"
-            className="theme-chip"
-            onClick={() => setPrompt(preset)}
-          >
-            {preset}
-          </button>
-        ))}
-      </div>
-      <div className="modifier-strip" aria-label="Round rules">
-        <span className="modifier-strip__label">Rules</span>
-        {ROUND_MODIFIERS.map((mod) => {
-          const active = modifiers.includes(mod);
-          return (
-            <button
-              key={mod}
-              type="button"
-              className={`modifier-switch ${active ? "is-active" : ""}`}
-              aria-pressed={active}
-              onClick={() => toggleMod(mod)}
-            >
-              <span className="modifier-switch__dot" aria-hidden="true" />
-              {mod}
-            </button>
-          );
-        })}
-      </div>
+      <details className="prompt-options">
+        <summary>Presets &amp; round rules{modifiers.length ? ` (${modifiers.length} active)` : ""}</summary>
+        <div className="prompt-options__body">
+          <div className="theme-chips" aria-label="Theme presets">
+            {THEME_PRESETS.map((preset) => (
+              <button
+                key={preset}
+                type="button"
+                className="theme-chip"
+                onClick={() => setPrompt(preset)}
+              >
+                {preset}
+              </button>
+            ))}
+          </div>
+          <div className="modifier-strip" aria-label="Round rules">
+            <span className="modifier-strip__label">Rules</span>
+            {ROUND_MODIFIERS.map((mod) => {
+              const active = modifiers.includes(mod);
+              return (
+                <button
+                  key={mod}
+                  type="button"
+                  className={`modifier-switch ${active ? "is-active" : ""}`}
+                  aria-pressed={active}
+                  onClick={() => toggleMod(mod)}
+                >
+                  <span className="modifier-switch__dot" aria-hidden="true" />
+                  {mod}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </details>
     </div>
   );
 }
@@ -585,7 +590,7 @@ export function RoundControl({ round, settings, me, api, clockOffset, onConnectA
 
   return (
     <section className="panel panel--round" aria-labelledby="round-h">
-      <PhaseStepper round={round} />
+      {phase !== "idle" && <PhaseStepper round={round} />}
       <div className="panel__body">
         <div className="round-title">
           <h2 id="round-h">{title}</h2>
