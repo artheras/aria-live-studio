@@ -69,6 +69,27 @@ export function StatsStrip({ stats }: { stats: LiveState["stats"] }) {
   );
 }
 
+export function CoBuildersRoster({ coBuilders }: { coBuilders: LiveState["coBuilders"] }) {
+  if (!coBuilders?.length) return null;
+  return (
+    <section className="panel panel--cobuilders" aria-labelledby="cobuilders-h">
+      <header className="panel__head">
+        <h2 id="cobuilders-h">Co-Builders</h2>
+        <span className="muted num">{coBuilders.length}</span>
+      </header>
+      <ol className="cobuilders">
+        {coBuilders.slice(0, 5).map((b, i) => (
+          <li key={b.login} className="cobuilder-row">
+            <span className="cobuilder-row__rank num">{String(i + 1).padStart(2, "0")}</span>
+            <span className="cobuilder-row__name">@{b.displayName || b.login}</span>
+            <span className="cobuilder-row__count num">{b.shipped} shipped</span>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
 export function CommandHelp() {
   const rows: [string, string][] = [
     [`${COMMANDS.idea} <your idea>`, "Submit an idea while a round is collecting"],

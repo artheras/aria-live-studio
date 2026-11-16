@@ -9,7 +9,7 @@ import { Header, Logo } from "./Header";
 import { IdeasPanel } from "./IdeasPanel";
 import { RoundControl } from "./RoundControl";
 import { SettingsForm } from "./SettingsDrawer";
-import { ActivityFeed, CommandHelp, StatsStrip } from "./Side";
+import { ActivityFeed, CoBuildersRoster, CommandHelp, StatsStrip } from "./Side";
 
 export interface DashboardViewProps {
   state: LiveState | null;
@@ -83,6 +83,7 @@ function DashboardInner({ state, live, me, api, clockOffset = 0, onLogout }: Das
         </div>
         <div className="grid__side">
           <ActivityFeed activity={state.activity ?? []} />
+          <CoBuildersRoster coBuilders={state.coBuilders} />
           <CommandHelp />
         </div>
       </main>

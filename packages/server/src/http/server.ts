@@ -238,7 +238,10 @@ export function createApp(deps: AppDeps): App {
     if (body.prompt !== undefined && typeof body.prompt !== "string") {
       throw new HttpError(400, "bad_input", "prompt must be a string");
     }
-    service.openRound((body.prompt as string | undefined) ?? "");
+    if (body.modifiers !== undefined && (!Array.isArray(body.modifiers) || body.modifiers.some((m) => typeof m !== "string"))) {
+      throw new HttpError(400, "bad_input", "modifiers must be an array of strings");
+    }
+    service.openRound((body.prompt as string | undefined) ?? "", undefined, body.modifiers as string[] | undefined);
     return engine.state.round;
   });
   route("POST /api/round/vote", "session", () => engine.startVote());

@@ -124,7 +124,11 @@ export function createApi(getCsrf: () => string | null) {
       throw new ApiRequestError(200, "Server did not return agent connection details", "bad_response", data);
     },
     settings: (patchBody: Partial<Settings>) => patch("/api/settings", patchBody),
-    openRound: (prompt?: string) => post("/api/round/open", prompt ? { prompt } : {}),
+    openRound: (prompt?: string, modifiers?: string[]) =>
+      post("/api/round/open", {
+        ...(prompt ? { prompt } : {}),
+        ...(modifiers?.length ? { modifiers } : {}),
+      }),
     startVote: () => post("/api/round/vote"),
     closeVote: () => post("/api/round/close"),
     resetRound: () => post("/api/round/reset"),

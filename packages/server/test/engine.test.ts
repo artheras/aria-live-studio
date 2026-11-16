@@ -561,4 +561,10 @@ describe("round engine: moderator actions, eligibility, +1 by number", () => {
     expect(badEngine.round!.execution!.previewUrl).toBeNull();
     expect(badEngine.state.coBuilders ?? []).toHaveLength(0);
   });
+
+  it("records sanitized round modifiers up to 3 items", () => {
+    const { engine } = makeEngine();
+    const r = engine.openRound("boss", undefined, ["Speedrun MVP", "Extra Juice", "Retro Pixel", "Fourth Ignored"]);
+    expect(r.modifiers).toEqual(["Speedrun MVP", "Extra Juice", "Retro Pixel"]);
+  });
 });

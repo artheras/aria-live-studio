@@ -81,6 +81,8 @@ export interface Round {
   openedAt: number;
   /** Optional theme the streamer gives the round ("features for the boss fight"). */
   prompt: string;
+  /** Optional creative constraints/buffs selected for this round (e.g. "Speedrun MVP"). */
+  modifiers?: string[];
   ideas: Idea[];
   /** Idea ids frozen into the ballot when voting starts, in ballot order. */
   candidates: string[];

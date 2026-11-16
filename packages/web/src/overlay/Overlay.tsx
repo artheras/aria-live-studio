@@ -1,8 +1,9 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Eligibility, LiveState, Round } from "@aria-live/shared";
 import { COMMANDS } from "@aria-live/shared";
 import { executorInfo } from "../lib/agents";
 import { ballotNumber, computeBallot, winnerIdea } from "../lib/round";
+import { playCue } from "../lib/sound";
 import { duration, truncate, useNow } from "../lib/time";
 import { useLive } from "../lib/useLive";
 import "../styles/overlay.css";
@@ -65,6 +66,37 @@ function Header({ round, label, only }: { round: Round; label: string; only?: El
 function OverlayCard({ state, now }: { state: LiveState; now: number }) {
   const round = state.round;
   const phase = round?.phase ?? "idle";
+  const prevLeaderRef = useRef<string | null>(null);
+  const prevPhaseRef = useRef<string>(phase);
+  const [leadChange, setLeadChange] = useState(false);
+
+  const votingLeaderId = useMemo(() => {
+    if (!round || phase !== "voting") return null;
+    return computeBallot(round, false).find((r) => r.isLeader && r.votes > 0)?.idea.id ?? null;
+  }, [round, phase]);
+
+  useEffect(() => {
+    if (phase !== "voting") {
+      prevLeaderRef.current = null;
+      setLeadChange(false);
+      return;
+    }
+    if (votingLeaderId && prevLeaderRef.current && prevLeaderRef.current !== votingLeaderId) {
+      setLeadChange(true);
+      playCue("lead_change");
+      const timer = setTimeout(() => setLeadChange(false), 3500);
+      prevLeaderRef.current = votingLeaderId;
+      return () => clearTimeout(timer);
+    }
+    if (votingLeaderId) prevLeaderRef.current = votingLeaderId;
+  }, [phase, votingLeaderId]);
+
+  useEffect(() => {
+    if (phase === "done" && prevPhaseRef.current !== "done" && round?.execution?.status === "succeeded") {
+      playCue("shipped");
+    }
+    prevPhaseRef.current = phase;
+  }, [phase, round?.execution?.status]);
 
   if (!round || phase === "idle") {
     return (
@@ -86,6 +118,15 @@ function OverlayCard({ state, now }: { state: LiveState; now: number }) {
         <div className="ov-card" data-phase="collecting">
           <Header round={round} label="Ideas open" only={state.settings.ideaEligibility} />
           <h1 className="ov-title">{round.prompt ? truncate(round.prompt, 70) : "What should we build next?"}</h1>
+          {round.modifiers?.length ? (
+            <div className="ov-mods">
+              {round.modifiers.map((m) => (
+                <span key={m} className="ov-mod">
+                  // {m}
+                </span>
+              ))}
+            </div>
+          ) : null}
           <p className="ov-cta">
             Type <b>{COMMANDS.idea} &lt;your idea&gt;</b> in chat
             {visible.length > 0 && (
@@ -113,13 +154,23 @@ function OverlayCard({ state, now }: { state: LiveState; now: number }) {
     case "voting": {
       const rows = computeBallot(round, false);
       return (
-        <div className="ov-card" data-phase="voting">
+        <div className={`ov-card ${leadChange ? "ov-card--overtake" : ""}`} data-phase="voting">
           <div className="ov-row">
             <div className="ov-grow">
               <Header round={round} label="Vote now" only={state.settings.voteEligibility} />
               <h1 className="ov-title">
                 Type <b>{COMMANDS.vote} &lt;number&gt;</b>
+                {leadChange && <span className="ov-lead-change">LEAD CHANGE</span>}
               </h1>
+              {round.modifiers?.length ? (
+                <div className="ov-mods">
+                  {round.modifiers.map((m) => (
+                    <span key={m} className="ov-mod">
+                      // {m}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
             </div>
             {round.votingEndsAt && <Ring endsAt={round.votingEndsAt} totalSec={state.settings.voteDurationSec} now={now} />}
           </div>

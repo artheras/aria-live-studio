@@ -7,6 +7,7 @@ import { clock, duration, useNow } from "../lib/time";
 import { executorInfo } from "../lib/agents";
 import { Btn, Spinner, useActions } from "./actions";
 import { TaskCard, TaskEditor } from "./TaskCard";
+import { playCue } from "../lib/sound";
 
 const KEY = "round";
 
@@ -34,6 +35,7 @@ export function PhaseStepper({ round }: { round: Round | null }) {
 }
 
 const THEME_PRESETS = ["Boss fight mechanic", "UI & animations", "Sound effects", "Mini-game"];
+const ROUND_MODIFIERS = ["Speedrun MVP", "Extra Juice", "Retro Pixel", "Sound & VFX"];
 
 function PromptForm({
   label,
@@ -41,17 +43,25 @@ function PromptForm({
   pending,
 }: {
   label: string;
-  onSubmit: (prompt: string) => void;
+  onSubmit: (prompt: string, modifiers: string[]) => void;
   pending: boolean;
 }) {
   const [prompt, setPrompt] = useState("");
+  const [modifiers, setModifiers] = useState<string[]>([]);
+
+  const toggleMod = (mod: string) => {
+    setModifiers((prev) =>
+      prev.includes(mod) ? prev.filter((m) => m !== mod) : prev.length < 3 ? [...prev, mod] : prev,
+    );
+  };
+
   return (
     <div className="prompt-wrap">
       <form
         className="prompt-form"
         onSubmit={(e) => {
           e.preventDefault();
-          onSubmit(prompt.trim());
+          onSubmit(prompt.trim(), modifiers);
         }}
       >
         <label className="field field--grow">
@@ -78,6 +88,24 @@ function PromptForm({
             {preset}
           </button>
         ))}
+      </div>
+      <div className="modifier-strip" aria-label="Round rules">
+        <span className="modifier-strip__label">Rules</span>
+        {ROUND_MODIFIERS.map((mod) => {
+          const active = modifiers.includes(mod);
+          return (
+            <button
+              key={mod}
+              type="button"
+              className={`modifier-switch ${active ? "is-active" : ""}`}
+              aria-pressed={active}
+              onClick={() => toggleMod(mod)}
+            >
+              <span className="modifier-switch__dot" aria-hidden="true" />
+              {mod}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -244,10 +272,11 @@ export function RoundControl({ round, settings, me, api, clockOffset, onConnectA
 
   const act = (fn: () => Promise<unknown>, success?: string) => run(KEY, fn, { success });
 
-  const openRound = async (prompt: string) => {
+  const openRound = async (prompt: string, modifiers: string[] = []) => {
     await act(async () => {
       try {
-        await api.openRound(prompt || undefined);
+        await api.openRound(prompt || undefined, modifiers.length ? modifiers : undefined);
+        playCue("open");
       } catch (err) {
         // From done/rejected, the server may want an explicit reset first.
         if (err instanceof ApiRequestError && err.code === "wrong_phase" && phase !== "idle") {
@@ -559,6 +588,11 @@ export function RoundControl({ round, settings, me, api, clockOffset, onConnectA
         <div className="round-title">
           <h2 id="round-h">{title}</h2>
           <EligibilityBadges round={round} settings={settings} />
+          {round?.modifiers?.map((m) => (
+            <span key={m} className="badge badge--mod">
+              {m}
+            </span>
+          ))}
           <span className={`phase-tag phase-tag--${phase}`}>{phase === "awaiting_approval" && task?.status === "approved" ? "Ready to build" : PHASE_LABEL[phase]}</span>
         </div>
         {body}

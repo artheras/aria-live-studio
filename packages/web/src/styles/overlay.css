@@ -462,3 +462,35 @@
 .ov-cobuilder b {
   color: #ffd166;
 }
+
+.ov-mods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.ov-mod {
+  font-family: var(--mono);
+  font-size: 13px;
+  padding: 3px 9px;
+  border-radius: 6px;
+  background: rgba(145, 70, 255, 0.16);
+  border: 1px solid rgba(145, 70, 255, 0.45);
+  color: #d8bfff;
+}
+.ov-lead-change {
+  display: inline-block;
+  margin-left: 12px;
+  vertical-align: middle;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  padding: 3px 9px;
+  border-radius: 6px;
+  background: rgba(255, 209, 102, 0.2);
+  border: 1px solid rgba(255, 209, 102, 0.65);
+  color: #ffd166;
+}
+.ov-card--overtake {
+  box-shadow: 0 0 0 1px rgba(255, 209, 102, 0.6), 0 18px 48px rgba(0, 0, 0, 0.55);
+}

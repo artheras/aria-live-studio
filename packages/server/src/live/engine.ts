@@ -374,19 +374,24 @@ export class RoundEngine {
   // ── rounds ─────────────────────────────────────────────────────────────
 
   /** `by`: the moderator who opened it from chat (dashboard actions pass nothing). */
-  openRound(prompt = "", by?: Actor): Round {
+  openRound(prompt = "", by?: Actor, modifiers?: string[]): Round {
     const cur = this.s.round;
     if (cur && ["collecting", "voting", "planning", "executing"].includes(cur.phase)) {
       throw new EngineError("wrong_phase", `Cannot open a new round while the current one is ${cur.phase}`);
     }
     if (cur) this.archive(cur);
     const p = streamSafeLine(prompt, 200);
+    const mods = (modifiers ?? [])
+      .map((m) => streamSafeLine(m, 32))
+      .filter(Boolean)
+      .slice(0, 3);
     const round: Round = {
       id: this.deps.id(),
       index: this.s.stats.rounds + 1,
       phase: "collecting",
       openedAt: this.deps.now(),
       prompt: p,
+      ...(mods.length ? { modifiers: mods } : {}),
       ideas: [],
       candidates: [],
       tallies: [],

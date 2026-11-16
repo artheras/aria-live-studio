@@ -385,8 +385,8 @@ export class LiveService {
 
   // ── rounds (streamer actions) ────────────────────────────────────────
 
-  openRound(prompt: string, by?: Actor): void {
-    this.engine.openRound(prompt, by);
+  openRound(prompt: string, by?: Actor, modifiers?: string[]): void {
+    this.engine.openRound(prompt, by, modifiers);
   }
 
   resetRound(): RoundSummary | null {
