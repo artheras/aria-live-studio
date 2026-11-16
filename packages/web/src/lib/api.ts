@@ -132,6 +132,7 @@ export function createApi(getCsrf: () => string | null) {
     startVote: () => post("/api/round/vote"),
     closeVote: () => post("/api/round/close"),
     resetRound: () => post("/api/round/reset"),
+    revertRound: () => post<{ reverted: boolean; branch: string }>("/api/round/revert"),
     hideIdea: (id: string, hidden: boolean) => post(`/api/ideas/${encodeURIComponent(id)}/hide`, { hidden }),
     planTask: () => post("/api/task/plan"),
     editTask: (edit: TaskEdit) => patch("/api/task", edit),

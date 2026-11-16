@@ -81,6 +81,7 @@ export function LiveStageCanvas({ state, transparent = false }: { state: LiveSta
   const prevPhaseRef = useRef(state.round?.phase ?? "idle");
   const lastCelebrationIdRef = useRef<string | null>(null);
   const burstFnRef = useRef<((colorHex: number) => void) | null>(null);
+  const petUntilRef = useRef<number>(0);
 
   useEffect(() => {
     const phase = state.round?.phase ?? "idle";
@@ -98,6 +99,7 @@ export function LiveStageCanvas({ state, transparent = false }: { state: LiveSta
     lastCelebrationIdRef.current = latest.id;
     const hex = latest.kind === "bits" || latest.kind === "channel_points" ? 0xf5b942 : 0xb589ff;
     burstFnRef.current?.(hex);
+    petUntilRef.current = Date.now() + 15_000;
   }, [state.celebrations]);
 
   useEffect(() => {
@@ -680,6 +682,38 @@ export function LiveStageCanvas({ state, transparent = false }: { state: LiveSta
       milestoneTowers.push({ group: mg, baseY: my, idx });
     }
 
+    // 8c. Active-Build Blueprint Construction Block (visible during executing/planning)
+    const blueprintMat = new THREE.MeshStandardMaterial({
+      color: 0x7dd3fc,
+      emissive: 0x38bdf8,
+      emissiveIntensity: 1.3,
+      transparent: true,
+      opacity: 0.72,
+      roughness: 0.2,
+    });
+    const blueprintCube = new THREE.Mesh(voxelGeo, blueprintMat);
+    blueprintCube.scale.set(1.3, 1.3, 1.3);
+    blueprintCube.position.set(4.55, 6.2, -2.3);
+    blueprintCube.visible = false;
+    islandGroup.add(blueprintCube);
+
+    // 8d. Channel-Points / Raid Summoned Voxel Fox Pet (visible for 15s on celebrations)
+    const petGroup = new THREE.Group();
+    const petFurMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.65 });
+    const petTipMat = new THREE.MeshStandardMaterial({ color: 0xfff7ed, roughness: 0.6 });
+    const petBody = new THREE.Mesh(voxelGeo, petFurMat);
+    petBody.scale.set(0.72, 0.48, 0.95);
+    petBody.position.y = 0.24;
+    const petHead = new THREE.Mesh(voxelGeo, petFurMat);
+    petHead.scale.set(0.58, 0.52, 0.58);
+    petHead.position.set(0, 0.48, 0.35);
+    const petTail = new THREE.Mesh(voxelGeo, petTipMat);
+    petTail.scale.set(0.28, 0.28, 0.56);
+    petTail.position.set(0, 0.34, -0.45);
+    petGroup.add(petBody, petHead, petTail);
+    petGroup.visible = false;
+    islandGroup.add(petGroup);
+
     // 9. Distant Waterfall Cliff Peaks + Soft Feathered Volumetric Cloud Sprites (zero hard bubble seams)
     const bgIslands = new THREE.Group();
     const makeCloudTexture = (innerHex: string, outerHex: string) => {
@@ -881,6 +915,19 @@ export function LiveStageCanvas({ state, transparent = false }: { state: LiveSta
 
       if (isBuilding && frame % 140 === 0) {
         burstFnRef.current?.(0xffb44c);
+      }
+      blueprintCube.visible = isBuilding;
+      if (isBuilding) {
+        blueprintCube.position.y = 5.95 + Math.abs(Math.sin(t * 2.8)) * 0.65;
+        blueprintCube.rotation.y = t * 1.4;
+      }
+
+      const petActive = Date.now() < petUntilRef.current;
+      petGroup.visible = petActive;
+      if (petActive) {
+        const ang = t * 1.5;
+        petGroup.position.set(Math.cos(ang) * 1.9, 0.24 + Math.abs(Math.sin(t * 6.0)) * 0.22, 2.8 + Math.sin(ang) * 1.1);
+        petGroup.rotation.y = -ang;
       }
 
       const bounceSpeed = isCollecting || isBuilding ? 3.8 : 2.4;

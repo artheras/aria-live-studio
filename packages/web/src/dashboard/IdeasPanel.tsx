@@ -107,9 +107,14 @@ function IdeaList({ round, api }: { round: Round; api: AriaApi }) {
 function BroadcastMonitor({ api, livePreviewUrl }: { api: AriaApi; livePreviewUrl?: string | null }) {
   const { toast } = useActions();
   const [url, setUrl] = useState<string | null>(null);
+  const [include3dStage, setInclude3dStage] = useState(false);
   const stageRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.38);
-  const activeUrl = livePreviewUrl || url;
+  const baseUrl = livePreviewUrl || url;
+  const activeUrl =
+    baseUrl && !livePreviewUrl && include3dStage
+      ? `${baseUrl}${baseUrl.includes("?") ? "&" : "?"}mode=stage`
+      : baseUrl;
 
   useEffect(() => {
     let active = true;
@@ -148,6 +153,19 @@ function BroadcastMonitor({ api, livePreviewUrl }: { api: AriaApi; livePreviewUr
           </span>
           {activeUrl && (
             <div className="monitor-bezel__tools">
+              {!livePreviewUrl && (
+                <button
+                  type="button"
+                  className={`focus-pill ${include3dStage ? "is-on" : ""}`}
+                  aria-pressed={include3dStage}
+                  onClick={() => setInclude3dStage((v) => !v)}
+                >
+                  <span>3D Stage</span>
+                  <span className="focus-pill__track" aria-hidden="true">
+                    <span className="focus-pill__thumb" />
+                  </span>
+                </button>
+              )}
               <Btn
                 size="sm"
                 variant="ghost"

@@ -17,6 +17,8 @@
  * - /ws?role=dashboard: session cookie; /ws?role=overlay&key=OVERLAY_KEY.
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { createReadStream, existsSync, statSync } from "node:fs";
 import { extname, join, normalize, resolve, sep } from "node:path";
 import type { AddressInfo } from "node:net";
@@ -33,6 +35,7 @@ import { verifyExtensionJwt, type ExtensionJwtClaims } from "../twitch/extension
 import { overlaySnapshot } from "./redact.ts";
 import { WsHub } from "./ws.ts";
 
+const execFileAsync = promisify(execFile);
 export const BODY_LIMIT = 64 * 1024;
 const MAX_WAIT_SEC = 60;
 
@@ -249,6 +252,25 @@ export function createApp(deps: AppDeps): App {
   route("POST /api/round/vote", "session", () => engine.startVote());
   route("POST /api/round/close", "session", () => engine.closeVote());
   route("POST /api/round/reset", "session", () => ({ archived: service.resetRound() }));
+  route("POST /api/round/revert", "session", async () => {
+    const branch = engine.state.round?.execution?.branch;
+    if (!branch) throw new HttpError(409, "no_branch", "No branch recorded for this round");
+    if (!/^[a-zA-Z0-9._/-]+$/.test(branch) || branch.includes("..") || branch.startsWith("-")) {
+      throw new HttpError(400, "bad_branch", "Invalid branch name");
+    }
+    const cwd = config.executor.targetRepo ?? REPO_ROOT;
+    try {
+      await execFileAsync("git", ["worktree", "prune"], { cwd });
+      await execFileAsync("git", ["branch", "-D", branch], { cwd });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (!/not found/i.test(msg)) {
+        throw new HttpError(500, "revert_failed", `Could not delete branch ${branch}: ${msg}`);
+      }
+    }
+    service.resetRound();
+    return { reverted: true, branch };
+  });
   route("POST /api/ideas/:id/hide", "session", ({ params, body }) => {
     if (typeof body.hidden !== "boolean") throw new HttpError(400, "bad_input", "hidden must be a boolean");
     return engine.hideIdea(params.id!, body.hidden);
