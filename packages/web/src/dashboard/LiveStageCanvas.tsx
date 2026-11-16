@@ -187,8 +187,8 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
     frontFill.position.set(-14, 10, 12);
     scene.add(frontFill);
 
-    const crystalLight = new THREE.PointLight(0x9d5cff, 4.6, 12);
-    crystalLight.position.set(0.3, 3.6, 1.6);
+    const crystalLight = new THREE.PointLight(0x9d5cff, 4.2, 13);
+    crystalLight.position.set(0.3, 3.6, 3.0);
     scene.add(crystalLight);
 
     const porchLight = new THREE.PointLight(0xffb44c, 3.6, 7.5);
@@ -255,6 +255,28 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
     const pushRoof = (x: number, y: number, z: number, sx = 1, sy = 1, sz = 1) => {
       if (Math.abs(Math.round(x * 2 + z * 2)) % 3 === 0) roofLightSpecs.push({ x, y, z, sx, sy, sz });
       else roofDarkSpecs.push({ x, y, z, sx, sy, sz });
+    };
+
+    const pushFramedWindow = (x: number, y: number, z: number, nx: number, nz: number, withSill = false) => {
+      windowSpecs.push({ x: x - nx * 0.12, y, z: z - nz * 0.12, sx: 0.78, sy: 0.88, sz: 0.78 });
+      timberSpecs.push({
+        x: x + nx * 0.08,
+        y,
+        z: z + nz * 0.08,
+        sx: nz !== 0 ? 0.16 : 0.24,
+        sy: 0.94,
+        sz: nx !== 0 ? 0.16 : 0.24,
+      });
+      if (withSill) {
+        stoneLightSpecs.push({
+          x: x + nx * 0.12,
+          y: y - 0.24,
+          z: z + nz * 0.12,
+          sx: nz !== 0 ? 0.98 : 0.34,
+          sy: 0.22,
+          sz: nx !== 0 ? 0.98 : 0.34,
+        });
+      }
     };
 
     // 1. High-density 24x24 Floating Cliff Island (stepped stone cliff, dirt, 2-tier mossy grass)
@@ -326,8 +348,12 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
           if (isDoor) {
             // Recessed dark wooden double doors instead of blinding solid glow
             timberSpecs.push({ x, y, z: z - 0.12, sx: 0.95, sy: 0.95, sz: 0.55 });
-          } else if (isFrontWin || isBackWin || isSideWin) {
-            windowSpecs.push({ x, y, z, sx: 0.82, sy: 0.92, sz: 0.82 });
+          } else if (isFrontWin) {
+            pushFramedWindow(x, y, z, 0, 1, gy === 4);
+          } else if (isBackWin) {
+            pushFramedWindow(x, y, z, 0, -1, gy === 4);
+          } else if (isSideWin) {
+            pushFramedWindow(x, y, z, -1, 0, gy === 4);
           } else if (isCorner) {
             timberSpecs.push({ x, y, z });
           } else {
@@ -361,7 +387,7 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
           const isGableFace = gz === 3 || gz === -5;
           const isGableWin = isGableFace && !isSlopeEdge && (tier === 1 || tier === 2) && (gx === -2 || gx === -1);
           if (isGableWin) {
-            windowSpecs.push({ x, y, z: z - (gz === 3 ? 0.14 : -0.14), sx: 0.88, sy: 0.9, sz: 0.65 });
+            pushFramedWindow(x, y, z - (gz === 3 ? 0.14 : -0.14), 0, gz === 3 ? 1 : -1, tier === 1);
           } else if (isGableFace && !isSlopeEdge) {
             pushStone(x, y, z - (gz === 3 ? 0.14 : -0.14));
           } else {
@@ -388,8 +414,10 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
       const y = gy * u;
       for (let gx = 3; gx <= 6; gx++) {
         for (let gz = -2; gz <= 1; gz++) {
-          const isWin = (gy === 3 || gy === 4) && ((gz === 1 && gx === 4) || (gx === 6 && gz === 0));
-          if (isWin) windowSpecs.push({ x: gx * u, y, z: gz * u, sx: 0.85, sy: 0.9, sz: 0.85 });
+          const isFrontWingWin = (gy === 3 || gy === 4) && gz === 1 && gx === 4;
+          const isSideWingWin = (gy === 3 || gy === 4) && gx === 6 && gz === 0;
+          if (isFrontWingWin) pushFramedWindow(gx * u, y, gz * u, 0, 1, gy === 3);
+          else if (isSideWingWin) pushFramedWindow(gx * u, y, gz * u, 1, 0, gy === 3);
           else pushStone(gx * u, y, gz * u);
         }
       }
@@ -411,7 +439,9 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
             (gy === 10 || gy === 11) &&
             ((gz === -3 && gx === 5) || (gx === 3 && gz === -5) || (gz === -7 && gx === 5) || (gx === 7 && gz === -5));
           if (isWin) {
-            windowSpecs.push({ x, y, z, sx: 0.85, sy: 0.94, sz: 0.85 });
+            const nx = gx === 3 ? -1 : gx === 7 ? 1 : 0;
+            const nz = gz === -3 ? 1 : gz === -7 ? -1 : 0;
+            pushFramedWindow(x, y, z, nx, nz, gy === 10);
           } else {
             pushStone(x, y, z);
           }
@@ -655,10 +685,11 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
         voxelGeo,
         grassMat,
         [
-          { x: -17, y: 2.5, z: -20, sx: 8.0, sy: 1.4, sz: 8.0 },
-          { x: -18.5, y: 4.1, z: -20.5, sx: 4.6, sy: 1.3, sz: 4.6 },
-          { x: 18, y: 1.8, z: -21, sx: 7.4, sy: 1.4, sz: 7.4 },
-          { x: 19.5, y: 3.6, z: -21.5, sx: 4.8, sy: 1.3, sz: 4.8 },
+          { x: -17, y: 2.5, z: -20, sx: 9.0, sy: 1.3, sz: 8.5 },
+          { x: -18.5, y: 4.1, z: -20.5, sx: 5.2, sy: 1.2, sz: 5.0 },
+          { x: -19.2, y: 5.3, z: -21.0, sx: 2.8, sy: 1.1, sz: 2.8 },
+          { x: 18, y: 1.6, z: -21, sx: 8.4, sy: 1.3, sz: 8.0 },
+          { x: 19.5, y: 3.1, z: -21.5, sx: 4.6, sy: 1.2, sz: 4.4 },
         ],
         false,
         false,
@@ -669,10 +700,10 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
         voxelGeo,
         stoneDarkMat,
         [
-          { x: -17, y: 0.8, z: -20, sx: 6.2, sy: 5.2, sz: 6.2 },
-          { x: -18.5, y: 3.0, z: -20.5, sx: 3.8, sy: 3.8, sz: 3.8 },
-          { x: 18, y: 0.0, z: -21, sx: 5.6, sy: 5.6, sz: 5.6 },
-          { x: 19.5, y: 2.4, z: -21.5, sx: 3.8, sy: 3.8, sz: 3.8 },
+          { x: -17, y: 0.4, z: -20, sx: 7.4, sy: 6.2, sz: 7.0 },
+          { x: -18.5, y: 3.0, z: -20.5, sx: 4.4, sy: 3.8, sz: 4.2 },
+          { x: 18, y: -0.4, z: -21, sx: 6.8, sy: 6.2, sz: 6.4 },
+          { x: 19.5, y: 2.1, z: -21.5, sx: 3.8, sy: 3.2, sz: 3.8 },
         ],
         false,
         false,
