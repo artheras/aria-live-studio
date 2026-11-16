@@ -113,7 +113,7 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
 
     // Classic 45-deg isometric hero view matching the reference workshop composition
     const camera = new THREE.PerspectiveCamera(35, width / height, 0.1, 160);
-    camera.position.set(14.5, 10.1, 14.7);
+    camera.position.set(12.8, 9.0, 13.0);
 
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
@@ -129,7 +129,7 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
     controls.minDistance = 8.5;
     controls.maxDistance = 26;
     controls.maxPolarAngle = Math.PI * 0.49;
-    controls.target.set(0.25, 2.75, -0.15);
+    controls.target.set(0.25, 2.55, -0.15);
 
     // Twilight sky dome with directional golden-peach sunset glow on upper-right
     const skyGeo = new THREE.SphereGeometry(76, 24, 16);
@@ -604,47 +604,41 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
     addVoxelBuilder(2.15, 0.24, 2.75, 0x4ca6ff, -0.8, 2.8);
     addVoxelBuilder(3.15, 0.24, 1.45, 0xf5b942, -1.1, 4.2);
 
-    // 9. Distant Waterfall Cliff Peaks + Soft Volumetric Cloud Puffs
+    // 9. Distant Waterfall Cliff Peaks + Soft Feathered Volumetric Cloud Sprites (zero hard bubble seams)
     const bgIslands = new THREE.Group();
-    const cloudGeo = new THREE.SphereGeometry(1, 12, 10);
-    const cloudMat = new THREE.MeshStandardMaterial({
-      color: 0xdcccf5,
-      emissive: 0x7655a0,
-      emissiveIntensity: 0.35,
-      roughness: 0.98,
-      transparent: true,
-      opacity: 0.34,
-      depthWrite: false,
-    });
-    const cloudWarmMat = new THREE.MeshStandardMaterial({
-      color: 0xfad8bc,
-      emissive: 0xe6ad84,
-      emissiveIntensity: 0.32,
-      roughness: 0.98,
-      transparent: true,
-      opacity: 0.32,
-      depthWrite: false,
-    });
-    const cloudCoolSpecs: VoxelSpec[] = [];
-    const cloudWarmSpecs: VoxelSpec[] = [];
-    const addVoxelCloud = (specs: VoxelSpec[], cx: number, cy: number, cz: number, count: number) => {
+    const makeCloudTexture = (innerHex: string, outerHex: string) => {
+      const c = document.createElement("canvas");
+      c.width = 128;
+      c.height = 128;
+      const ctx = c.getContext("2d");
+      if (ctx) {
+        const g = ctx.createRadialGradient(64, 64, 6, 64, 64, 62);
+        g.addColorStop(0, innerHex);
+        g.addColorStop(0.5, outerHex);
+        g.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, 128, 128);
+      }
+      return new THREE.CanvasTexture(c);
+    };
+    const coolCloudTex = makeCloudTexture("rgba(220, 202, 248, 0.42)", "rgba(145, 110, 195, 0.14)");
+    const warmCloudTex = makeCloudTexture("rgba(255, 224, 196, 0.44)", "rgba(232, 173, 132, 0.15)");
+    const addCloudBank = (tex: THREE.CanvasTexture, cx: number, cy: number, cz: number, count: number) => {
+      const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false });
       for (let i = 0; i < count; i++) {
-        specs.push({
-          x: cx + (i - count / 2) * 1.65,
-          y: cy + Math.sin(i * 1.1) * 0.65,
-          z: cz + Math.cos(i * 0.85) * 1.1,
-          sx: 2.6 + (i % 2) * 1.1,
-          sy: 1.45 + ((i + 1) % 2) * 0.65,
-          sz: 2.2,
-        });
+        const sp = new THREE.Sprite(mat);
+        sp.position.set(cx + (i - count / 2) * 2.4, cy + Math.sin(i * 1.1) * 0.9, cz + Math.cos(i * 0.85) * 1.6);
+        const s = 6.5 + (i % 3) * 2.4;
+        sp.scale.set(s * 1.45, s * 0.85, 1);
+        bgIslands.add(sp);
       }
     };
-    addVoxelCloud(cloudCoolSpecs, -13, 1.6, -13, 9);
-    addVoxelCloud(cloudCoolSpecs, -10, -2.5, -6, 8);
-    addVoxelCloud(cloudCoolSpecs, -9, -4.0, 5, 7);
-    addVoxelCloud(cloudWarmSpecs, 13, 2.2, -12, 9);
-    addVoxelCloud(cloudWarmSpecs, 10, -2.2, -5, 8);
-    addVoxelCloud(cloudWarmSpecs, 9, -3.5, 6, 7);
+    addCloudBank(coolCloudTex, -15, 1.8, -15, 7);
+    addCloudBank(coolCloudTex, -11, -3.0, -7, 6);
+    addCloudBank(coolCloudTex, -10, -4.4, 5, 5);
+    addCloudBank(warmCloudTex, 15, 2.4, -14, 7);
+    addCloudBank(warmCloudTex, 11, -2.5, -6, 6);
+    addCloudBank(warmCloudTex, 10, -3.8, 6, 5);
 
     const waterfallMat = new THREE.MeshStandardMaterial({
       color: 0xdff4ff,
@@ -654,17 +648,15 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
       transparent: true,
       opacity: 0.85,
     });
-    bgIslands.add(buildVoxelInstances(cloudGeo, cloudMat, cloudCoolSpecs, false, false));
-    bgIslands.add(buildVoxelInstances(cloudGeo, cloudWarmMat, cloudWarmSpecs, false, false));
     bgIslands.add(
       buildVoxelInstances(
         voxelGeo,
         grassMat,
         [
-          { x: -14, y: 2.5, z: -16, sx: 7.2, sy: 1.4, sz: 7.2 },
-          { x: -15.5, y: 4.1, z: -16.5, sx: 4.2, sy: 1.3, sz: 4.2 },
-          { x: 15, y: 1.8, z: -17, sx: 6.8, sy: 1.4, sz: 6.8 },
-          { x: 16.5, y: 3.6, z: -17.5, sx: 4.4, sy: 1.3, sz: 4.4 },
+          { x: -17, y: 2.5, z: -20, sx: 8.0, sy: 1.4, sz: 8.0 },
+          { x: -18.5, y: 4.1, z: -20.5, sx: 4.6, sy: 1.3, sz: 4.6 },
+          { x: 18, y: 1.8, z: -21, sx: 7.4, sy: 1.4, sz: 7.4 },
+          { x: 19.5, y: 3.6, z: -21.5, sx: 4.8, sy: 1.3, sz: 4.8 },
         ],
         false,
         false,
@@ -675,10 +667,10 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
         voxelGeo,
         stoneDarkMat,
         [
-          { x: -14, y: 1.0, z: -16, sx: 5.4, sy: 4.6, sz: 5.4 },
-          { x: -15.5, y: 3.0, z: -16.5, sx: 3.6, sy: 3.6, sz: 3.6 },
-          { x: 15, y: 0.2, z: -17, sx: 5.0, sy: 5.0, sz: 5.0 },
-          { x: 16.5, y: 2.4, z: -17.5, sx: 3.6, sy: 3.6, sz: 3.6 },
+          { x: -17, y: 0.8, z: -20, sx: 6.2, sy: 5.2, sz: 6.2 },
+          { x: -18.5, y: 3.0, z: -20.5, sx: 3.8, sy: 3.8, sz: 3.8 },
+          { x: 18, y: 0.0, z: -21, sx: 5.6, sy: 5.6, sz: 5.6 },
+          { x: 19.5, y: 2.4, z: -21.5, sx: 3.8, sy: 3.8, sz: 3.8 },
         ],
         false,
         false,
@@ -689,8 +681,8 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
         voxelGeo,
         waterfallMat,
         [
-          { x: -14.2, y: 0.6, z: -14.2, sx: 1.25, sy: 7.4, sz: 0.9 },
-          { x: 14.6, y: 0.1, z: -15.4, sx: 1.4, sy: 7.6, sz: 0.95 },
+          { x: -17.2, y: 0.5, z: -17.8, sx: 1.3, sy: 7.8, sz: 0.9 },
+          { x: 17.6, y: 0.0, z: -18.8, sx: 1.4, sy: 8.0, sz: 0.95 },
         ],
         false,
         false,
