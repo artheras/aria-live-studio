@@ -452,6 +452,8 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
       { x: 4.6, y: 2.2, z: -1.4, sx: 1.12, sy: 0.16, sz: 3.8 },
       { x: 4.6, y: 3.8, z: -2.15, sx: 1.12, sy: 0.16, sz: 2.3 },
       { x: 4.6, y: 5.3, z: -2.15, sx: 1.12, sy: 0.16, sz: 2.3 },
+      { x: 5.05, y: 2.95, z: -2.15, sx: 0.12, sy: 0.12, sz: 2.2 },
+      { x: 5.05, y: 4.55, z: -2.15, sx: 0.12, sy: 0.12, sz: 2.2 },
       { x: 4.2, y: 6.05, z: -2.15, sx: 1.4, sy: 0.16, sz: 0.18 },
       { x: 5.08, y: 1.3, z: -2.2, sx: 0.12, sy: 0.12, sz: 0.75 },
       { x: 5.08, y: 1.9, z: -2.2, sx: 0.12, sy: 0.12, sz: 0.75 },
@@ -463,6 +465,7 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
       { x: -3.05, y: 2.0, z: 0.9, sx: 0.16, sy: 3.2, sz: 0.16 },
       { x: -2.6, y: 2.1, z: 0.0, sx: 0.95, sy: 0.15, sz: 1.95 },
       { x: -2.6, y: 3.3, z: 0.0, sx: 0.95, sy: 0.15, sz: 1.95 },
+      { x: -3.05, y: 2.7, z: 0.0, sx: 0.12, sy: 0.12, sz: 1.8 },
       // Courtyard crates, barrel & wooden bench
       { x: 2.2, y: 0.82, z: 1.6, sx: 0.56, sy: 0.56, sz: 0.56 },
       { x: 2.8, y: 0.78, z: 1.5, sx: 0.46, sy: 0.48, sz: 0.46 },
@@ -513,6 +516,14 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
       pineSpecs.push({ x: sx + 0.25, y: 0.82, z: sz - 0.15, sx: 0.42, sy: 0.42, sz: 0.42 });
     }
 
+    // Glowing violet crystal shards nestled in the front garden & mossy rocks
+    windowSpecs.push(
+      { x: -3.55, y: 0.68, z: 3.25, sx: 0.24, sy: 0.42, sz: 0.24 },
+      { x: -1.9, y: 0.66, z: 4.65, sx: 0.22, sy: 0.36, sz: 0.22 },
+      { x: 3.45, y: 0.68, z: 1.15, sx: 0.24, sy: 0.44, sz: 0.24 },
+      { x: 2.95, y: 0.64, z: 3.45, sx: 0.2, sy: 0.34, sz: 0.2 },
+    );
+
     const blossomPinkMat = new THREE.MeshStandardMaterial({ color: 0xe06c9f, roughness: 0.65 });
     const blossomGoldMat = new THREE.MeshStandardMaterial({ color: 0xffd166, roughness: 0.6 });
 
@@ -553,6 +564,7 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
           { x: -1.85, y: 1.35, z: 2.35, sx: 0.28, sy: 0.36, sz: 0.28 },
           { x: -0.15, y: 1.35, z: 2.35, sx: 0.28, sy: 0.36, sz: 0.28 },
           { x: 0.55, y: 0.92, z: 3.7, sx: 0.22, sy: 0.28, sz: 0.22 },
+          { x: -2.4, y: 2.0, z: 1.2, sx: 0.22, sy: 0.28, sz: 0.22 },
           { x: 5.02, y: 3.45, z: -1.1, sx: 0.24, sy: 0.3, sz: 0.24 },
           { x: 2.1, y: 3.2, z: -2.2, sx: 0.35, sy: 0.35, sz: 0.35 },
         ],
