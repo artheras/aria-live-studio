@@ -358,7 +358,13 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
       pushStone({ x, y: 3.35, z: 0.85, sx: 0.42, sy: 0.45, sz: 0.35 });
     }
 
-    // Manor stepped pitched roof with overhanging eaves & wooden front/back bargeboard trim
+    // Manor stepped pitched roof with overhanging eaves, ridge cresting & corner stone buttresses
+    for (const [bx, bz] of [
+      [-2.18, 1.18],
+      [1.18, 1.18],
+    ] as const) {
+      pushStone({ x: bx, y: 2.0, z: bz, sx: 0.36, sy: 2.2, sz: 0.36 });
+    }
     for (let z = -2.5; z <= 1.7; z += 1) {
       for (let x = -2.6; x <= 1.6; x += 1) {
         roofSpecs.push({ x, y: 4.3, z, sx: 0.96, sy: 0.65, sz: 0.96 });
@@ -367,6 +373,9 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
         roofSpecs.push({ x, y: 4.95, z, sx: 0.96, sy: 0.65, sz: 0.96 });
       }
       roofSpecs.push({ x: -0.5, y: 5.6, z, sx: 0.96, sy: 0.65, sz: 0.96 });
+      if (Math.round(z * 10) % 2 === 0) {
+        stoneLightSpecs.push({ x: -0.5, y: 6.04, z, sx: 0.32, sy: 0.28, sz: 0.38 });
+      }
     }
     for (const gz of [1.85, -2.65]) {
       timberSpecs.push(
@@ -587,6 +596,24 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
       ),
     );
 
+    // Fluttering violet guild banner on top of the watchtower spire
+    const bannerGroup = new THREE.Group();
+    bannerGroup.position.set(2.5, 9.28, -2.5);
+    const pole = new THREE.Mesh(boxGeo, darkWoodMat);
+    pole.scale.set(0.1, 0.8, 0.1);
+    pole.position.y = 0.3;
+    const flagMat = new THREE.MeshStandardMaterial({
+      color: 0x9146ff,
+      emissive: 0x5b21b6,
+      emissiveIntensity: 0.6,
+      roughness: 0.55,
+    });
+    const flagCloth = new THREE.Mesh(boxGeo, flagMat);
+    flagCloth.scale.set(0.75, 0.42, 0.08);
+    flagCloth.position.set(0.4, 0.46, 0);
+    bannerGroup.add(pole, flagCloth);
+    islandGroup.add(bannerGroup);
+
     // 6. 4 Animated 3D Voxel Co-Builder Characters on the courtyard & lawn
     const voxelBuilders: { group: THREE.Group; baseY: number; phase: number }[] = [];
     const skinMat = new THREE.MeshStandardMaterial({ color: 0xf6cba8, roughness: 0.72 });
@@ -785,6 +812,7 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
 
       islandGroup.position.y = Math.sin(t * 1.0) * 0.12;
       bgIslands.position.y = Math.sin(t * 0.6) * 0.18;
+      bannerGroup.rotation.y = Math.sin(t * 2.6) * 0.22;
       crystalLight.intensity = isVoting
         ? 7.8 + Math.sin(t * 4.0) * 1.2
         : isCollecting
