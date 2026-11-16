@@ -348,30 +348,32 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
       { x: 0.05, y: 1.65, z: 1.82, sx: 0.45, sy: 0.55, sz: 0.45 },
     );
 
-    // 8-Tier Stepped Slate Pitched Roof + Stone Gable Wall + Large Arched Purple Gable Window
-    for (let tier = 0; tier < 6; tier++) {
-      const y = 3.9 + tier * 0.42;
-      const halfW = 5 - tier;
+    // 5-Tier Stepped Slate Pitched Roof (symmetric around gx = -1.5) + Stone Gable Wall + Arched Purple Gable Window
+    for (let tier = 0; tier < 5; tier++) {
+      const y = 3.9 + tier * 0.44;
+      const minGx = -6 + tier;
+      const maxGx = 3 - tier;
       for (let gz = -5; gz <= 3; gz++) {
         const z = gz * u;
-        for (let gx = -halfW; gx <= halfW - 1; gx++) {
-          const x = (gx - 0.5) * u;
+        for (let gx = minGx; gx <= maxGx; gx++) {
+          const x = gx * u;
+          const isSlopeEdge = gx === minGx || gx === maxGx || tier === 4;
           const isGableFace = gz === 3 || gz === -5;
-          const isGableWin = isGableFace && tier >= 1 && tier <= 3 && gx >= -2 && gx <= 0;
+          const isGableWin = isGableFace && !isSlopeEdge && (tier === 1 || tier === 2) && (gx === -2 || gx === -1);
           if (isGableWin) {
-            windowSpecs.push({ x, y, z: z - (gz === 3 ? 0.15 : -0.15), sx: 0.88, sy: 0.9, sz: 0.65 });
-          } else if (isGableFace && tier < 5 && Math.abs(gx) < halfW - 1) {
-            pushStone(x, y, z - (gz === 3 ? 0.15 : -0.15));
+            windowSpecs.push({ x, y, z: z - (gz === 3 ? 0.14 : -0.14), sx: 0.88, sy: 0.9, sz: 0.65 });
+          } else if (isGableFace && !isSlopeEdge) {
+            pushStone(x, y, z - (gz === 3 ? 0.14 : -0.14));
           } else {
             pushRoof(x, y, z, 1.02, 0.92, 1.02);
           }
         }
       }
-      // Wooden bargeboard eaves tucked cleanly under the pitched roof edges (skip top ridge)
-      if (tier < 5) {
+      // Wooden bargeboard eaves tucked cleanly under the pitched roof edges (skip ridge)
+      if (tier < 4) {
         timberSpecs.push(
-          { x: (-halfW - 0.5) * u, y: y - 0.08, z: 1.65, sx: 0.68, sy: 0.44, sz: 0.42 },
-          { x: (halfW - 1.5) * u, y: y - 0.08, z: 1.65, sx: 0.68, sy: 0.44, sz: 0.42 },
+          { x: minGx * u, y: y - 0.16, z: 1.62, sx: 0.72, sy: 0.42, sz: 0.42 },
+          { x: maxGx * u, y: y - 0.16, z: 1.62, sx: 0.72, sy: 0.42, sz: 0.42 },
         );
       }
     }
