@@ -17,9 +17,12 @@ const TWITCH_LABEL: Record<Connection["state"], string> = {
 export function Logo() {
   return (
     <span className="logo">
-      <img className="logo__icon" src="/aria-icon-dark.png" width={28} height={28} alt="" aria-hidden="true" />
-      <span className="logo__word">
-        Aria <strong>Live Studio</strong>
+      <img className="logo__icon" src="/aria-icon-dark.png" width={32} height={32} alt="" aria-hidden="true" />
+      <span className="logo__stack">
+        <span className="logo__word">
+          Aria <strong>Live Studio</strong>
+        </span>
+        <span className="logo__sub">Stream · Create · Connect</span>
       </span>
     </span>
   );
@@ -108,71 +111,111 @@ export function Header({
 }) {
   const now = useNow(10_000);
   const agentOnline = Boolean(agentStatus && now - agentStatus.lastSeenAt < 90_000);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const { run, toast } = useActions();
   const channel = connection.channel ?? me.user;
   const name = channel?.displayName || channel?.login || "—";
   return (
-    <header className="topbar">
+    <header className="topbar topbar--studio">
       <Logo />
-      <div className="topbar__channel" title={channel ? `twitch.tv/${channel.login}` : undefined}>
-        {channel?.avatarUrl ? (
-          <img className="avatar avatar__img" src={channel.avatarUrl} width={26} height={26} alt="" />
-        ) : (
-          <span className="avatar" aria-hidden="true">
-            {name.slice(0, 1).toUpperCase()}
+      <div className="topbar__right">
+        {live !== "open" && (
+          <span className="chip chip--warn" role="status">
+            Server {live === "connecting" ? "connecting…" : "reconnecting…"}
           </span>
         )}
-        <span className="topbar__name">{name}</span>
+        <div className="popover-anchor">
+          <button
+            type="button"
+            className="user-pill"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((o) => !o)}
+            title={channel ? `twitch.tv/${channel.login}` : undefined}
+          >
+            <span className="user-pill__avatar-wrap">
+              {channel?.avatarUrl ? (
+                <img className="avatar avatar__img" src={channel.avatarUrl} width={28} height={28} alt="" />
+              ) : (
+                <span className="avatar" aria-hidden="true">
+                  {name.slice(0, 1).toUpperCase()}
+                </span>
+              )}
+              <span
+                className={`user-pill__dot ${connection.state === "connected" ? "is-online" : ""}`}
+                aria-hidden="true"
+              />
+            </span>
+            <span className="topbar__name">{name}</span>
+            <span className="user-pill__caret" aria-hidden="true">▾</span>
+          </button>
+          {menuOpen && (
+            <div className="popover user-menu" role="menu" aria-label="Studio menu">
+              <div className="user-menu__status">
+                <ConnectionPill connection={connection} />
+                <span className={`chip ${connection.canReply ? "chip--good" : "chip--muted"}`}>
+                  {connection.canReply ? "Chat replies on" : "Read-only chat"}
+                </span>
+                <span className={`chip ${me.executor.ok || agentOnline ? "chip--good" : "chip--muted"}`}>
+                  {agentOnline && agentStatus
+                    ? `Agent: ${agentStatus.name}`
+                    : me.executor.ok
+                      ? `Agent: ${me.executor.kind}`
+                      : "Agent: Waiting"}
+                </span>
+              </div>
+              <div className="user-menu__items">
+                <button
+                  type="button"
+                  className="user-menu__item"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    void run("overlay-url", async () => {
+                      const u = await api.overlayUrl();
+                      const ok = await copyText(u);
+                      toast(ok ? "success" : "info", ok ? "Overlay URL copied" : u);
+                    });
+                  }}
+                >
+                  Copy OBS Overlay URL
+                </button>
+                <button
+                  type="button"
+                  className="user-menu__item"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onAgent();
+                  }}
+                >
+                  Connect coding agent
+                </button>
+                <a className="user-menu__item" href="/history">
+                  Round history
+                </a>
+                <button
+                  type="button"
+                  className="user-menu__item"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onSettings();
+                  }}
+                >
+                  Manage settings
+                </button>
+                <button
+                  type="button"
+                  className="user-menu__item user-menu__item--danger"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onLogout();
+                  }}
+                >
+                  Log out
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
-      <ConnectionPill connection={connection} />
-      {connection.isLive && connection.viewerCount != null && (
-        <span className="chip chip--good num" title={connection.streamTitle ?? "Channel is live on Twitch"}>
-          LIVE · {connection.viewerCount.toLocaleString()} VIEWERS
-        </span>
-      )}
-      <span
-        className={`chip ${connection.canReply ? "chip--good" : "chip--muted"}`}
-        title={connection.canReply ? "Aria can reply in chat" : "Chat replies unavailable (user:write:chat not granted)"}
-      >
-        {connection.canReply ? "Chat replies on" : "Read-only chat"}
-      </span>
-      <button
-        type="button"
-        className={`chip chip--btn ${me.executor.ok || agentOnline ? "chip--good" : "chip--muted"}`}
-        onClick={onAgent}
-        title={
-          agentOnline && agentStatus
-            ? `Connected via MCP: ${agentStatus.name}`
-            : me.executor.ok
-              ? `Executor: ${me.executor.kind}`
-              : me.executor.reason || "Connect a coding agent via MCP"
-        }
-      >
-        {agentOnline && agentStatus
-          ? `Agent: ${agentStatus.name}`
-          : me.executor.ok
-            ? `Agent: ${me.executor.kind}`
-            : "Agent: Waiting"}
-      </button>
-      {live !== "open" && (
-        <span className="chip chip--warn" role="status">
-          Server {live === "connecting" ? "connecting…" : "reconnecting…"}
-        </span>
-      )}
-      <nav className="topbar__actions" aria-label="Studio">
-        <OverlayButton api={api} />
-        <Btn size="sm" onClick={onAgent}>
-          Connect agent
-        </Btn>
-        <a className="btn btn--ghost btn--sm" href="/history">
-          History
-        </a>
-        <Btn size="sm" variant="ghost" onClick={onSettings}>
-          Settings
-        </Btn>
-        <Btn size="sm" variant="ghost" onClick={onLogout}>
-          Log out
-        </Btn>
-      </nav>
     </header>
   );
 }
