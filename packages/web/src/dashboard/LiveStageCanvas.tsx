@@ -184,10 +184,14 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
     porchLight.position.set(-0.6, 1.4, 2.9);
     scene.add(porchLight);
 
+    const underGlow = new THREE.PointLight(0x8b4dff, 4.2, 13);
+    underGlow.position.set(0, -3.8, 0);
+    scene.add(underGlow);
+
     const islandGroup = new THREE.Group();
     scene.add(islandGroup);
 
-    const boxGeo = new THREE.BoxGeometry(0.97, 0.97, 0.97);
+    const boxGeo = new THREE.BoxGeometry(0.94, 0.94, 0.94);
     const stoneLightMat = new THREE.MeshStandardMaterial({ color: 0x7a7589, roughness: 0.85 });
     const stoneMidMat = new THREE.MeshStandardMaterial({ color: 0x615c70, roughness: 0.88 });
     const stoneDarkMat = new THREE.MeshStandardMaterial({ color: 0x433e50, roughness: 0.92 });
@@ -261,14 +265,18 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
       { x: 2.5, y: -0.4, z: 4.5, sx: 0.55, sy: 0.65, sz: 0.55 },
     );
 
-    // Stepped front stone staircase + left/right parapet walls + courtyard stepping stones
-    for (let s = 0; s < 3; s++) {
-      const sy = 0.2 + s * 0.35;
-      const sz = 4 - s;
-      pushStone({ x: -1, y: sy, z: sz, sx: 1.55, sy: 0.4 + s * 0.15, sz: 0.92 });
-      pushStone({ x: -2.0, y: sy + 0.3, z: sz, sx: 0.35, sy: 0.72, sz: 0.92 });
-      pushStone({ x: 0.0, y: sy + 0.3, z: sz, sx: 0.35, sy: 0.72, sz: 0.92 });
+    // Stepped 5-tier front stone staircase + parapet walls + newel posts + courtyard stepping stones
+    for (let s = 0; s < 5; s++) {
+      const sy = 0.16 + s * 0.22;
+      const sz = 4.2 - s * 0.56;
+      pushStone({ x: -1, y: sy, z: sz, sx: 1.55, sy: 0.28 + s * 0.12, sz: 0.54 });
+      pushStone({ x: -2.0, y: sy + 0.24, z: sz, sx: 0.34, sy: 0.56, sz: 0.54 });
+      pushStone({ x: 0.0, y: sy + 0.24, z: sz, sx: 0.34, sy: 0.56, sz: 0.54 });
     }
+    stoneLightSpecs.push(
+      { x: -2.0, y: 0.58, z: 4.5, sx: 0.42, sy: 0.48, sz: 0.42 },
+      { x: 0.0, y: 0.58, z: 4.5, sx: 0.42, sy: 0.48, sz: 0.42 },
+    );
     for (const [cx, cz] of [
       [-1.0, 4.9],
       [-0.4, 4.7],
@@ -310,12 +318,30 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
         }
       }
     }
-    // Warm porch canopy + pillars
+    // Warm porch canopy + 3-post colonnade + stone arch lintel
     timberSpecs.push(
       { x: -1.65, y: 1.5, z: 1.8, sx: 0.22, sy: 1.6, sz: 0.22 },
       { x: -0.35, y: 1.5, z: 1.8, sx: 0.22, sy: 1.6, sz: 0.22 },
-      { x: -1.0, y: 2.35, z: 1.65, sx: 1.68, sy: 0.26, sz: 0.88 },
+      { x: -1.0, y: 2.35, z: 1.65, sx: 1.72, sy: 0.26, sz: 0.92 },
     );
+    stoneLightSpecs.push({ x: -1.0, y: 2.6, z: 1.85, sx: 1.45, sy: 0.22, sz: 0.28 });
+
+    // Right-wing stone gallery connecting main hall & watchtower
+    for (let y = 1.5; y <= 2.5; y += 1) {
+      for (let x = 1.6; x <= 2.8; x += 1) {
+        for (let z = -0.9; z <= 0.7; z += 0.8) {
+          const isWingWin = y === 2.5 && ((z > 0.3 && x > 2.0) || (x > 2.4 && Math.abs(z) < 0.3));
+          if (isWingWin) {
+            windowSpecs.push({ x, y, z, sx: 0.68, sy: 0.85, sz: 0.68 });
+          } else {
+            pushStone({ x, y, z, sx: 0.88, sy: 0.96, sz: 0.82 });
+          }
+        }
+      }
+    }
+    for (let x = 1.6; x <= 2.8; x += 0.6) {
+      pushStone({ x, y: 3.35, z: 0.85, sx: 0.42, sy: 0.45, sz: 0.35 });
+    }
 
     // Manor stepped pitched roof with overhanging eaves & wooden front/back bargeboard trim
     for (let z = -2.5; z <= 1.7; z += 1) {
@@ -363,7 +389,23 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
         }
       }
     }
-    // Watchtower corbelled battlements + stepped slate pyramid cap
+    // Watchtower corner stone quoins + corbelled battlements + stepped slate pyramid cap + finial
+    for (let y = 1.5; y <= 6.5; y += 1) {
+      for (const [qx, qz] of [
+        [1.45, -1.45],
+        [3.55, -1.45],
+        [3.55, -3.55],
+      ] as const) {
+        (y % 2 === 0.5 ? stoneLightSpecs : stoneDarkSpecs).push({
+          x: qx,
+          y,
+          z: qz,
+          sx: 0.35,
+          sy: 0.55,
+          sz: 0.35,
+        });
+      }
+    }
     for (let x = 1.3; x <= 3.7; x += 0.8) {
       for (let z = -3.7; z <= -1.3; z += 0.8) {
         if (Math.abs(x - 2.5) < 0.45 && Math.abs(z + 2.5) < 0.45) continue;
@@ -375,24 +417,33 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
         roofSpecs.push({ x, y: 7.75, z, sx: 0.72, sy: 0.55, sz: 0.72 });
       }
     }
-    roofSpecs.push({ x: 2.5, y: 8.35, z: -2.5, sx: 0.9, sy: 0.65, sz: 0.9 });
+    roofSpecs.push(
+      { x: 2.5, y: 8.35, z: -2.5, sx: 0.9, sy: 0.65, sz: 0.9 },
+      { x: 2.5, y: 8.92, z: -2.5, sx: 0.36, sy: 0.55, sz: 0.36 },
+    );
 
-    // 4. Dual Wooden Scaffolding (right tower + far-left manor) with ladder rungs & courtyard crates/barrels
+    // 4. Intricate 3-Tier Right Scaffolding + 2-Tier Left Scaffolding + Courtyard Props
     const scaffSpecs: VoxelSpec[] = [
-      { x: 4.2, y: 2.1, z: -3.2, sx: 0.2, sy: 4.0, sz: 0.2 },
-      { x: 4.2, y: 2.1, z: -1.2, sx: 0.2, sy: 4.0, sz: 0.2 },
-      { x: 5.05, y: 2.1, z: -3.2, sx: 0.2, sy: 4.0, sz: 0.2 },
-      { x: 5.05, y: 2.1, z: -1.2, sx: 0.2, sy: 4.0, sz: 0.2 },
-      { x: 4.62, y: 2.5, z: -2.2, sx: 1.1, sy: 0.16, sz: 2.2 },
-      { x: 4.62, y: 4.0, z: -2.2, sx: 1.1, sy: 0.16, sz: 2.2 },
-      { x: 4.2, y: 4.8, z: -2.2, sx: 1.45, sy: 0.18, sz: 0.2 },
+      { x: 4.15, y: 3.1, z: -3.2, sx: 0.18, sy: 6.0, sz: 0.18 },
+      { x: 4.15, y: 3.1, z: -1.1, sx: 0.18, sy: 6.0, sz: 0.18 },
+      { x: 4.15, y: 2.1, z: 0.4, sx: 0.18, sy: 3.8, sz: 0.18 },
+      { x: 5.05, y: 3.1, z: -3.2, sx: 0.18, sy: 6.0, sz: 0.18 },
+      { x: 5.05, y: 3.1, z: -1.1, sx: 0.18, sy: 6.0, sz: 0.18 },
+      { x: 5.05, y: 2.1, z: 0.4, sx: 0.18, sy: 3.8, sz: 0.18 },
+      { x: 4.6, y: 2.2, z: -1.4, sx: 1.12, sy: 0.16, sz: 3.8 },
+      { x: 4.6, y: 3.8, z: -2.15, sx: 1.12, sy: 0.16, sz: 2.3 },
+      { x: 4.6, y: 5.3, z: -2.15, sx: 1.12, sy: 0.16, sz: 2.3 },
+      { x: 4.2, y: 6.05, z: -2.15, sx: 1.4, sy: 0.16, sz: 0.18 },
       { x: 5.08, y: 1.3, z: -2.2, sx: 0.12, sy: 0.12, sz: 0.75 },
       { x: 5.08, y: 1.9, z: -2.2, sx: 0.12, sy: 0.12, sz: 0.75 },
       { x: 5.08, y: 2.5, z: -2.2, sx: 0.12, sy: 0.12, sz: 0.75 },
       { x: 5.08, y: 3.1, z: -2.2, sx: 0.12, sy: 0.12, sz: 0.75 },
-      { x: -3.0, y: 1.7, z: -0.6, sx: 0.18, sy: 2.4, sz: 0.18 },
-      { x: -3.0, y: 1.7, z: 0.8, sx: 0.18, sy: 2.4, sz: 0.18 },
-      { x: -2.6, y: 2.4, z: 0.1, sx: 0.9, sy: 0.15, sz: 1.6 },
+      { x: 5.08, y: 3.7, z: -2.2, sx: 0.12, sy: 0.12, sz: 0.75 },
+      { x: 5.08, y: 4.3, z: -2.2, sx: 0.12, sy: 0.12, sz: 0.75 },
+      { x: -3.05, y: 2.0, z: -0.9, sx: 0.16, sy: 3.2, sz: 0.16 },
+      { x: -3.05, y: 2.0, z: 0.9, sx: 0.16, sy: 3.2, sz: 0.16 },
+      { x: -2.6, y: 2.1, z: 0.0, sx: 0.95, sy: 0.15, sz: 1.95 },
+      { x: -2.6, y: 3.3, z: 0.0, sx: 0.95, sy: 0.15, sz: 1.95 },
       // Courtyard crates, barrel & wooden bench
       { x: 2.2, y: 0.82, z: 1.6, sx: 0.56, sy: 0.56, sz: 0.56 },
       { x: 2.8, y: 0.78, z: 1.5, sx: 0.46, sy: 0.48, sz: 0.46 },
@@ -551,20 +602,21 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
     );
     scene.add(bgIslands);
 
-    // Dual-color floating violet + warm gold fireflies
-    const makeMotes = (color: number, count: number) => {
+    // Dual-color floating violet + warm gold fireflies + under-island violet glow motes
+    const makeMotes = (color: number, count: number, minY = -2.5, maxY = 6.5, size = 0.16) => {
       const pos = new Float32Array(count * 3);
       for (let i = 0; i < count; i++) {
         pos[i * 3] = (Math.random() - 0.5) * 16;
-        pos[i * 3 + 1] = Math.random() * 9 - 2.5;
+        pos[i * 3 + 1] = minY + Math.random() * (maxY - minY);
         pos[i * 3 + 2] = (Math.random() - 0.5) * 16;
       }
       const g = new THREE.BufferGeometry();
       g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-      return new THREE.Points(g, new THREE.PointsMaterial({ color, size: 0.16, transparent: true, opacity: 0.88 }));
+      return new THREE.Points(g, new THREE.PointsMaterial({ color, size, transparent: true, opacity: 0.88 }));
     };
-    scene.add(makeMotes(0xd8bfff, 38));
-    scene.add(makeMotes(0xffcb77, 24));
+    scene.add(makeMotes(0xd8bfff, 48));
+    scene.add(makeMotes(0xb87cff, 64, -6.0, -1.8, 0.22));
+    scene.add(makeMotes(0xffcb77, 26));
 
     // 3D Firework particle cubes
     const bursts: BurstCube[] = [];
