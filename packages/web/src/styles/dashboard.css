@@ -1270,3 +1270,97 @@ input[type="checkbox"] {
 .hcard__markers { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .hcard__vod { font-size: 12px; }
 .hcard__summary { flex-basis: 100%; margin: 0; color: var(--text-2); font-size: 13px; }
+
+/* ── Brand icon, Agent status chip, Quick theme chips & Idle overlay preview ─ */
+.logo__icon {
+  border-radius: 7px;
+  display: block;
+}
+.chip--btn {
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s ease, filter 0.15s ease;
+}
+.chip--btn:hover {
+  filter: brightness(1.12);
+}
+.prompt-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.theme-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.theme-chip {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text-2);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+.theme-chip:hover {
+  border-color: var(--accent);
+  color: var(--text);
+  background: var(--accent-soft);
+}
+.idle-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.idle-preview__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.idle-preview__title {
+  margin: 0 0 2px;
+  font-weight: 600;
+}
+.idle-preview__stage {
+  position: relative;
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: radial-gradient(circle at 20% 20%, rgba(145, 70, 255, 0.14), rgba(10, 10, 16, 0.96));
+  aspect-ratio: 16 / 9;
+}
+.idle-preview__badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: rgba(14, 14, 22, 0.84);
+  border: 1px solid var(--border-strong);
+  color: var(--text-2);
+}
+.idle-preview__frame {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+  pointer-events: none;
+}
+.panel__head--toggle {
+  cursor: pointer;
+  list-style: none;
+}
+.panel__head--toggle::-webkit-details-marker {
+  display: none;
+}

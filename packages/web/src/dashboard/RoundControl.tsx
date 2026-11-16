@@ -33,6 +33,8 @@ export function PhaseStepper({ round }: { round: Round | null }) {
   );
 }
 
+const THEME_PRESETS = ["Boss fight mechanic", "UI & animations", "Sound effects", "Mini-game"];
+
 function PromptForm({
   label,
   onSubmit,
@@ -44,26 +46,40 @@ function PromptForm({
 }) {
   const [prompt, setPrompt] = useState("");
   return (
-    <form
-      className="prompt-form"
-      onSubmit={(e) => {
-        e.preventDefault();
-        onSubmit(prompt.trim());
-      }}
-    >
-      <label className="field field--grow">
-        <span>Theme for this round (optional)</span>
-        <input
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          placeholder="e.g. features for the boss fight"
-          maxLength={140}
-        />
-      </label>
-      <Btn type="submit" variant="primary" size="lg" pending={pending}>
-        {label}
-      </Btn>
-    </form>
+    <div className="prompt-wrap">
+      <form
+        className="prompt-form"
+        onSubmit={(e) => {
+          e.preventDefault();
+          onSubmit(prompt.trim());
+        }}
+      >
+        <label className="field field--grow">
+          <span>Theme for this round (optional)</span>
+          <input
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            placeholder="e.g. features for the boss fight"
+            maxLength={140}
+          />
+        </label>
+        <Btn type="submit" variant="primary" size="lg" pending={pending}>
+          {label}
+        </Btn>
+      </form>
+      <div className="theme-chips" aria-label="Theme presets">
+        {THEME_PRESETS.map((preset) => (
+          <button
+            key={preset}
+            type="button"
+            className="theme-chip"
+            onClick={() => setPrompt(preset)}
+          >
+            {preset}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 

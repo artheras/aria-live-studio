@@ -84,10 +84,11 @@ export function CommandHelp() {
     [`${MOD_COMMANDS.hide} <n>`, "Hide idea #n while collecting, ballot #n while voting"],
   ];
   return (
-    <section className="panel panel--help" aria-labelledby="help-h">
-      <header className="panel__head">
+    <details className="panel panel--help" aria-labelledby="help-h">
+      <summary className="panel__head panel__head--toggle">
         <h2 id="help-h">Chat commands</h2>
-      </header>
+        <span className="muted">{rows.length + modRows.length} commands</span>
+      </summary>
       <dl className="commands">
         {rows.map(([cmd, desc]) => (
           <div key={cmd}>
@@ -110,6 +111,6 @@ export function CommandHelp() {
         ))}
       </dl>
       <p className="muted commands__note">Planning, approving and running builds happen only here on the dashboard.</p>
-    </section>
+    </details>
   );
 }
