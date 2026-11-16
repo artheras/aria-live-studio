@@ -92,6 +92,8 @@ export class LiveService {
   private execRun: Promise<void> | null = null;
   private tickTimer: NodeJS.Timeout | null = null;
   private voteReplyTimer: NodeJS.Timeout | null = null;
+  private streamPollTimer: NodeJS.Timeout | null = null;
+  private readonly avatarCache = new Map<string, string>();
   private readonly limiter = new ReplyLimiter();
   private readonly ownMessages = new BoundedSet(500);
   private executorCheck: { ok: boolean; reason?: string; at: number } | null = null;
@@ -187,19 +189,156 @@ export class LiveService {
           api: this.deps.helix,
           broadcasterUserId: user.id,
           userId: user.id,
+          extraSubscriptions: this.buildExtraSubscriptions(user.id),
           handlers: {
             onChatMessage: (ev) => this.handleChat(ev),
+            onNotification: (type, ev) => this.handleEventSubNotification(type, ev),
             onState: (u) =>
               this.engine.setConnection({ ...u, channel: this.deps.auth.user, ...this.scopeState() }),
           },
         });
     this.deps.auth.startValidation();
     this.eventsub?.start();
+    this.startStreamPoll(user.id);
   }
 
   stopChat(): void {
     this.eventsub?.stop();
     this.eventsub = null;
+    if (this.streamPollTimer) {
+      clearInterval(this.streamPollTimer);
+      this.streamPollTimer = null;
+    }
+  }
+
+  private buildExtraSubscriptions(broadcasterId: string): Array<{ type: string; version: string; condition: Record<string, string> }> {
+    const scopes = new Set(this.deps.auth.scopes);
+    const list: Array<{ type: string; version: string; condition: Record<string, string> }> = [
+      { type: "channel.raid", version: "1", condition: { to_broadcaster_user_id: broadcasterId } },
+    ];
+    if (scopes.has("channel:read:redemptions")) {
+      list.push({ type: "channel.channel_points_custom_reward_redemption.add", version: "1", condition: { broadcaster_user_id: broadcasterId } });
+    }
+    if (scopes.has("bits:read")) {
+      list.push({ type: "channel.cheer", version: "1", condition: { broadcaster_user_id: broadcasterId } });
+    }
+    if (scopes.has("channel:read:subscriptions")) {
+      list.push({ type: "channel.subscribe", version: "1", condition: { broadcaster_user_id: broadcasterId } });
+    }
+    return list;
+  }
+
+  private startStreamPoll(userId: string): void {
+    if (typeof this.deps.helix.getStream !== "function") return;
+    const poll = () => {
+      void this.deps.helix
+        .getStream(userId)
+        .then((stream) => {
+          this.engine.setConnection({
+            isLive: Boolean(stream),
+            viewerCount: stream ? stream.viewer_count : null,
+            streamTitle: stream ? stream.title : null,
+          });
+        })
+        .catch(() => {});
+    };
+    poll();
+    this.streamPollTimer = setInterval(poll, 60_000);
+    this.streamPollTimer.unref?.();
+  }
+
+  private enrichAvatar(userId: string): void {
+    if (!userId || typeof this.deps.helix.getUsers !== "function") return;
+    const cached = this.avatarCache.get(userId);
+    if (cached) {
+      this.engine.setUserAvatar(userId, cached);
+      return;
+    }
+    void this.deps.helix
+      .getUsers({ ids: [userId] })
+      .then((users) => {
+        const avatar = users[0]?.profile_image_url;
+        if (avatar) {
+          if (this.avatarCache.size > 500) this.avatarCache.clear();
+          this.avatarCache.set(userId, avatar);
+          this.engine.setUserAvatar(userId, avatar);
+        }
+      })
+      .catch(() => {});
+  }
+
+  /** Handle non-chat Twitch EventSub notifications (Channel Points, Bits, Raids, Subs). */
+  handleEventSubNotification(type: string, event: unknown): void {
+    if (!event || typeof event !== "object") return;
+    const ev = event as Record<string, unknown>;
+    const round = this.engine.round;
+    const canBoost = round && (round.phase === "collecting" || round.phase === "voting") && round.ideas.some((i) => !i.hidden);
+
+    if (type === "channel.channel_points_custom_reward_redemption.add") {
+      const user = {
+        id: String(ev.user_id ?? ""),
+        login: String(ev.user_login ?? "viewer").toLowerCase(),
+        displayName: String(ev.user_name ?? ev.user_login ?? "Viewer"),
+      };
+      const input = String(ev.user_input ?? "");
+      const rewardTitle = String((ev.reward as { title?: string } | undefined)?.title ?? "Channel Points");
+      const match = input.match(/#?(\d+)/);
+      const targetNum = match ? Number(match[1]) : 1;
+      if (canBoost) {
+        try {
+          this.engine.boostIdea(user, targetNum, 2, "channel_points");
+          this.enrichAvatar(user.id);
+          return;
+        } catch {
+          // Fall through to celebration if target number wasn't found.
+        }
+      }
+      this.engine.recordCelebration("channel_points", user, `${user.displayName} redeemed ${rewardTitle}`);
+      return;
+    }
+
+    if (type === "channel.cheer") {
+      const user = {
+        id: String(ev.user_id ?? "anon"),
+        login: String(ev.user_login ?? "cheer").toLowerCase(),
+        displayName: String(ev.user_name ?? ev.user_login ?? "Anonymous"),
+      };
+      const bits = Number(ev.bits ?? 0);
+      const msg = String(ev.message ?? "");
+      const match = msg.match(/#?(\d+)/);
+      const weight = Math.max(1, Math.min(20, Math.floor(bits / 100) || 1));
+      if (canBoost && match) {
+        try {
+          this.engine.boostIdea(user, Number(match[1]), weight, "bits");
+          this.enrichAvatar(user.id);
+          return;
+        } catch {
+          // Fall through to celebration.
+        }
+      }
+      this.engine.recordCelebration("bits", user, `${user.displayName} cheered ${bits} Bits`, bits);
+      return;
+    }
+
+    if (type === "channel.raid") {
+      const raider = {
+        id: String(ev.from_broadcaster_user_id ?? "raid"),
+        login: String(ev.from_broadcaster_user_login ?? "raider").toLowerCase(),
+        displayName: String(ev.from_broadcaster_user_name ?? ev.from_broadcaster_user_login ?? "Raider"),
+      };
+      const viewers = Number(ev.viewers ?? 0);
+      this.engine.recordCelebration("raid", raider, `${raider.displayName} raided with ${viewers} viewers!`, viewers);
+      return;
+    }
+
+    if (type === "channel.subscribe") {
+      const user = {
+        id: String(ev.user_id ?? "sub"),
+        login: String(ev.user_login ?? "subscriber").toLowerCase(),
+        displayName: String(ev.user_name ?? ev.user_login ?? "Subscriber"),
+      };
+      this.engine.recordCelebration("subscribe", user, `${user.displayName} subscribed!`);
+    }
   }
 
   async logout(): Promise<void> {
@@ -266,7 +405,10 @@ export class LiveService {
       case "idea": {
         if (r?.phase !== "collecting") return;
         const res = this.engine.submitIdea(user, c.text, p.role);
-        if (res.ok && res.kind === "added") this.reply(`Idea #${res.idea.number} from @${user.login} added`);
+        if (res.ok && res.kind === "added") {
+          this.enrichAvatar(user.id);
+          this.reply(`Idea #${res.idea.number} from @${user.login} added`);
+        }
         else if (res.ok && res.counted) this.reply(`@${user.login} +1 on idea #${res.idea.number} (${res.idea.seconds})`);
         else if (!res.ok) this.replyRejection(p, res);
         return;

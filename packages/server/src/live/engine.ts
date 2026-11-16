@@ -972,6 +972,20 @@ export class RoundEngine {
     return idea;
   }
 
+  /** Attach a Twitch avatarUrl resolved asynchronously from Helix onto matching ideas. */
+  setUserAvatar(userId: string, avatarUrl: string): void {
+    const r = this.s.round;
+    if (!r) return;
+    let updated = false;
+    for (const idea of r.ideas) {
+      if (idea.author.id === userId && idea.author.avatarUrl !== avatarUrl) {
+        idea.author.avatarUrl = avatarUrl;
+        updated = true;
+      }
+    }
+    if (updated) this.changed();
+  }
+
   // ── Twitch extras (written back by the service after Helix answered) ──
 
   private milestone(m: Milestone): void {

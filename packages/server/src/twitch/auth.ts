@@ -302,8 +302,14 @@ export class TwitchAuth {
       await this.revoke(tok.access_token).catch(() => {});
       throw new AuthError(403, "not_allowed", `Twitch account ${login} is not allowed to use this studio`);
     }
-    const displayName = (await this.fetchDisplayName(tok.access_token, v.user_id)) ?? v.login;
-    const user: TwitchUser = { id: v.user_id, login, displayName };
+    const profile = await this.fetchUserProfile(tok.access_token, v.user_id);
+    const displayName = profile?.displayName ?? v.login;
+    const user: TwitchUser = {
+      id: v.user_id,
+      login,
+      displayName,
+      ...(profile?.avatarUrl ? { avatarUrl: profile.avatarUrl } : {}),
+    };
     const keepSessions = this.tokens?.user.id === user.id ? this.tokens.sessions.slice(-9) : [];
     const session = this.newSession();
     this.tokens = {
@@ -408,15 +414,20 @@ export class TwitchAuth {
     return (await res.json()) as ValidateResponse;
   }
 
-  private async fetchDisplayName(token: string, id: string): Promise<string | null> {
+  private async fetchUserProfile(token: string, id: string): Promise<{ displayName?: string; avatarUrl?: string } | null> {
     try {
       const res = await this.fetch(`${this.config.twitch.apiBase}/users?id=${encodeURIComponent(id)}`, {
         headers: { Authorization: `Bearer ${token}`, "Client-Id": this.config.twitch.clientId },
         signal: AbortSignal.timeout(10_000),
       });
       if (!res.ok) return null;
-      const body = (await res.json()) as { data?: { display_name?: string }[] };
-      return body.data?.[0]?.display_name ?? null;
+      const body = (await res.json()) as { data?: { display_name?: string; profile_image_url?: string }[] };
+      const u = body.data?.[0];
+      if (!u) return null;
+      return {
+        ...(u.display_name ? { displayName: u.display_name } : {}),
+        ...(u.profile_image_url ? { avatarUrl: u.profile_image_url } : {}),
+      };
     } catch {
       return null;
     }

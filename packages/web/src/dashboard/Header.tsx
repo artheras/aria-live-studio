@@ -110,12 +110,21 @@ export function Header({
     <header className="topbar">
       <Logo />
       <div className="topbar__channel" title={channel ? `twitch.tv/${channel.login}` : undefined}>
-        <span className="avatar" aria-hidden="true">
-          {name.slice(0, 1).toUpperCase()}
-        </span>
+        {channel?.avatarUrl ? (
+          <img className="avatar avatar__img" src={channel.avatarUrl} width={26} height={26} alt="" />
+        ) : (
+          <span className="avatar" aria-hidden="true">
+            {name.slice(0, 1).toUpperCase()}
+          </span>
+        )}
         <span className="topbar__name">{name}</span>
       </div>
       <ConnectionPill connection={connection} />
+      {connection.isLive && connection.viewerCount != null && (
+        <span className="chip chip--good num" title={connection.streamTitle ?? "Channel is live on Twitch"}>
+          LIVE · {connection.viewerCount.toLocaleString()} VIEWERS
+        </span>
+      )}
       <span
         className={`chip ${connection.canReply ? "chip--good" : "chip--muted"}`}
         title={connection.canReply ? "Aria can reply in chat" : "Chat replies unavailable (user:write:chat not granted)"}

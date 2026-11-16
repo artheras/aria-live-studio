@@ -94,6 +94,8 @@ export interface EventSubOptions {
   backoffBaseMs?: number;
   backoffMaxMs?: number;
   log?: (msg: string) => void;
+  /** Optional non-fatal EventSub subscriptions (Channel Points, Bits, Raids, Subs). */
+  extraSubscriptions?: Array<{ type: string; version: string; condition: Record<string, string> }>;
 }
 
 interface Conn {
@@ -347,6 +349,14 @@ export class EventSubClient {
       this.subscriptionIds.add(sub.id);
       this.attempt = 0;
       this.setState("connected", null);
+      for (const extra of this.opts.extraSubscriptions ?? []) {
+        try {
+          const exSub = await this.opts.api.createEventSubSubscription(extra.type, extra.version, extra.condition, sessionId);
+          if (conn === this.current && !this.stopped) this.subscriptionIds.add(exSub.id);
+        } catch (exErr) {
+          this.log(`optional subscription ${extra.type} skipped: ${(exErr as Error).message}`);
+        }
+      }
     } catch (err) {
       if (conn !== this.current || this.stopped) return;
       const e = err as Error;

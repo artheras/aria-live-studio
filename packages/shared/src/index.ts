@@ -14,6 +14,7 @@ export interface TwitchUser {
   id: string;
   login: string;
   displayName: string;
+  avatarUrl?: string;
 }
 
 export type ChatRole = "broadcaster" | "moderator" | "vip" | "subscriber" | "viewer";
@@ -190,10 +191,22 @@ export interface Connection {
   scopes: string[];
   /** Scopes from `TWITCH_SCOPES` the token lacks (reconnect to grant them). */
   missingScopes: string[];
+  /** Live stream status & viewer count from Twitch Helix (when live). */
+  isLive?: boolean;
+  viewerCount?: number | null;
+  streamTitle?: string | null;
 }
 
 /** Everything the studio asks for at login, and what each one is for. */
-export const TWITCH_SCOPES = ["user:read:chat", "user:write:chat", "channel:manage:broadcast", "clips:edit"] as const;
+export const TWITCH_SCOPES = [
+  "user:read:chat",
+  "user:write:chat",
+  "channel:manage:broadcast",
+  "clips:edit",
+  "channel:read:redemptions",
+  "bits:read",
+  "channel:read:subscriptions",
+] as const;
 export type TwitchScope = (typeof TWITCH_SCOPES)[number];
 
 /** Scopes each optional Twitch feature needs. */

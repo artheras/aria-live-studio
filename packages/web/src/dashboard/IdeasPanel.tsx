@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import type { Round } from "@aria-live/shared";
+import type { LiveState, Round } from "@aria-live/shared";
 import type { AriaApi } from "../lib/api";
 import { computeBallot, totalVotes } from "../lib/round";
 import { Btn, useActions } from "./actions";
 import { copyText } from "./Drawer";
+import { LiveStageCanvas } from "./LiveStageCanvas";
 
 export function Ballot({ round }: { round: Round }) {
   const rows = computeBallot(round, true);
@@ -22,7 +23,13 @@ export function Ballot({ round }: { round: Round }) {
             <span className="ballot__num">{r.number}</span>
             <div className="ballot__text">
               <span className="ballot__idea">{r.idea.text}</span>
-              <span className="ballot__author">@{r.idea.author.displayName || r.idea.author.login}</span>
+              <span className="ballot__author">
+                {r.idea.author.avatarUrl && (
+                  <img className="idea__avatar" src={r.idea.author.avatarUrl} width={16} height={16} alt="" />
+                )}
+                @{r.idea.author.displayName || r.idea.author.login}
+                {r.idea.boosts ? <span className="plus">+{r.idea.boosts} boost</span> : null}
+              </span>
             </div>
             <div className="ballot__score">
               <span className="ballot__pct" data-testid="ballot-pct">
@@ -72,8 +79,12 @@ function IdeaList({ round, api }: { round: Round; api: AriaApi }) {
             <div className="idea__body">
               <p className="idea__text">{idea.text}</p>
               <p className="idea__meta">
+                {idea.author.avatarUrl && (
+                  <img className="idea__avatar" src={idea.author.avatarUrl} width={16} height={16} alt="" />
+                )}
                 @{idea.author.displayName || idea.author.login}
                 {idea.seconds > 0 && <span className="plus">+{idea.seconds}</span>}
+                {idea.boosts ? <span className="plus">+{idea.boosts} boost</span> : null}
                 {idea.hidden && <span className="tag">Hidden</span>}
               </p>
             </div>
@@ -178,28 +189,49 @@ function BroadcastMonitor({ api, livePreviewUrl }: { api: AriaApi; livePreviewUr
   );
 }
 
-export function IdeasPanel({ round, api, maxIdeas }: { round: Round | null; api: AriaApi; maxIdeas: number }) {
+export function IdeasPanel({
+  state,
+  round,
+  api,
+  maxIdeas,
+}: {
+  state?: LiveState;
+  round: Round | null;
+  api: AriaApi;
+  maxIdeas: number;
+}) {
   const phase = round?.phase ?? "idle";
   const showBallot = round && phase !== "idle" && phase !== "collecting" && round.candidates.length > 0;
   const visible = round?.ideas.filter((i) => !i.hidden).length ?? 0;
   const previewUrl = phase === "done" && round?.execution?.status === "succeeded" ? round.execution.previewUrl : null;
-  const [view, setView] = useState<"stage" | "overlay" | "build">(() =>
-    previewUrl ? "build" : round && phase !== "idle" ? "stage" : "overlay",
+  const [view, setView] = useState<"stage" | "arena" | "overlay" | "build">(() =>
+    previewUrl ? "build" : round && phase !== "idle" ? "stage" : state ? "arena" : "overlay",
   );
 
   useEffect(() => {
     if (previewUrl) setView("build");
     else if (round && phase !== "idle") setView("stage");
+    else if (state) setView("arena");
     else setView("overlay");
-  }, [round?.id, phase, previewUrl]);
+  }, [round?.id, phase, previewUrl, Boolean(state)]);
 
-  const activeView = (!round || phase === "idle") && view === "stage" ? "overlay" : view;
+  const activeView = (!round || phase === "idle") && view === "stage" ? (state ? "arena" : "overlay") : view;
 
   return (
     <section className="panel panel--ideas" aria-labelledby="ideas-h">
       <header className="panel__head">
         <div className="panel__head-left">
-          <h2 id="ideas-h">{activeView === "overlay" ? "Broadcast Monitor" : activeView === "build" ? "Live Build" : showBallot ? "Ballot" : "Ideas"}</h2>
+          <h2 id="ideas-h">
+            {activeView === "arena"
+              ? "Interactive Stage"
+              : activeView === "overlay"
+                ? "Broadcast Monitor"
+                : activeView === "build"
+                  ? "Live Build"
+                  : showBallot
+                    ? "Ballot"
+                    : "Ideas"}
+          </h2>
           {activeView === "stage" && round && !showBallot && (
             <span className="panel__count num">
               {visible}/{maxIdeas}
@@ -217,6 +249,17 @@ export function IdeasPanel({ round, api, maxIdeas }: { round: Round | null; api:
               onClick={() => setView("stage")}
             >
               {showBallot ? "Ballot" : "Ideas"}
+            </button>
+          )}
+          {state && (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeView === "arena"}
+              className={`monitor-tab ${activeView === "arena" ? "is-active" : ""}`}
+              onClick={() => setView("arena")}
+            >
+              Stage
             </button>
           )}
           {previewUrl && (
@@ -242,7 +285,26 @@ export function IdeasPanel({ round, api, maxIdeas }: { round: Round | null; api:
         </div>
       </header>
       <div className="panel__body panel__body--scroll">
-        {activeView === "overlay" ? (
+        {activeView === "arena" && state ? (
+          <div className="monitor-wrap">
+            <div className="monitor-bezel">
+              <div className="monitor-bezel__bar">
+                <span className="monitor-bezel__ch">
+                  <span className="monitor-bezel__led" aria-hidden="true" />
+                  CH-02 // LIVE INTERACTIVE STAGE
+                </span>
+                <span className="muted num">Click arena to fire · Twitch events trigger waves</span>
+              </div>
+              <div className="idle-preview__stage monitor-stage">
+                <span className="reticle reticle--tl" aria-hidden="true" />
+                <span className="reticle reticle--tr" aria-hidden="true" />
+                <span className="reticle reticle--bl" aria-hidden="true" />
+                <span className="reticle reticle--br" aria-hidden="true" />
+                <LiveStageCanvas state={state} />
+              </div>
+            </div>
+          </div>
+        ) : activeView === "overlay" ? (
           <BroadcastMonitor api={api} />
         ) : activeView === "build" && previewUrl ? (
           <BroadcastMonitor api={api} livePreviewUrl={previewUrl} />

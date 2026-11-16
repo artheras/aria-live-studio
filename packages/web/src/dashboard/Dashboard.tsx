@@ -79,7 +79,7 @@ function DashboardInner({ state, live, me, api, clockOffset = 0, onLogout }: Das
           />
         </div>
         <div className="grid__ideas">
-          <IdeasPanel round={state.round} api={api} maxIdeas={state.settings.maxIdeasPerRound} />
+          <IdeasPanel state={state} round={state.round} api={api} maxIdeas={state.settings.maxIdeasPerRound} />
         </div>
         <div className="grid__side">
           <ActivityFeed activity={state.activity ?? []} />

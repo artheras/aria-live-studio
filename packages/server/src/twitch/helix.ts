@@ -25,6 +25,14 @@ export interface HelixUser {
   id: string;
   login: string;
   display_name: string;
+  profile_image_url?: string;
+}
+
+export interface HelixStream {
+  id: string;
+  user_id: string;
+  title: string;
+  viewer_count: number;
 }
 
 export interface EventSubSubscription {
@@ -239,6 +247,12 @@ export class HelixClient implements EventSubApi {
   /** GET /clips?id= — null until Twitch finished creating the clip. */
   async getClip(id: string): Promise<HelixClip | null> {
     const res = await this.request<{ data: HelixClip[] }>("GET", `/clips?id=${encodeURIComponent(id)}`);
+    return res?.data?.[0] ?? null;
+  }
+
+  /** GET /streams?user_id= — null when the channel is offline. */
+  async getStream(userId: string): Promise<HelixStream | null> {
+    const res = await this.request<{ data: HelixStream[] }>("GET", `/streams?user_id=${encodeURIComponent(userId)}`);
     return res?.data?.[0] ?? null;
   }
 }
