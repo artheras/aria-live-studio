@@ -84,7 +84,14 @@ export const DEFAULT_SETTINGS: Settings = {
   autoClip: true,
 };
 
-const BOOLEAN_SETTINGS = ["chatReplies", "executorEnabled", "autoTitle", "streamMarkers", "autoClip"] as const;
+const BOOLEAN_SETTINGS = [
+  "chatReplies",
+  "executorEnabled",
+  "autoTitle",
+  "streamMarkers",
+  "autoClip",
+  "autoOpenOnStreamOnline",
+] as const;
 
 const ELIGIBILITIES: readonly Eligibility[] = ["everyone", "subscribers", "vip_mod"];
 
@@ -361,6 +368,11 @@ export class RoundEngine {
           throw new EngineError("bad_input", `${k} must be one of ${ELIGIBILITIES.join(", ")}`);
         }
         next[k] = v as Eligibility;
+      } else if (k === "overlayDensity") {
+        if (v !== "standard" && v !== "compact") {
+          throw new EngineError("bad_input", "overlayDensity must be standard or compact");
+        }
+        next.overlayDensity = v;
       } else {
         throw new EngineError("bad_input", `Unknown setting: ${k}`);
       }

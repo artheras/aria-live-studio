@@ -127,8 +127,29 @@ export function SettingsForm({
             </label>
           );
         })}
+        <label className="switch switch--row">
+          <input
+            type="checkbox"
+            checked={Boolean(draft.autoOpenOnStreamOnline)}
+            onChange={(e) => setDraft({ ...draft, autoOpenOnStreamOnline: e.target.checked })}
+          />
+          <span>
+            Auto-open round on stream online
+            <small className="muted"> — Open a warm-up round automatically when Twitch goes live</small>
+          </span>
+        </label>
         <small className="muted">Markers and clips only work while you're live.</small>
       </fieldset>
+      <label className="field">
+        <span>Overlay density</span>
+        <select
+          value={draft.overlayDensity ?? "standard"}
+          onChange={(e) => setDraft({ ...draft, overlayDensity: e.target.value as "standard" | "compact" })}
+        >
+          <option value="standard">Standard (with preview &amp; Co-Builders)</option>
+          <option value="compact">Compact (minimal footprint)</option>
+        </select>
+      </label>
       <div className="field">
         <span>Built-in executor</span>
         {me.executor.ok ? (

@@ -272,9 +272,10 @@ function OverlayCard({ state, now }: { state: LiveState; now: number }) {
       const w = winnerIdea(round);
       const winnerLogin = w?.author.login.toLowerCase();
       const winnerRecord = winnerLogin ? state.coBuilders?.find((b) => b.login === winnerLogin) : undefined;
-      const topBuilders = state.coBuilders?.slice(0, 3) ?? [];
+      const compact = state.settings.overlayDensity === "compact";
+      const topBuilders = compact ? [] : state.coBuilders?.slice(0, 3) ?? [];
       return (
-        <div className={`ov-card ov-done ov-done--${tone}`} data-phase="done">
+        <div className={`ov-card ov-done ov-done--${tone} ${compact ? "ov-card--compact" : ""}`} data-phase="done">
           <Header round={round} label="Result" />
           <h1 className="ov-title">{text}</h1>
           {round.task && <p className="ov-sub">{truncate(round.task.title, 70)}</p>}
@@ -294,7 +295,7 @@ function OverlayCard({ state, now }: { state: LiveState; now: number }) {
               ))}
             </ul>
           ) : null}
-          {ok && ex?.previewUrl && (
+          {!compact && ok && ex?.previewUrl && (
             <div className="ov-preview-wrap">
               <iframe
                 className="ov-preview"

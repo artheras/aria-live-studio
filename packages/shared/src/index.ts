@@ -239,6 +239,10 @@ export interface Settings {
   streamMarkers: boolean;
   /** Clip the last ~30 s when a build succeeds (clips:edit). */
   autoClip: boolean;
+  /** Automatically open a round when Twitch EventSub reports stream.online. */
+  autoOpenOnStreamOnline?: boolean;
+  /** OBS Overlay density ("standard" | "compact"). */
+  overlayDensity?: "standard" | "compact";
 }
 
 // ── Activity feed (what scrolls on the dashboard) ────────────────────────

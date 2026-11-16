@@ -29,6 +29,8 @@ import { ServiceError, type LiveService } from "../live/service.ts";
 import type { Store } from "../live/store.ts";
 import { createMcpHttp } from "../mcp/http.ts";
 import { AuthError, safeEqual, type Session, type TwitchAuth } from "../twitch/auth.ts";
+import { verifyExtensionJwt, type ExtensionJwtClaims } from "../twitch/extension.ts";
+import { overlaySnapshot } from "./redact.ts";
 import { WsHub } from "./ws.ts";
 
 export const BODY_LIMIT = 64 * 1024;
@@ -363,6 +365,43 @@ export function createApp(deps: AppDeps): App {
     service.agent.complete(body);
     res.writeHead(204).end();
     return undefined;
+  });
+
+  // ── Twitch Extension EBS endpoints (JWT signed with TWITCH_EXTENSION_SECRET) ──
+  const extClaims = (req: IncomingMessage, res: ServerResponse): ExtensionJwtClaims => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    const secret = config.twitch.extensionSecret;
+    if (!secret) throw new HttpError(503, "ext_disabled", "TWITCH_EXTENSION_SECRET is not configured");
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+    const claims = verifyExtensionJwt(token, secret);
+    if (!claims) throw new HttpError(401, "unauthorized", "Invalid Twitch Extension JWT");
+    return claims;
+  };
+
+  route("GET /api/ext/state", "optional", ({ req, res }) => {
+    extClaims(req, res);
+    return overlaySnapshot(engine.state);
+  });
+
+  route("POST /api/ext/idea", "optional", ({ req, res, body }) => {
+    const claims = extClaims(req, res);
+    const text = typeof body.text === "string" ? body.text.trim() : "";
+    if (!text) throw new HttpError(400, "bad_input", "text is required");
+    const login = claims.userId ? `twitch_${claims.userId}` : claims.opaqueUserId.toLowerCase();
+    const user = { id: claims.userId ?? claims.opaqueUserId, login, displayName: login };
+    return engine.submitIdea(user, text, claims.role);
+  });
+
+  route("POST /api/ext/vote", "optional", ({ req, res, body }) => {
+    const claims = extClaims(req, res);
+    const num = Number(body.number);
+    if (!Number.isInteger(num) || num < 1) throw new HttpError(400, "bad_input", "number must be a positive integer");
+    const login = claims.userId ? `twitch_${claims.userId}` : claims.opaqueUserId.toLowerCase();
+    const user = { id: claims.userId ?? claims.opaqueUserId, login, displayName: login };
+    return engine.castVote(user, num, claims.role);
   });
 
   const mcp = createMcpHttp({ config, service, store, allowedOrigins, takeProgress: () => progressLimiter.take() });
