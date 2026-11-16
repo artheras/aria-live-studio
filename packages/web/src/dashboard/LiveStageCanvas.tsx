@@ -188,6 +188,10 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
     underGlow.position.set(0, -3.8, 0);
     scene.add(underGlow);
 
+    const wingGlow = new THREE.PointLight(0x9146ff, 3.8, 7.5);
+    wingGlow.position.set(2.4, 2.5, 1.3);
+    scene.add(wingGlow);
+
     const islandGroup = new THREE.Group();
     scene.add(islandGroup);
 
@@ -202,6 +206,7 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
     const woodMat = new THREE.MeshStandardMaterial({ color: 0x9b643a, roughness: 0.78 });
     const darkWoodMat = new THREE.MeshStandardMaterial({ color: 0x583721, roughness: 0.85 });
     const roofMat = new THREE.MeshStandardMaterial({ color: 0x393246, roughness: 0.72 });
+    const roofLightMat = new THREE.MeshStandardMaterial({ color: 0x4e4560, roughness: 0.7 });
     const crystalMat = new THREE.MeshStandardMaterial({
       color: 0xe2c7ff,
       emissive: 0x9146ff,
@@ -261,8 +266,12 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
     }
     mossSpecs.push(
       { x: -4.6, y: -0.35, z: 2.5, sx: 0.5, sy: 0.65, sz: 0.5 },
+      { x: -4.6, y: -0.95, z: 2.5, sx: 0.35, sy: 0.65, sz: 0.35 },
+      { x: -3.2, y: -0.65, z: 4.3, sx: 0.4, sy: 0.75, sz: 0.4 },
       { x: 4.5, y: -0.35, z: 1.5, sx: 0.5, sy: 0.7, sz: 0.5 },
+      { x: 4.5, y: -1.0, z: 1.5, sx: 0.36, sy: 0.65, sz: 0.36 },
       { x: 2.5, y: -0.4, z: 4.5, sx: 0.55, sy: 0.65, sz: 0.55 },
+      { x: 1.2, y: -0.75, z: 4.9, sx: 0.38, sy: 0.7, sz: 0.38 },
     );
 
     // Stepped 5-tier front stone staircase + parapet walls + newel posts + courtyard stepping stones
@@ -389,6 +398,11 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
         }
       }
     }
+    // Stone chimney on left-back roof slope + two-tone roof shingle split
+    pushStone({ x: -1.65, y: 5.0, z: -1.45, sx: 0.68, sy: 0.9, sz: 0.68 });
+    pushStone({ x: -1.65, y: 5.85, z: -1.45, sx: 0.64, sy: 0.9, sz: 0.64 });
+    stoneLightSpecs.push({ x: -1.65, y: 6.4, z: -1.45, sx: 0.78, sy: 0.24, sz: 0.78 });
+
     // Watchtower corner stone quoins + corbelled battlements + stepped slate pyramid cap + finial
     for (let y = 1.5; y <= 6.5; y += 1) {
       for (const [qx, qz] of [
@@ -497,6 +511,9 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
     const blossomPinkMat = new THREE.MeshStandardMaterial({ color: 0xe06c9f, roughness: 0.65 });
     const blossomGoldMat = new THREE.MeshStandardMaterial({ color: 0xffd166, roughness: 0.6 });
 
+    const roofLightSpecs = roofSpecs.filter((_, idx) => idx % 3 === 0);
+    const roofDarkSpecs = roofSpecs.filter((_, idx) => idx % 3 !== 0);
+
     islandGroup.add(buildVoxelInstances(boxGeo, grassMat, grassSpecs));
     islandGroup.add(buildVoxelInstances(boxGeo, mossMat, mossSpecs));
     islandGroup.add(buildVoxelInstances(boxGeo, dirtMat, dirtSpecs));
@@ -505,7 +522,8 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
     islandGroup.add(buildVoxelInstances(boxGeo, stoneDarkMat, stoneDarkSpecs));
     islandGroup.add(buildVoxelInstances(boxGeo, darkWoodMat, [...timberSpecs, ...trunkSpecs]));
     islandGroup.add(buildVoxelInstances(boxGeo, woodMat, scaffSpecs));
-    islandGroup.add(buildVoxelInstances(boxGeo, roofMat, roofSpecs));
+    islandGroup.add(buildVoxelInstances(boxGeo, roofMat, roofDarkSpecs));
+    islandGroup.add(buildVoxelInstances(boxGeo, roofLightMat, roofLightSpecs));
     islandGroup.add(buildVoxelInstances(boxGeo, pineMat, pineSpecs));
     islandGroup.add(
       buildVoxelInstances(boxGeo, blossomPinkMat, [
@@ -530,6 +548,7 @@ export function LiveStageCanvas({ state }: { state: LiveState }) {
           { x: -1.85, y: 1.35, z: 2.35, sx: 0.28, sy: 0.36, sz: 0.28 },
           { x: -0.15, y: 1.35, z: 2.35, sx: 0.28, sy: 0.36, sz: 0.28 },
           { x: 0.55, y: 0.92, z: 3.7, sx: 0.22, sy: 0.28, sz: 0.22 },
+          { x: 5.02, y: 3.45, z: -1.1, sx: 0.24, sy: 0.3, sz: 0.24 },
           { x: 2.1, y: 3.2, z: -2.2, sx: 0.35, sy: 0.35, sz: 0.35 },
         ],
         false,
