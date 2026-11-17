@@ -2146,11 +2146,15 @@ input[type="checkbox"] {
 .user-menu {
   right: 0;
   left: auto;
-  width: 270px;
+  width: 288px;
   padding: 12px;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  background: rgba(18, 17, 29, 0.96);
+  backdrop-filter: blur(14px);
+  border-color: rgba(145, 70, 255, 0.32);
+  box-shadow: 0 20px 52px rgba(0, 0, 0, 0.62);
 }
 .user-menu__status {
   display: flex;
@@ -2159,6 +2163,20 @@ input[type="checkbox"] {
   padding-bottom: 10px;
   border-bottom: 1px solid var(--border);
 }
+.user-menu__status .conn {
+  width: 100%;
+  height: auto;
+  min-height: 32px;
+  padding: 7px 11px;
+  border-radius: 10px;
+  white-space: normal;
+  flex-wrap: wrap;
+  row-gap: 3px;
+}
+.user-menu__status .conn__meta {
+  min-width: 0;
+  font-size: 11px;
+}
 .user-menu__items {
   display: flex;
   flex-direction: column;
@@ -2166,10 +2184,13 @@ input[type="checkbox"] {
 }
 .user-menu__item {
   appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   width: 100%;
   text-align: left;
   padding: 8px 10px;
-  border-radius: 7px;
+  border-radius: 8px;
   border: 0;
   background: transparent;
   color: var(--text);
@@ -2177,12 +2198,30 @@ input[type="checkbox"] {
   font-size: 13px;
   text-decoration: none;
   cursor: pointer;
+  transition: background 0.14s ease, color 0.14s ease;
+}
+.user-menu__item svg {
+  color: var(--muted);
+  flex-shrink: 0;
 }
 .user-menu__item:hover {
-  background: var(--panel-2);
+  background: rgba(145, 70, 255, 0.15);
+}
+.user-menu__item:hover svg {
+  color: var(--accent-2);
 }
 .user-menu__item--danger {
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  border-radius: 0 0 8px 8px;
   color: #ff9aa6;
+}
+.user-menu__item--danger svg {
+  color: #ff9aa6;
+}
+.user-menu__item--danger:hover {
+  background: rgba(255, 92, 108, 0.12);
 }
 
 .grid--workshop {
@@ -2245,17 +2284,6 @@ input[type="checkbox"] {
 }
 .grid--workshop .stepper__step {
   font-size: 10.5px;
-}
-.user-menu__status {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  max-width: 100%;
-  overflow: hidden;
-}
-.user-menu__status .conn {
-  max-width: 100%;
-  flex-wrap: wrap;
 }
 .feed-filters {
   display: inline-flex;
