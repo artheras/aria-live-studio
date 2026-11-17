@@ -9,7 +9,7 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "n
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export type ExecutorKind = "aria-code" | "codex" | "disabled";
+export type ExecutorKind = "aria-code" | "codex" | "claude-code" | "disabled";
 
 export interface Config {
   port: number;
@@ -50,6 +50,7 @@ export interface Config {
     targetRepo: string | undefined;
     ariaCodeBin: string;
     codexBin: string;
+    claudeBin?: string;
     timeoutSec: number;
     allowTools: string;
   };
@@ -139,7 +140,8 @@ export function loadConfig(env: Env = process.env): Config {
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean);
   const kindRaw = str(env, "ARIA_LIVE_EXECUTOR");
-  const kind: ExecutorKind = kindRaw === "aria-code" || kindRaw === "codex" ? kindRaw : "disabled";
+  const kind: ExecutorKind =
+    kindRaw === "aria-code" || kindRaw === "codex" || kindRaw === "claude-code" ? kindRaw : "disabled";
 
   return {
     port,
@@ -176,6 +178,7 @@ export function loadConfig(env: Env = process.env): Config {
       targetRepo: str(env, "TARGET_REPO"),
       ariaCodeBin: str(env, "ARIA_CODE_BIN") ?? "aria-code",
       codexBin: str(env, "CODEX_BIN") ?? "codex",
+      claudeBin: str(env, "CLAUDE_BIN") ?? "claude",
       timeoutSec: int(env, "EXECUTION_TIMEOUT_SEC", 900),
       allowTools: str(env, "EXECUTOR_ALLOW_TOOLS") ?? "read_file,list_files,search_code,write_file,edit_file",
     },

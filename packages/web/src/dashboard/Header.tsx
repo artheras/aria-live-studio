@@ -80,6 +80,16 @@ function OverlayButton({ api }: { api: AriaApi }) {
             <Btn size="sm" variant="primary" onClick={async () => toast("success", (await copyText(url)) ? "Copied" : "Copy failed")}>
               Copy again
             </Btn>
+            <Btn
+              size="sm"
+              onClick={async () => {
+                const sep = url.includes("?") ? "&" : "?";
+                const preset = `${url}${sep}pos=br&mode=card3d`;
+                toast("success", (await copyText(preset)) ? "OBS 3D preset copied" : "Copy failed");
+              }}
+            >
+              Copy 3D Card
+            </Btn>
             <Btn size="sm" variant="ghost" onClick={() => setOpen(false)}>
               Close
             </Btn>

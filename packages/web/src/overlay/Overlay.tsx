@@ -555,7 +555,7 @@ export function OverlayView({
       )}
       {stageMode && !card3d && (
         <div className="ov-3d-corner" aria-hidden="true">
-          <LiveStageCanvas state={state} transparent />
+          <LiveStageCanvas state={state} transparent ecoMode />
         </div>
       )}
       {activeCelebration && (

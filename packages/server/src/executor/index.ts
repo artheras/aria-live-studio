@@ -1,10 +1,12 @@
 import type { Task } from "@aria-live/shared";
 import type { ExecutionHooks, ExecutionResult, Executor } from "../contracts.ts";
 import { AriaCodeExecutor } from "./aria-code.ts";
+import { ClaudeCodeExecutor } from "./claude-code.ts";
 import type { ExecutorConfig } from "./cli.ts";
 import { CodexExecutor } from "./codex.ts";
 
 export { AriaCodeExecutor, AriaCodeEventMapper, ariaCodeArgs } from "./aria-code.ts";
+export { ClaudeCodeExecutor, ClaudeCodeEventMapper, claudeCodeArgs } from "./claude-code.ts";
 export { CodexExecutor, CodexEventMapper, codexArgs } from "./codex.ts";
 export { StepSink, type ExecutorConfig } from "./cli.ts";
 export { buildExecutionPrompt } from "./prompt.ts";
@@ -33,6 +35,8 @@ export function createExecutor(config: ExecutorConfig): Executor {
       return new AriaCodeExecutor(config);
     case "codex":
       return new CodexExecutor(config);
+    case "claude-code":
+      return new ClaudeCodeExecutor(config);
     default:
       return new DisabledExecutor();
   }

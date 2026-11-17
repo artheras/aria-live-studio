@@ -220,6 +220,40 @@ export function createApp(deps: AppDeps): App {
       planner: (({ label, model }) => ({ kind: label, model }))(choosePlanner(config)),
     };
   });
+  route("GET /api/preflight", "session", async () => {
+    const ex = await service.executorStatus();
+    const pl = choosePlanner(config);
+    const conn = engine.state.connection;
+    const overlayUrl = `${config.publicUrl}/overlay?key=${encodeURIComponent(config.overlayKey)}`;
+    return {
+      ready: ex.ok && conn.state === "connected",
+      twitch: {
+        configured: auth.configured,
+        status: conn.state,
+        missingScopes: conn.missingScopes ?? [],
+      },
+      planner: {
+        kind: pl.label,
+        model: pl.model,
+        apiKeyConfigured: Boolean(config.planner.apiKey),
+      },
+      executor: {
+        kind: config.executor.kind,
+        ok: ex.ok,
+        reason: ex.reason ?? null,
+        targetRepoConfigured: Boolean(config.executor.targetRepo),
+      },
+      mcp: {
+        agentUrl: `${config.publicUrl}/mcp`,
+        cohostUrl: `${config.publicUrl}/mcp/cohost/${encodeURIComponent(config.cohostKey)}`,
+        streamerUrl: `${config.publicUrl}/mcp/streamer/${encodeURIComponent(config.streamerKey)}`,
+      },
+      overlay: {
+        url: overlayUrl,
+        recommendedUrl: `${overlayUrl}&pos=br&mode=card3d&transparent=1&eco=1`,
+      },
+    };
+  });
   route("GET /api/state", "session", () => engine.state);
   route("GET /api/history", "session", async ({ url }) => {
     const limit = Math.min(50, Math.max(1, Number(url.searchParams.get("limit")) || 50));
