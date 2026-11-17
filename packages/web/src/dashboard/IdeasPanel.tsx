@@ -243,6 +243,36 @@ function BroadcastMonitor({ api, livePreviewUrl }: { api: AriaApi; livePreviewUr
   );
 }
 
+type StagePerfMode = "3d" | "eco" | "2d";
+
+function loadStageMode(): StagePerfMode {
+  try {
+    const v = window.localStorage.getItem("aria_stage_mode");
+    if (v === "eco" || v === "2d" || v === "3d") return v;
+  } catch { /* ignore */ }
+  return "3d";
+}
+
+function Stage2DFallback({ state, compact = false }: { state: LiveState; compact?: boolean }) {
+  const ideas = (state.round?.ideas.filter((i) => !i.hidden) ?? []).slice(-4);
+  return (
+    <div className="workshop-scene workshop-scene--2d">
+      <img className="workshop-scene__art" src="/art/voxel-workshop.jpg" alt="Voxel Workshop Stage (2D Mode)" />
+      {ideas.map((idea, idx) => (
+        <div
+          key={idea.id}
+          className={`workshop-bubble workshop-bubble--flank workshop-bubble--flank-${idx} ${idea.boosts ? "is-boosted" : ""}`}
+        >
+          <span className="workshop-bubble__user">@{idea.author.displayName || idea.author.login}</span>
+          <span className="workshop-bubble__text">{idea.text.length > 22 ? `${idea.text.slice(0, 21)}…` : idea.text}</span>
+          {idea.boosts ? <span className="workshop-bubble__boost">+{idea.boosts}</span> : null}
+        </div>
+      ))}
+      <span className="stage-2d-badge">{compact ? "2D Mode" : "2D Mode · Low GPU"}</span>
+    </div>
+  );
+}
+
 export function IdeasPanel({
   state,
   round,
@@ -264,7 +294,13 @@ export function IdeasPanel({
     previewUrl ? "build" : round && phase !== "idle" ? "stage" : state ? "arena" : "overlay",
   );
   const [focusMode, setFocusMode] = useState(false);
-  const [ecoMode, setEcoMode] = useState(false);
+  const [stageMode, setStageMode] = useState<StagePerfMode>(loadStageMode);
+  const updateStageMode = (m: StagePerfMode) => {
+    setStageMode(m);
+    try {
+      window.localStorage.setItem("aria_stage_mode", m);
+    } catch { /* ignore */ }
+  };
 
   useEffect(() => {
     if (previewUrl) setView("build");
@@ -347,7 +383,11 @@ export function IdeasPanel({
           <div className="monitor-wrap">
             <div className="monitor-bezel monitor-bezel--workshop">
               <div className="idle-preview__stage monitor-stage--workshop">
-                <LiveStageCanvas state={state} ecoMode={ecoMode} />
+                {stageMode === "2d" ? (
+                  <Stage2DFallback state={state} />
+                ) : (
+                  <LiveStageCanvas state={state} ecoMode={stageMode === "eco"} />
+                )}
               </div>
             </div>
             {!focusMode && (
@@ -379,18 +419,26 @@ export function IdeasPanel({
                   >
                     Send Idea
                   </button>
-                  <button
-                    type="button"
-                    className={`focus-pill ${ecoMode ? "is-on" : ""}`}
-                    aria-pressed={ecoMode}
-                    title="Disable bloom & shadows to save GPU during stream"
-                    onClick={() => setEcoMode((e) => !e)}
-                  >
-                    <span>Eco</span>
-                    <span className="focus-pill__track" aria-hidden="true">
-                      <span className="focus-pill__thumb" />
-                    </span>
-                  </button>
+                  <div className="stage-perf-switch" role="group" aria-label="Stage graphics mode">
+                    {(["3d", "eco", "2d"] as const).map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        className={`stage-perf-btn ${stageMode === m ? "is-active" : ""}`}
+                        aria-pressed={stageMode === m}
+                        title={
+                          m === "3d"
+                            ? "Full 3D with bloom & shadows"
+                            : m === "eco"
+                              ? "Eco 3D (no bloom or shadows)"
+                              : "Pure 2D fallback (0% WebGL/GPU)"
+                        }
+                        onClick={() => updateStageMode(m)}
+                      >
+                        {m.toUpperCase()}
+                      </button>
+                    ))}
+                  </div>
                   <button
                     type="button"
                     className={`focus-pill ${focusMode ? "is-on" : ""}`}
@@ -432,7 +480,11 @@ export function IdeasPanel({
             {state && (
               <div className="monitor-bezel monitor-bezel--workshop monitor-bezel--compact">
                 <div className="idle-preview__stage monitor-stage--compact">
-                  <LiveStageCanvas state={state} ecoMode={ecoMode} compact />
+                  {stageMode === "2d" ? (
+                    <Stage2DFallback state={state} compact />
+                  ) : (
+                    <LiveStageCanvas state={state} ecoMode={stageMode === "eco"} compact />
+                  )}
                 </div>
               </div>
             )}

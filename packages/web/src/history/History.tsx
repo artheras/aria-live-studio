@@ -141,6 +141,45 @@ function formatHistoryRecap(rounds: RoundSummary[]): string {
   return lines.join("\n");
 }
 
+function HistoryAnalytics({ rounds }: { rounds: RoundSummary[] }) {
+  const totalIdeas = rounds.reduce((s, r) => s + r.ideaCount, 0);
+  const totalVoters = rounds.reduce((s, r) => s + r.voters, 0);
+  const executed = rounds.filter((r) => Boolean(r.execution));
+  const succeeded = executed.filter((r) => r.execution?.status === "succeeded");
+  const successRate = executed.length > 0 ? `${Math.round((succeeded.length / executed.length) * 100)}%` : "—";
+  const durations = rounds
+    .filter((r) => typeof r.closedAt === "number" && r.closedAt >= r.openedAt)
+    .map((r) => Math.round((r.closedAt! - r.openedAt) / 1000));
+  const avgSec = durations.length > 0 ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length) : null;
+  const avgText =
+    avgSec === null ? "—" : avgSec >= 60 ? `${Math.floor(avgSec / 60)}m ${avgSec % 60}s` : `${avgSec}s`;
+
+  return (
+    <section className="analytics-strip" aria-label="Session analytics">
+      <div className="analytics-stat">
+        <span className="analytics-stat__label">Rounds</span>
+        <strong className="analytics-stat__val num">{rounds.length}</strong>
+      </div>
+      <div className="analytics-stat">
+        <span className="analytics-stat__label">Total Ideas</span>
+        <strong className="analytics-stat__val num">{totalIdeas}</strong>
+      </div>
+      <div className="analytics-stat">
+        <span className="analytics-stat__label">Total Voters</span>
+        <strong className="analytics-stat__val num">{totalVoters}</strong>
+      </div>
+      <div className="analytics-stat">
+        <span className="analytics-stat__label">Build Success</span>
+        <strong className="analytics-stat__val num">{successRate}</strong>
+      </div>
+      <div className="analytics-stat">
+        <span className="analytics-stat__label">Avg Round</span>
+        <strong className="analytics-stat__val num">{avgText}</strong>
+      </div>
+    </section>
+  );
+}
+
 export function HistoryPage() {
   const [rounds, setRounds] = useState<RoundSummary[] | null>(null);
   const [error, setError] = useState<{ message: string; auth: boolean } | null>(null);
@@ -200,11 +239,14 @@ export function HistoryPage() {
         ) : rounds.length === 0 ? (
           <p className="empty empty--big">No finished rounds yet. Run one and it lands here.</p>
         ) : (
-          <div className="history__grid">
-            {rounds.map((r) => (
-              <HistoryCard key={r.id} r={r} />
-            ))}
-          </div>
+          <>
+            <HistoryAnalytics rounds={rounds} />
+            <div className="history__grid">
+              {rounds.map((r) => (
+                <HistoryCard key={r.id} r={r} />
+              ))}
+            </div>
+          </>
         )}
       </main>
     </div>

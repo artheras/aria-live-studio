@@ -538,12 +538,16 @@ export class LiveService {
   reply(text: string, replyTo?: string): void {
     const st = this.engine.state;
     const me = this.deps.auth.user;
-    if (!st.settings.chatReplies || !st.connection.canReply || !me) return;
+    if (!st.settings.chatReplies || !me) return;
+    const botId = this.deps.config.twitch.botUserId;
+    const botToken = this.deps.config.twitch.botAccessToken;
+    const useBot = Boolean(botId && botToken);
+    if (!useBot && !st.connection.canReply) return;
     if (!this.limiter.tryTake()) return;
     let msg = `${REPLY_PREFIX} ${text}`;
     if (msg.length > 480) msg = `${msg.slice(0, 479)}…`;
     this.deps.helix
-      .sendChatMessage(me.id, me.id, msg, replyTo)
+      .sendChatMessage(me.id, useBot ? botId! : me.id, msg, replyTo, useBot ? botToken : undefined)
       .then((sent) => {
         if (sent.message_id) this.ownMessages.add(sent.message_id);
         if (!sent.is_sent) console.warn(`[chat] message dropped: ${sent.drop_reason?.message ?? "unknown"}`);
