@@ -2255,10 +2255,16 @@ input[type="checkbox"] {
 .grid--workshop .stepper__step {
   font-size: 10.5px;
 }
-.topbar__pills {
-  display: inline-flex;
-  align-items: center;
+.user-menu__status {
+  display: flex;
+  flex-wrap: wrap;
   gap: 6px;
+  max-width: 100%;
+  overflow: hidden;
+}
+.user-menu__status .conn {
+  max-width: 100%;
+  flex-wrap: wrap;
 }
 .ideas-split {
   display: flex;
