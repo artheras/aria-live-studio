@@ -384,4 +384,25 @@ describe("behind a TLS proxy", () => {
     const badDiff = await h.api("GET", "/api/round/diff");
     expect(badDiff.status).toBe(400);
   });
+
+  it("returns structured preflight service diagnostics behind session auth", async () => {
+    h = await startHarness();
+    const unauth = await fetch(`${h.base}/api/preflight`);
+    expect(unauth.status).toBe(401);
+
+    const res = await h.api("GET", "/api/preflight");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      ready: boolean;
+      twitch: { configured: boolean; status: string; missingScopes: string[] };
+      planner: { kind: string; model: string | null; apiKeyConfigured: boolean };
+      executor: { kind: string; ok: boolean; targetRepoConfigured: boolean };
+      mcp: { agentUrl: string; cohostUrl: string; streamerUrl: string };
+      overlay: { url: string; recommendedUrl: string };
+    };
+    expect(body.twitch.configured).toBe(true);
+    expect(body.executor.kind).toBe("disabled");
+    expect(body.mcp.agentUrl).toContain("/mcp");
+    expect(body.overlay.recommendedUrl).toContain("pos=br&mode=card3d&transparent=1&eco=1");
+  });
 });

@@ -5,15 +5,10 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import type { LiveState } from "@aria-live/shared";
 import { truncate } from "../lib/time";
-
-interface VoxelSpec {
-  x: number;
-  y: number;
-  z: number;
-  sx?: number;
-  sy?: number;
-  sz?: number;
-}
+import { buildVoxelInstances, type VoxelSpec } from "./stage/voxels";
+import { createStageDraft } from "./stage/draft";
+import { fillIslandBase } from "./stage/islandBase";
+import { villageLoop } from "./stage/routes";
 
 interface BurstCube {
   mesh: THREE.Mesh;
@@ -21,27 +16,6 @@ interface BurstCube {
   vy: number;
   vz: number;
   life: number;
-}
-
-function buildVoxelInstances(
-  geo: THREE.BufferGeometry,
-  mat: THREE.Material,
-  specs: VoxelSpec[],
-  castShadow = true,
-  receiveShadow = true,
-): THREE.InstancedMesh {
-  const mesh = new THREE.InstancedMesh(geo, mat, specs.length);
-  mesh.castShadow = castShadow;
-  mesh.receiveShadow = receiveShadow;
-  const dummy = new THREE.Object3D();
-  specs.forEach((s, i) => {
-    dummy.position.set(s.x, s.y, s.z);
-    dummy.scale.set(s.sx ?? 1, s.sy ?? 1, s.sz ?? 1);
-    dummy.updateMatrix();
-    mesh.setMatrixAt(i, dummy.matrix);
-  });
-  mesh.instanceMatrix.needsUpdate = true;
-  return mesh;
 }
 
 function resolveThemePalette(prompt?: string | null, modifiers?: string[]) {
@@ -121,7 +95,7 @@ export function LiveStageCanvas({
 
     // Balanced 3/4 isometric view framing the entire floating island, deep cliff roots, and castle.
     const camera = new THREE.PerspectiveCamera(35, width / height, 0.1, 180);
-    camera.position.set(compact ? 17.2 : 16.0, compact ? 8.8 : 8.2, compact ? 18.0 : 16.8);
+    camera.position.set(compact ? 18.4 : 17.2, compact ? 11.4 : 10.6, compact ? 19.2 : 18.0);
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
@@ -130,7 +104,7 @@ export function LiveStageCanvas({
     controls.minDistance = 5.5;
     controls.maxDistance = 34;
     controls.maxPolarAngle = Math.PI * 0.46;
-    controls.target.set(0.2, compact ? 0.35 : 0.25, 0.0);
+    controls.target.set(0.15, compact ? 1.7 : 1.55, 0.15);
 
     // Twilight sky dome: deep indigo-purple top -> soft violet mid -> warm peach horizon
     const skyGeo = new THREE.SphereGeometry(76, 24, 16);
@@ -190,27 +164,14 @@ export function LiveStageCanvas({
     scene.add(sun);
 
     const porchLight = new THREE.PointLight(0xffb44c, 1.6, 4.5);
-    porchLight.position.set(1.55, 1.18, 0.85);
+    porchLight.position.set(-4.4, 2.3, 6.6);
     scene.add(porchLight);
 
     const islandGroup = new THREE.Group();
     scene.add(islandGroup);
 
-    // 0.5-unit beveled sub-voxel unit gives crisp brick edges & highlights
-    const u = 0.5;
     const voxelGeo = new RoundedBoxGeometry(0.472, 0.472, 0.472, 2, 0.042);
-
     const stoneLightMat = new THREE.MeshStandardMaterial({ color: 0xd9d0c4, roughness: 0.82 });
-    const stoneMidMat = new THREE.MeshStandardMaterial({ color: 0xb7ab9c, roughness: 0.84 });
-    const stoneDarkMat = new THREE.MeshStandardMaterial({ color: 0x8d8276, roughness: 0.88 });
-    const dirtMat = new THREE.MeshStandardMaterial({ color: 0x6b5040, roughness: 0.92 });
-    const grassMat = new THREE.MeshStandardMaterial({ color: 0x5aa656, roughness: 0.78 });
-    const mossMat = new THREE.MeshStandardMaterial({ color: 0x4c914b, roughness: 0.76 });
-    const pineMat = new THREE.MeshStandardMaterial({ color: 0x2f7a45, roughness: 0.8 });
-    const woodMat = new THREE.MeshStandardMaterial({ color: 0xc4894a, roughness: 0.74 });
-    const darkWoodMat = new THREE.MeshStandardMaterial({ color: 0x5c341c, roughness: 0.84 });
-    const roofMat = new THREE.MeshStandardMaterial({ color: 0x332d45, roughness: 0.74 });
-    const roofLightMat = new THREE.MeshStandardMaterial({ color: 0x433b59, roughness: 0.72 });
     const crystalMat = new THREE.MeshStandardMaterial({
       color: 0xf0dbff,
       emissive: 0xa855f7,
@@ -224,478 +185,91 @@ export function LiveStageCanvas({
       roughness: 0.28,
     });
 
-    const stoneLightSpecs: VoxelSpec[] = [];
-    const stoneMidSpecs: VoxelSpec[] = [];
-    const stoneDarkSpecs: VoxelSpec[] = [];
-    const pushStone = (x: number, y: number, z: number, sx = 1, sy = 1, sz = 1) => {
-      const hash = Math.abs(Math.round(x * 7 + y * 11 + z * 13)) % 5;
-      const spec = { x, y, z, sx, sy, sz };
-      if (hash === 0) stoneLightSpecs.push(spec);
-      else if (hash === 4) stoneDarkSpecs.push(spec);
-      else stoneMidSpecs.push(spec);
-    };
+    const islandBase = createStageDraft(voxelGeo);
+    fillIslandBase(islandBase);
+    islandBase.mount(islandGroup);
 
-    const grassSpecs: VoxelSpec[] = [];
-    const mossSpecs: VoxelSpec[] = [];
-    const dirtSpecs: VoxelSpec[] = [];
-    const timberSpecs: VoxelSpec[] = [];
-    const scaffSpecs: VoxelSpec[] = [];
-    const windowSpecs: VoxelSpec[] = [];
-    const roofDarkSpecs: VoxelSpec[] = [];
-    const roofLightSpecs: VoxelSpec[] = [];
-    const pineSpecs: VoxelSpec[] = [];
-    const lanternSpecs: VoxelSpec[] = [];
+    const buildings = new THREE.Group();
+    islandGroup.add(buildings);
+    let disposed = false;
 
-    const pushRoof = (x: number, y: number, z: number, sx = 1, sy = 1, sz = 1) => {
-      if (Math.abs(Math.round(x * 2 + z * 2)) % 3 === 0) roofLightSpecs.push({ x, y, z, sx, sy, sz });
-      else roofDarkSpecs.push({ x, y, z, sx, sy, sz });
-    };
-
-    const pushFramedWindow = (x: number, y: number, z: number, nx: number, nz: number, withSill = false) => {
-      windowSpecs.push({ x: x - nx * 0.12, y, z: z - nz * 0.12, sx: 0.78, sy: 0.88, sz: 0.78 });
-      timberSpecs.push({
-        x: x + nx * 0.08,
-        y,
-        z: z + nz * 0.08,
-        sx: nz !== 0 ? 0.16 : 0.24,
-        sy: 0.94,
-        sz: nx !== 0 ? 0.16 : 0.24,
+    const houseLoader = new GLTFLoader();
+    const placeGlb = (url: string, x: number, y: number, z: number, rot: number, scale: number) => {
+      houseLoader.load(url, (gltf) => {
+        if (disposed) return;
+        const model = gltf.scene;
+        model.position.set(x, y, z);
+        model.rotation.y = rot;
+        model.scale.setScalar(scale);
+        model.traverse((obj) => {
+          const mesh = obj as THREE.Mesh;
+          if (mesh.isMesh) {
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+          }
+        });
+        buildings.add(model);
       });
-      if (withSill) {
-        stoneLightSpecs.push({
-          x: x + nx * 0.12,
-          y: y - 0.24,
-          z: z + nz * 0.12,
-          sx: nz !== 0 ? 0.98 : 0.34,
-          sy: 0.22,
-          sz: nx !== 0 ? 0.98 : 0.34,
-        });
-      }
     };
+    placeGlb("/models/cottage-garden.glb", -4.4, 0.46, 5.6, 0, 1.5);
+    placeGlb("/models/cottage-lantern.glb", 5.8, 0, 5.8, 0, 1.5);
+    placeGlb("/models/cottage-timber.glb", -7.6, 0.92, 0.2, Math.PI / 2, 1.5);
+    placeGlb("/models/cottage-stone.glb", 7.8, 1.38, 0.2, -Math.PI / 2, 1.5);
+    placeGlb("/models/cottage-violet.glb", -2.4, 0.92, -7.6, 0, 1.5);
+    placeGlb("/models/cottage-hearth.glb", 4.6, 0.46, -7.6, 0, 1.5);
+    placeGlb("/models/workshop.glb", 0.15, 1.38, -0.4, 0, 1.4);
 
-    // 1. Wider floating cliff, about 41 across, with the cottage still near the middle.
-    for (let gx = -20; gx <= 20; gx++) {
-      for (let gz = -20; gz <= 20; gz++) {
-        const x = gx * u;
-        const z = gz * u;
-        const dist = Math.abs(gx) + Math.abs(gz);
-        const maxC = Math.max(Math.abs(gx), Math.abs(gz));
-        if (maxC > 20 || dist > 29) continue;
-
-        const onUpperTerrace = gx >= -6 && gx <= 7 && gz >= -7 && gz <= 2;
-        if (onUpperTerrace) {
-          pushStone(x, 0.5, z);
-          pushStone(x, 0.0, z);
-        } else {
-          if ((gx + gz) % 3 === 0) mossSpecs.push({ x, y: 0.04, z });
-          else grassSpecs.push({ x, y: 0.0, z });
-        }
-
-        // Deep craggy inverted-cone cliff underside matching the wider 33x33 island
-        if (dist <= 29) dirtSpecs.push({ x, y: -0.5, z });
-        if (dist <= 27 && (maxC <= 19 || (gx + gz) % 2 === 0)) pushStone(x, -1.0, z);
-        if (dist <= 21 && maxC <= 14) pushStone(x, -1.5, z);
-        if (dist <= 19 && maxC <= 13) stoneDarkSpecs.push({ x, y: -2.0, z });
-        if (dist <= 17 && maxC <= 11) pushStone(x, -2.5, z);
-        if (dist <= 15 && maxC <= 10) stoneDarkSpecs.push({ x, y: -3.0, z });
-        if (dist <= 13 && maxC <= 9) stoneDarkSpecs.push({ x, y: -3.5, z });
-        if (dist <= 10 && maxC <= 7) stoneDarkSpecs.push({ x, y: -4.0, z });
-        if (dist <= 8 && maxC <= 6) stoneDarkSpecs.push({ x, y: -4.5, z });
-        if (dist <= 6 && maxC <= 4) stoneDarkSpecs.push({ x, y: -5.0, z });
-        if (dist <= 4 && maxC <= 3) stoneDarkSpecs.push({ x, y: -5.5, z });
-        if (dist <= 3) stoneDarkSpecs.push({ x, y: -6.0, z });
-        if (dist <= 2) stoneDarkSpecs.push({ x, y: -6.5, z });
-        if (dist <= 1) stoneDarkSpecs.push({ x, y: -7.0, z });
-      }
-    }
-    // Irregular corner rock stalactites, hanging moss lips & branched wooden cliff roots
-    for (const [rx, rz] of [
-      [-6.2, 3.5],
-      [6.2, 3.0],
-      [3.5, -6.2],
-      [-5.2, -5.2],
-      [0.0, 6.8],
-      [-3.2, 6.2],
-      [4.8, 5.0],
-      [-6.8, -1.0],
-      [6.8, -1.5],
-      [0.2, 0.2],
-    ] as const) {
-      stoneDarkSpecs.push({ x: rx, y: -2.5, z: rz, sx: 1.5, sy: 3.0, sz: 1.5 });
-      mossSpecs.push({ x: rx, y: -0.45, z: rz, sx: 1.1, sy: 1.4, sz: 1.1 });
-    }
-    // Branched primary + secondary roots dangling below the wider floating island
-    for (const [vx, vz, len] of [
-      [-6.2, 3.8, 5],
-      [-5.0, 5.2, 6],
-      [-3.2, 6.4, 5],
-      [-1.0, 7.0, 4],
-      [1.6, 6.8, 6],
-      [3.8, 5.8, 5],
-      [5.8, 4.0, 6],
-      [6.8, 1.6, 4],
-      [-6.8, 1.2, 5],
-      [0.4, 5.0, 6],
-      [-7.6, -2.2, 6],
-      [7.4, -3.0, 6],
-      [-4.6, -5.4, 5],
-      [2.4, -6.2, 5],
-      [-8.0, 4.8, 5],
-      [7.8, 5.4, 5],
-      [0.2, -7.2, 4],
-      [-2.4, 7.6, 5],
-    ] as const) {
-      for (let k = 0; k < len; k++) {
-        timberSpecs.push({
-          x: vx + (k % 2) * 0.1,
-          y: -1.6 - k * 0.46,
-          z: vz,
-          sx: k < 2 ? 0.36 : 0.22,
-          sy: 0.98,
-          sz: k < 2 ? 0.36 : 0.22,
-        });
-        if (k === 2 || k === 4) {
-          timberSpecs.push({
-            x: vx + (k === 2 ? 0.26 : -0.24),
-            y: -1.75 - k * 0.46,
-            z: vz + 0.14,
-            sx: 0.18,
-            sy: 0.85,
-            sz: 0.18,
-          });
-        }
-      }
-      mossSpecs.push({ x: vx, y: -0.95, z: vz, sx: 0.55, sy: 1.1, sz: 0.55 });
-    }
-
-    // Wide, solid stone porch landing + 5-step straight staircase with stepped stone cheek-walls & posts
-    pushStone(1.55, 0.68, 0.25, 1.85, 0.42, 1.45);
-    pushStone(1.55, 0.34, 0.25, 1.85, 0.42, 1.45);
-    for (let s = 0; s < 5; s++) {
-      const sy = 0.56 - s * 0.12;
-      const sz = 0.92 + s * 0.44;
-      pushStone(1.55, sy, sz, 1.55, 0.36, 0.54);
-      // Stepped stone cheek-walls flanking each tread
-      stoneDarkSpecs.push(
-        { x: 1.02, y: sy + 0.14, z: sz, sx: 0.36, sy: 0.42, sz: 0.56 },
-        { x: 2.08, y: sy + 0.14, z: sz, sx: 0.36, sy: 0.42, sz: 0.56 },
-      );
-    }
-    timberSpecs.push(
-      { x: 1.02, y: 0.95, z: 0.92, sx: 0.22, sy: 0.65, sz: 0.22 },
-      { x: 2.08, y: 0.95, z: 0.92, sx: 0.22, sy: 0.65, sz: 0.22 },
-      { x: 1.02, y: 0.48, z: 2.68, sx: 0.22, sy: 0.65, sz: 0.22 },
-      { x: 2.08, y: 0.48, z: 2.68, sx: 0.22, sy: 0.65, sz: 0.22 },
-    );
-
-    // 3. Main Two-Story Gabled Manor Hall (fine 0.5u stone masonry, dark wood door, arched purple windows)
-    for (let gy = 2; gy <= 7; gy++) {
-      const y = gy * u;
-      for (let gx = -5; gx <= 2; gx++) {
-        for (let gz = -4; gz <= 2; gz++) {
-          const isOuter = gx === -5 || gx === 2 || gz === -4 || gz === 2;
-          if (!isOuter) continue;
-          const x = gx * u;
-          const z = gz * u;
-          const isDoor = gx === 2 && (gz === 0 || gz === 1) && (gy === 2 || gy === 3);
-          const isFrontWin =
-            gz === 2 &&
-            (((gy === 2 || gy === 3) && (gx === -4 || gx === -3)) ||
-              ((gy === 4 || gy === 5) && (gx === -2 || gx === -1)));
-          const isUpperTimber =
-            gz === 2 &&
-            !isDoor &&
-            ((gy === 5 && gx >= -5 && gx <= 2) ||
-              (gy >= 5 && (gx === -5 || gx === -3 || gx === 0 || gx === 2)));
-          const isBackWin = gz === -4 && (gx === -3 || gx === 0) && (gy === 4 || gy === 5);
-          const isSideWin = gx === -5 && (gz === -1 || gz === 0) && (gy === 4 || gy === 5);
-          const isCorner = (gx === -5 || gx === 2) && (gz === -4 || gz === 2);
-
-          if (isDoor) {
-            timberSpecs.push({ x: x - 0.1, y, z, sx: 0.42, sy: 0.95, sz: 0.95 });
-          } else if (isFrontWin) {
-            pushFramedWindow(x, y, z, 0, 1, gy === 2 || gy === 4);
-          } else if (isBackWin) {
-            pushFramedWindow(x, y, z, 0, -1, gy === 4);
-          } else if (isSideWin) {
-            pushFramedWindow(x, y, z, -1, 0, gy === 4);
-          } else if (isCorner || isUpperTimber) {
-            timberSpecs.push({ x, y, z });
-          } else {
-            pushStone(x, y, z);
-          }
-        }
-      }
-    }
-    // Warm wooden porch canopy over the side door + arched stone door frame
-    pushStone(1.06, 2.02, 0.25, 0.35, 0.36, 1.35);
-    scaffSpecs.push({ x: 0.92, y: 1.32, z: 0.25, sx: 0.16, sy: 1.42, sz: 0.78 });
-    timberSpecs.push(
-      { x: 1.08, y: 1.32, z: -0.16, sx: 0.16, sy: 1.55, sz: 0.14 },
-      { x: 1.08, y: 1.32, z: 0.66, sx: 0.16, sy: 1.55, sz: 0.14 },
-      { x: 1.08, y: 2.02, z: 0.25, sx: 0.16, sy: 0.14, sz: 0.98 },
-      { x: 1.48, y: 2.22, z: 0.25, sx: 1.25, sy: 0.22, sz: 1.65 },
-      { x: 1.38, y: 1.72, z: 0.92, sx: 0.42, sy: 0.1, sz: 0.1 },
-      { x: 1.52, y: 1.56, z: 0.92, sx: 0.08, sy: 0.28, sz: 0.08 },
-    );
-    roofDarkSpecs.push({ x: 1.48, y: 2.38, z: 0.25, sx: 1.35, sy: 0.28, sz: 1.78 });
-    lanternSpecs.push({ x: 1.52, y: 1.34, z: 0.92, sx: 0.24, sy: 0.28, sz: 0.24 });
-    timberSpecs.push(
-      { x: -0.75, y: 2.15, z: 1.12, sx: 3.4, sy: 0.14, sz: 0.18 },
-      { x: -0.75, y: 2.85, z: 1.12, sx: 3.4, sy: 0.14, sz: 0.18 },
-      { x: -1.7, y: 2.5, z: 1.12, sx: 0.14, sy: 0.9, sz: 0.16 },
-      { x: 0.25, y: 2.5, z: 1.12, sx: 0.14, sy: 0.9, sz: 0.16 },
-    );
-
-    // 5-Tier Stepped Slate Pitched Roof (symmetric around gx = -1.5) + Stone Gable Wall + Arched Purple Gable Window
-    for (let tier = 0; tier < 5; tier++) {
-      const y = 3.9 + tier * 0.44;
-      const minGx = -6 + tier;
-      const maxGx = 3 - tier;
-      for (let gz = -5; gz <= 3; gz++) {
-        const z = gz * u;
-        for (let gx = minGx; gx <= maxGx; gx++) {
-          const x = gx * u;
-          const isSlopeEdge = gx === minGx || gx === maxGx || tier === 4;
-          const isGableFace = gz === 3 || gz === -5;
-          const isGableWin = isGableFace && !isSlopeEdge && (tier === 1 || tier === 2) && (gx === -2 || gx === -1);
-          if (isGableWin) {
-            pushFramedWindow(x, y, z - (gz === 3 ? 0.14 : -0.14), 0, gz === 3 ? 1 : -1, tier === 1);
-          } else if (isGableFace && !isSlopeEdge) {
-            pushStone(x, y, z - (gz === 3 ? 0.14 : -0.14));
-          } else {
-            pushRoof(x, y, z, 1.02, 0.92, 1.02);
-          }
-        }
-      }
-      // Wooden bargeboard eaves tucked cleanly under the pitched roof edges (skip ridge)
-      if (tier < 4) {
-        timberSpecs.push(
-          { x: minGx * u, y: y - 0.16, z: 1.62, sx: 0.72, sy: 0.42, sz: 0.42 },
-          { x: maxGx * u, y: y - 0.16, z: 1.62, sx: 0.72, sy: 0.42, sz: 0.42 },
-        );
-      }
-    }
-    // Right-side gabled roof dormer with glowing purple window + left-back stone chimney
-    pushStone(1.05, 4.45, -0.35, 0.95, 1.05, 1.25);
-    pushFramedWindow(1.38, 4.45, -0.35, 1, 0, true);
-    pushRoof(1.12, 5.05, -0.35, 1.35, 0.48, 1.65);
-    pushRoof(1.12, 5.32, -0.35, 0.85, 0.35, 0.95);
-    pushStone(-1.45, 5.35, -1.2, 0.55, 1.15, 0.55);
-    stoneLightSpecs.push({ x: -1.45, y: 5.85, z: -1.2, sx: 0.72, sy: 0.16, sz: 0.72 });
-    // House-high hoist: two full ladders, thick posts, four platforms, barrels, and a beam.
-    const ladder = (x: number, z: number) => {
-      timberSpecs.push(
-        { x: x - 0.28, y: 2.55, z, sx: 0.38, sy: 11.2, sz: 0.38 },
-        { x: x + 0.28, y: 2.55, z, sx: 0.38, sy: 11.2, sz: 0.38 },
-      );
-      for (let r = 0; r < 11; r++) {
-        timberSpecs.push({ x, y: 0.35 + r * 0.46, z, sx: 1.55, sy: 0.18, sz: 0.2 });
-      }
-    };
-    ladder(3.8, 1.05);
-    ladder(5.2, 1.05);
-    timberSpecs.push(
-      { x: 3.8, y: 2.55, z: -0.15, sx: 0.42, sy: 11.2, sz: 0.42 },
-      { x: 5.2, y: 2.55, z: -0.15, sx: 0.42, sy: 11.2, sz: 0.42 },
-      { x: 4.5, y: 1.25, z: 0.45, sx: 4.8, sy: 0.38, sz: 3.6 },
-    );
-    // Multi-tier right scaffolding platforms, cross-rails, barrels, crane arm & pulley block
-    scaffSpecs.push(
-      { x: 4.5, y: 2.45, z: 0.45, sx: 4.8, sy: 0.38, sz: 3.6 },
-      { x: 4.5, y: 3.65, z: 0.45, sx: 4.8, sy: 0.38, sz: 3.6 },
-      { x: 4.5, y: 4.75, z: 0.45, sx: 4.8, sy: 0.42, sz: 3.6 },
-      // Safety guardrails on front face
-      { x: 4.5, y: 5.15, z: 1.35, sx: 4.6, sy: 0.16, sz: 0.16 },
-      { x: 4.5, y: 4.05, z: 1.35, sx: 4.6, sy: 0.16, sz: 0.16 },
-      { x: 4.5, y: 2.85, z: 1.35, sx: 4.6, sy: 0.16, sz: 0.16 },
-      // Barrels & supply crates on scaffolding platforms
-      { x: 3.95, y: 1.62, z: 0.35, sx: 1.15, sy: 1.15, sz: 1.15 },
-      { x: 5.0, y: 1.58, z: 0.7, sx: 1.05, sy: 1.05, sz: 1.05 },
-      { x: 4.4, y: 2.82, z: 0.25, sx: 1.15, sy: 1.15, sz: 1.15 },
-      { x: 4.95, y: 4.05, z: 0.3, sx: 1.1, sy: 1.1, sz: 1.1 },
-      { x: 3.9, y: 5.15, z: 0.2, sx: 1.15, sy: 1.35, sz: 1.15 },
-      { x: 5.15, y: 5.15, z: 0.1, sx: 1.05, sy: 1.25, sz: 1.05 },
-      // Crane boom + suspended pulley hook
-      { x: 4.5, y: 5.55, z: 0.45, sx: 0.38, sy: 1.6, sz: 0.38 },
-      { x: 4.5, y: 6.15, z: 1.65, sx: 0.38, sy: 0.38, sz: 5.4 },
-      { x: 4.5, y: 4.55, z: 2.65, sx: 0.18, sy: 3.2, sz: 0.18 },
-      { x: 4.5, y: 3.45, z: 2.65, sx: 0.92, sy: 0.82, sz: 0.92 },
-      // Ground-level barrels & crates beside the scaffolding
-      { x: 3.7, y: 0.38, z: 1.85, sx: 1.2, sy: 1.25, sz: 1.2 },
-      { x: 4.6, y: 0.34, z: 1.95, sx: 1.1, sy: 1.15, sz: 1.1 },
-      { x: 5.4, y: 0.3, z: 1.7, sx: 1.05, sy: 1.0, sz: 1.05 },
-    );
-    for (let r = 0; r < 6; r++) {
-      timberSpecs.push({ x: 3.4, y: 0.55 + r * 0.72, z: 1.35, sx: 0.85, sy: 0.14, sz: 0.14 });
-    }
-
-    // 7. Spacious Pine Groves, Workbench, Wishing Well, Plaza Cobblestones & Shrubs
-    const trunkSpecs: VoxelSpec[] = [
-      { x: -5.6, y: 0.8, z: 0.2, sx: 0.42, sy: 2.1, sz: 0.42 },
-      { x: -5.0, y: 0.7, z: 2.2, sx: 0.38, sy: 1.8, sz: 0.38 },
-      { x: -6.2, y: 0.65, z: 3.2, sx: 0.36, sy: 1.6, sz: 0.36 },
-      { x: 6.4, y: 0.7, z: 2.2, sx: 0.38, sy: 1.8, sz: 0.38 },
-      { x: 6.6, y: 0.62, z: -0.4, sx: 0.34, sy: 1.5, sz: 0.34 },
-    ];
-    // Outdoor workbench in right-front yard, wooden bench in left-front garden
-    scaffSpecs.push(
-      { x: 4.2, y: 0.62, z: 4.8, sx: 1.55, sy: 0.14, sz: 0.92 },
-      { x: 3.6, y: 0.32, z: 4.5, sx: 0.14, sy: 0.48, sz: 0.14 },
-      { x: 4.8, y: 0.32, z: 4.5, sx: 0.14, sy: 0.48, sz: 0.14 },
-      { x: 3.6, y: 0.32, z: 5.1, sx: 0.14, sy: 0.48, sz: 0.14 },
-      { x: 4.8, y: 0.32, z: 5.1, sx: 0.14, sy: 0.48, sz: 0.14 },
-      { x: 3.9, y: 0.76, z: 4.75, sx: 0.3, sy: 0.16, sz: 0.24 },
-      { x: -2.5, y: 0.4, z: 4.6, sx: 1.35, sy: 0.14, sz: 0.48 },
-      { x: -3.0, y: 0.22, z: 4.6, sx: 0.14, sy: 0.28, sz: 0.38 },
-      { x: -2.0, y: 0.22, z: 4.6, sx: 0.14, sy: 0.28, sz: 0.38 },
-      { x: -2.5, y: 0.62, z: 4.4, sx: 1.35, sy: 0.32, sz: 0.12 },
-    );
-    const addFineTree = (cx: number, baseY: number, cz: number, tiers: number) => {
-      for (let t = 0; t < tiers; t++) {
-        const r = tiers - t;
-        const y = baseY + t * 0.44;
-        for (let dx = -r; dx <= r; dx++) {
-          for (let dz = -r; dz <= r; dz++) {
-            if (Math.abs(dx) + Math.abs(dz) > r + 1) continue;
-            const target = (dx + dz + t) % 3 === 0 ? mossSpecs : pineSpecs;
-            target.push({
-              x: cx + dx * 0.36,
-              y: y + ((dx * dz) % 2) * 0.06,
-              z: cz + dz * 0.36,
-              sx: 0.62,
-              sy: 0.7,
-              sz: 0.62,
-            });
-          }
-        }
-      }
-      pineSpecs.push({ x: cx, y: baseY + tiers * 0.44, z: cz, sx: 0.75, sy: 0.85, sz: 0.75 });
-    };
-    addFineTree(-5.6, 1.45, 0.2, 4);
-    addFineTree(-5.0, 1.3, 2.2, 3);
-    addFineTree(-6.2, 1.2, 3.2, 3);
-    addFineTree(6.4, 1.3, 2.2, 3);
-    addFineTree(6.6, 1.15, -0.4, 3);
-
-    // Rounded bushes, each made of a few small leaves rather than one cube.
-    const addBush = (cx: number, cz: number, s = 1) => {
-      const puffs: VoxelSpec[] = [
-        { x: cx, y: 0.32 * s, z: cz, sx: 0.55 * s, sy: 0.42 * s, sz: 0.5 * s },
-        { x: cx - 0.22 * s, y: 0.28 * s, z: cz + 0.12 * s, sx: 0.38 * s, sy: 0.32 * s, sz: 0.36 * s },
-        { x: cx + 0.2 * s, y: 0.36 * s, z: cz - 0.08 * s, sx: 0.36 * s, sy: 0.34 * s, sz: 0.34 * s },
-        { x: cx + 0.05 * s, y: 0.48 * s, z: cz + 0.02 * s, sx: 0.32 * s, sy: 0.26 * s, sz: 0.3 * s },
-      ];
-      for (const p of puffs) mossSpecs.push(p);
-    };
-    for (const [sx, sz] of [
-      [-2.55, 2.15],
-      [0.55, 2.35],
-      [-3.3, 3.1],
-      [2.7, 2.15],
-      [-1.4, 4.4],
-      [1.8, 4.5],
-      [-4.1, 4.0],
-      [3.8, 3.9],
-    ] as const) {
-      addBush(sx, sz, 0.85);
-    }
-    for (const [cx, cz] of [
-      [1.55, 3.2],
-      [1.35, 3.8],
-      [0.65, 4.35],
-      [-0.15, 4.65],
-      [-0.95, 4.45],
-      [-1.75, 4.2],
-      [-2.6, 4.1],
-      [-3.4, 4.25],
-      [0.45, 5.4],
-      [1.35, 5.2],
-      [2.25, 4.95],
-    ] as const) {
-      stoneLightSpecs.push({ x: cx, y: 0.16, z: cz, sx: 0.72, sy: 0.14, sz: 0.54 });
-    }
-    // Left-foreground stone wishing well + wooden canopy (spaciously placed)
-    stoneMidSpecs.push({ x: -4.2, y: 0.36, z: 4.4, sx: 1.35, sy: 0.72, sz: 1.35 });
-    timberSpecs.push(
-      { x: -4.5, y: 0.92, z: 4.4, sx: 0.14, sy: 1.05, sz: 0.14 },
-      { x: -3.9, y: 0.92, z: 4.4, sx: 0.14, sy: 1.05, sz: 0.14 },
-    );
-    roofDarkSpecs.push({ x: -4.2, y: 1.38, z: 4.4, sx: 1.6, sy: 0.36, sz: 1.3 });
-    scaffSpecs.push(
-      { x: -2.35, y: 0.2, z: 2.25, sx: 1.35, sy: 0.16, sz: 0.6 },
-      { x: 0.55, y: 0.2, z: 2.4, sx: 1.2, sy: 0.16, sz: 0.55 },
-    );
-
-    const blossomPinkMat = new THREE.MeshStandardMaterial({ color: 0xe672a5, roughness: 0.62 });
-    const blossomGoldMat = new THREE.MeshStandardMaterial({ color: 0xffd166, roughness: 0.58 });
-    const blossomWhiteMat = new THREE.MeshStandardMaterial({ color: 0xf7f1ea, roughness: 0.6 });
-    const smokeMat = new THREE.MeshStandardMaterial({
-      color: 0xf3eee8,
-      roughness: 0.95,
-      transparent: true,
-      opacity: 0.7,
+    // Dynamic MCP Relay Beacon crystal + rising pulse ring
+    const mcpCrystalMat = new THREE.MeshStandardMaterial({
+      color: 0xa855f7,
+      emissive: 0x7e22ce,
+      emissiveIntensity: 0.9,
+      roughness: 0.2,
     });
+    const mcpCrystal = new THREE.Mesh(new THREE.OctahedronGeometry(0.48, 0), mcpCrystalMat);
+    mcpCrystal.position.set(2.3, 2.15, 3.2);
+    const troughWater = new THREE.Mesh(
+      voxelGeo,
+      new THREE.MeshStandardMaterial({
+        color: 0x7ec8c3,
+        emissive: 0x2a6d78,
+        emissiveIntensity: 0.35,
+        roughness: 0.18,
+        transparent: true,
+        opacity: 0.85,
+      }),
+    );
+    troughWater.scale.set(1.05, 0.16, 0.38);
+    troughWater.position.set(7.65, 0.5, 11.3);
+    islandGroup.add(troughWater);
+    const mcpRingMat = new THREE.MeshBasicMaterial({
+      color: 0xc084fc,
+      transparent: true,
+      opacity: 0.55,
+      side: THREE.DoubleSide,
+    });
+    const mcpRing = new THREE.Mesh(new THREE.RingGeometry(0.28, 0.36, 16), mcpRingMat);
+    mcpRing.rotation.x = -Math.PI / 2;
+    mcpRing.position.set(2.3, 1.7, 3.2);
+    islandGroup.add(mcpCrystal, mcpRing);
 
-    for (const [x, z] of [
-      [-2.6, 2.15],
-      [-2.15, 2.35],
-      [-2.4, 2.05],
-      [0.35, 2.3],
-      [0.7, 2.5],
-      [0.5, 2.15],
-    ] as const) {
-      mossSpecs.push({ x, y: 0.22, z, sx: 0.28, sy: 0.16, sz: 0.28 });
-    }
-
-    islandGroup.add(buildVoxelInstances(voxelGeo, grassMat, grassSpecs));
-    islandGroup.add(buildVoxelInstances(voxelGeo, mossMat, mossSpecs));
-    islandGroup.add(buildVoxelInstances(voxelGeo, dirtMat, dirtSpecs));
-    islandGroup.add(buildVoxelInstances(voxelGeo, stoneLightMat, stoneLightSpecs));
-    islandGroup.add(buildVoxelInstances(voxelGeo, stoneMidMat, stoneMidSpecs));
-    islandGroup.add(buildVoxelInstances(voxelGeo, stoneDarkMat, stoneDarkSpecs));
-    islandGroup.add(buildVoxelInstances(voxelGeo, darkWoodMat, [...timberSpecs, ...trunkSpecs]));
-    islandGroup.add(buildVoxelInstances(voxelGeo, woodMat, scaffSpecs));
-    islandGroup.add(buildVoxelInstances(voxelGeo, roofMat, roofDarkSpecs));
-    islandGroup.add(buildVoxelInstances(voxelGeo, roofLightMat, roofLightSpecs));
-    islandGroup.add(buildVoxelInstances(voxelGeo, pineMat, pineSpecs));
-    islandGroup.add(
-      buildVoxelInstances(voxelGeo, blossomPinkMat, [
-        { x: -2.6, y: 0.38, z: 2.15, sx: 0.22, sy: 0.2, sz: 0.22 },
-        { x: -2.15, y: 0.4, z: 2.35, sx: 0.2, sy: 0.18, sz: 0.2 },
-        { x: 0.35, y: 0.38, z: 2.3, sx: 0.2, sy: 0.18, sz: 0.2 },
-        { x: -1.85, y: 1.15, z: 1.22, sx: 0.14, sy: 0.14, sz: 0.14 },
-      ]),
+    // Dynamic Live Ballot & Idea Totem bars (4 glowing columns scaled by ideas/votes)
+    const ballotBarMats = [0xa855f7, 0x38bdf8, 0x34d399, 0xfbbf24].map(
+      (hex) =>
+        new THREE.MeshStandardMaterial({
+          color: hex,
+          emissive: hex,
+          emissiveIntensity: 0.45,
+          roughness: 0.3,
+        }),
     );
-    islandGroup.add(
-      buildVoxelInstances(voxelGeo, blossomGoldMat, [
-        { x: -2.4, y: 0.4, z: 2.05, sx: 0.18, sy: 0.16, sz: 0.18 },
-        { x: 0.7, y: 0.4, z: 2.5, sx: 0.18, sy: 0.16, sz: 0.18 },
-        { x: 0.5, y: 0.38, z: 2.15, sx: 0.16, sy: 0.16, sz: 0.16 },
-      ]),
-    );
-    islandGroup.add(
-      buildVoxelInstances(voxelGeo, blossomWhiteMat, [
-        { x: -2.5, y: 0.4, z: 2.28, sx: 0.16, sy: 0.16, sz: 0.16 },
-        { x: 0.55, y: 0.4, z: 2.42, sx: 0.16, sy: 0.16, sz: 0.16 },
-      ]),
-    );
-    islandGroup.add(
-      buildVoxelInstances(
-        voxelGeo,
-        smokeMat,
-        [
-          { x: -1.4, y: 6.15, z: -1.15, sx: 0.42, sy: 0.36, sz: 0.42 },
-          { x: -1.25, y: 6.55, z: -1.0, sx: 0.55, sy: 0.4, sz: 0.55 },
-          { x: -1.05, y: 6.95, z: -0.8, sx: 0.68, sy: 0.42, sz: 0.68 },
-        ],
-        false,
-        false,
-      ),
-    );
-    lanternSpecs.push({ x: 1.5, y: 0.9, z: 2.95, sx: 0.12, sy: 0.16, sz: 0.12 });
-    islandGroup.add(buildVoxelInstances(voxelGeo, crystalMat, windowSpecs, false, false));
-    islandGroup.add(buildVoxelInstances(voxelGeo, lanternMat, lanternSpecs, false, false));
+    const ballotBars = ballotBarMats.map((mat, i) => {
+      const m = new THREE.Mesh(voxelGeo, mat);
+      m.scale.set(0.72, 0.45, 0.42);
+      m.position.set(-0.43 + i * 0.52, 0.85, 11.85);
+      islandGroup.add(m);
+      return m;
+    });
 
     // 8. Villagers on the garden path. Clicking one makes that person hop.
     type LimbActor = {
@@ -780,30 +354,32 @@ export function LiveStageCanvas({
         rightArm,
       });
     };
-    addVillager(-0.6, 0.08, 4.9, 0xc47a4a, 0x6b3e22, 0.25, 0.2, [
-      new THREE.Vector3(-0.6, 0.08, 4.9),
-      new THREE.Vector3(1.5, 0.08, 3.6),
-      new THREE.Vector3(-1.8, 0.08, 4.6),
-    ]);
-    addVillager(4.0, 0.08, 5.5, 0x4e9a52, 0x8d8276, -0.45, 1.4, [
-      new THREE.Vector3(4.0, 0.08, 5.5),
-      new THREE.Vector3(2.4, 0.08, 4.8),
-      new THREE.Vector3(4.8, 0.08, 3.8),
-    ]);
-    addVillager(-3.3, 0.08, 3.5, 0xd9d0c4, 0x5a4032, 0.65, 2.6, [
-      new THREE.Vector3(-3.3, 0.08, 3.5),
-      new THREE.Vector3(-3.6, 0.08, 5.4),
-      new THREE.Vector3(-1.6, 0.08, 4.0),
-    ]);
-    addVillager(5.8, 0.08, 2.2, 0xc4894a, 0xf5b942, -1.15, 3.8, [
-      new THREE.Vector3(5.8, 0.08, 2.2),
-      new THREE.Vector3(3.4, 0.08, 2.4),
-      new THREE.Vector3(5.2, 0.08, 4.0),
-    ]);
+    const loopPts = villageLoop.map(([x, z]) => new THREE.Vector3(x, 0.08, z));
+    const ringFrom = (start: number, dir: 1 | -1) => {
+      const n = loopPts.length;
+      return Array.from({ length: n }, (_, k) => loopPts[(start + dir * k + n * 4) % n]!);
+    };
+    const outfits: Array<[number, number, number]> = [
+      [0xc47a4a, 0x6b3e22, 0.2],
+      [0x4e9a52, 0x8d8276, 1.4],
+      [0xd9d0c4, 0x5a4032, 2.6],
+      [0xc4894a, 0xf5b942, 3.8],
+    ];
+    const patrols: Array<[number, 1 | -1]> = [
+      [0, 1],
+      [8, 1],
+      [4, -1],
+      [14, -1],
+    ];
+    outfits.forEach(([shirt, hat, phase], idx) => {
+      const [start, dir] = patrols[idx]!;
+      const pts = ringFrom(start, dir);
+      const p = pts[0]!;
+      addVillager(p.x, 0.08, p.z, shirt, hat, dir > 0 ? 0.4 : -0.4, phase, pts);
+    });
 
     // Upgrade villagers with the 1:1 Aria Voxel Engineer GLB model (with articulated joints & tools)
     const toolRoles: Array<"hammer" | "wrench" | "tablet" | "hammer"> = ["hammer", "wrench", "tablet", "hammer"];
-    let disposed = false;
     new GLTFLoader().load(
       "/models/aria-engineer.glb",
       (gltf) => {
@@ -912,8 +488,10 @@ export function LiveStageCanvas({
       return leg;
     };
     fox.add(foxBody, foxChest, foxHead, foxEarL, foxEarR, foxTail, foxTip, foxLeg(-0.22, 0.28), foxLeg(0.22, 0.28), foxLeg(-0.22, -0.22), foxLeg(0.22, -0.22));
-    const foxBase = new THREE.Vector3(-3.15, 0.08, 2.7);
+    const foxRoute = ringFrom(11, 1);
+    const foxBase = foxRoute[0]!.clone();
     fox.position.copy(foxBase);
+    let foxWp = 1;
     fox.scale.setScalar(1.15);
     islandGroup.add(fox);
     let foxHopUntil = 0;
@@ -933,9 +511,11 @@ export function LiveStageCanvas({
     beak.scale.set(0.12, 0.1, 0.16);
     beak.position.set(0, 0.48, 0.46);
     hen.add(henBody, henHead, comb, beak);
-    const henBase = new THREE.Vector3(0.15, 0.08, 2.85);
+    const henRoute = ringFrom(2, -1);
+    const henBase = henRoute[0]!.clone();
     hen.scale.setScalar(1.25);
     hen.position.copy(henBase);
+    let henWp = 1;
     islandGroup.add(hen);
     let henHopUntil = 0;
 
@@ -949,7 +529,7 @@ export function LiveStageCanvas({
     const wingR = wingL.clone();
     wingR.position.x = 0.22;
     bird.add(birdBody, wingL, wingR);
-    const birdBase = new THREE.Vector3(0.85, 4.55, 1.15);
+    const birdBase = new THREE.Vector3(-4.2, 4.7, 4.4);
     bird.scale.setScalar(1.7);
     bird.position.copy(birdBase);
     islandGroup.add(bird);
@@ -999,7 +579,7 @@ export function LiveStageCanvas({
         });
       }
     };
-    addVoxelCloud(-9.8, 2.2, 0.8, 1.2);
+    addVoxelCloud(-9.8, 5.8, 0.8, 1.2);
     addVoxelCloud(9.8, 3.1, -3.6, 1.25);
     addVoxelCloud(-8.8, -4.8, 5.2, 1.35);
     addVoxelCloud(8.6, -4.5, 4.8, 1.3);
@@ -1206,7 +786,9 @@ export function LiveStageCanvas({
     let frame = 0;
     let seenPhase = stateRef.current.round?.phase ?? "idle";
     let seenCelebration = stateRef.current.celebrations?.at(-1)?.id ?? null;
+    let seenStepCount = stateRef.current.round?.execution?.steps.length ?? 0;
     const targetFlag = new THREE.Color();
+    const mcpTargetColor = new THREE.Color();
 
     const animate = () => {
       frame += 1;
@@ -1217,7 +799,45 @@ export function LiveStageCanvas({
       targetFlag.setHex(pal.crystal);
       crystalMat.emissive.lerp(targetFlag, 0.05);
 
-      const phase = stateRef.current.round?.phase ?? "idle";
+      const round = stateRef.current.round;
+      const phase = round?.phase ?? "idle";
+      const agentActive = phase === "executing" || phase === "planning" || phase === "awaiting_approval";
+      const stepCount = round?.execution?.steps.length ?? 0;
+      if (stepCount > seenStepCount) {
+        seenStepCount = stepCount;
+        spark(0x38bdf8, { x: 2.3, y: 2.1, z: 3.2 }, 10);
+      } else if (stepCount < seenStepCount) {
+        seenStepCount = stepCount;
+      }
+
+      // Animate MCP Relay Beacon according to execution & agent connection state
+      const spinSpeed = phase === "executing" ? 3.2 : agentActive ? 1.8 : 0.8;
+      mcpCrystal.rotation.y = t * spinSpeed;
+      mcpCrystal.position.y = 2.15 + Math.sin(t * 2.4) * 0.08;
+      mcpTargetColor.setHex(phase === "executing" ? 0x38bdf8 : phase === "done" ? 0x34d399 : agentActive ? 0xc084fc : 0x7e22ce);
+      mcpCrystalMat.emissive.lerp(mcpTargetColor, 0.08);
+      mcpCrystalMat.emissiveIntensity = phase === "executing" ? 1.4 : agentActive ? 1.0 : 0.65;
+      const ringPhase = (t * (phase === "executing" ? 1.2 : 0.55)) % 1;
+      mcpRing.position.y = 1.7 + ringPhase * 0.72;
+      const ringScale = 0.8 + ringPhase * 0.9;
+      mcpRing.scale.set(ringScale, ringScale, 1);
+      mcpRingMat.opacity = (phase === "executing" || agentActive ? 0.65 : 0.25) * (1 - ringPhase);
+
+      // Animate left-side Ballot Totem bars from live ideas/votes
+      const ideas = round?.ideas.filter((i) => !i.hidden) ?? [];
+      const totalVotes = Math.max(1, round?.voters ?? 0);
+      ballotBars.forEach((bar, i) => {
+        const idea = ideas[i];
+        const frac = idea
+          ? phase === "voting" || phase === "planning" || phase === "awaiting_approval" || phase === "executing" || phase === "done"
+            ? Math.min(1, (idea.seconds + 1) / (totalVotes + 1))
+            : 0.45
+          : 0.14;
+        const targetH = 0.4 + frac * 2.6;
+        bar.scale.y += (targetH - bar.scale.y) * 0.12;
+        bar.position.y = 0.62 + bar.scale.y * 0.236;
+        ballotBarMats[i]!.emissiveIntensity = idea ? 0.95 : 0.22;
+      });
       if (phase !== seenPhase) {
         seenPhase = phase;
         spark(0xffb44c, { x: -0.75, y: 1.7, z: 2.2 }, 14);
@@ -1231,78 +851,35 @@ export function LiveStageCanvas({
         spark(0xf5b942, { x: fox.position.x, y: 1.1, z: fox.position.z }, 16);
       }
 
-      const collectingTargets = [
-        new THREE.Vector3(-1.8, 0.08, 5.0),
-        new THREE.Vector3(0.2, 0.08, 5.2),
-        new THREE.Vector3(-3.2, 0.08, 4.4),
-        new THREE.Vector3(2.2, 0.08, 4.8),
-      ];
-      const votingTargets = [
-        new THREE.Vector3(-1.4, 0.08, 4.0),
-        new THREE.Vector3(1.2, 0.08, 4.1),
-        new THREE.Vector3(-0.8, 0.08, 5.2),
-        new THREE.Vector3(1.0, 0.08, 5.1),
-      ];
-      const planningTargets = [
-        new THREE.Vector3(3.5, 0.08, 4.1),
-        new THREE.Vector3(4.9, 0.08, 4.3),
-        new THREE.Vector3(3.6, 0.08, 5.4),
-        new THREE.Vector3(4.9, 0.08, 5.4),
-      ];
-      const executingTargets = [
-        new THREE.Vector3(3.1, 0.08, 1.9),
-        new THREE.Vector3(4.2, 0.08, 5.5),
-        new THREE.Vector3(1.9, 0.08, 3.3),
-        new THREE.Vector3(5.6, 0.08, 1.8),
-      ];
-      const doneTargets = [
-        new THREE.Vector3(-1.6, 0.08, 4.8),
-        new THREE.Vector3(-0.2, 0.08, 5.1),
-        new THREE.Vector3(1.2, 0.08, 4.9),
-        new THREE.Vector3(2.6, 0.08, 4.6),
-      ];
+      const followRoute = (pos: THREE.Vector3, points: THREE.Vector3[], idx: number, speed: number) => {
+        let i = idx;
+        let goal = points[i % points.length]!;
+        if (Math.hypot(goal.x - pos.x, goal.z - pos.z) < 0.18) {
+          i = (i + 1) % points.length;
+          goal = points[i]!;
+        }
+        const dx = goal.x - pos.x;
+        const dz = goal.z - pos.z;
+        const dist = Math.hypot(dx, dz);
+        if (dist > 0.04) {
+          const stepDist = Math.min(dist, speed);
+          pos.x += (dx / dist) * stepDist;
+          pos.z += (dz / dist) * stepDist;
+        }
+        return { i, dx, dz, moving: dist > 0.12 };
+      };
 
       villagers.forEach((v, idx) => {
         const hopping = nowMs < v.hopUntil;
         const hop = hopping ? Math.sin(((v.hopUntil - nowMs) / 720) * Math.PI) * 0.42 : 0;
-        let goal: THREE.Vector3;
-        let facePoint: THREE.Vector3 | null = null;
-        if (phase === "collecting") {
-          goal = collectingTargets[idx % collectingTargets.length]!;
-          facePoint = new THREE.Vector3(goal.x, 0, goal.z + 3);
-        } else if (phase === "voting") {
-          goal = votingTargets[idx % votingTargets.length]!;
-          facePoint = new THREE.Vector3(0, 0, 4.6);
-        } else if (phase === "planning" || phase === "awaiting_approval") {
-          goal = planningTargets[idx % planningTargets.length]!;
-          facePoint = new THREE.Vector3(4.2, 0, 4.8);
-        } else if (phase === "executing") {
-          goal = executingTargets[idx % executingTargets.length]!;
-          facePoint = idx === 1 ? new THREE.Vector3(4.2, 0, 4.8) : new THREE.Vector3(4.5, 0, 0.8);
-        } else if (phase === "done") {
-          goal = doneTargets[idx % doneTargets.length]!;
-          facePoint = new THREE.Vector3(goal.x, 0, goal.z + 3);
-        } else {
-          goal = v.waypoints[v.wpIdx % v.waypoints.length]!;
-          if (Math.hypot(goal.x - v.group.position.x, goal.z - v.group.position.z) < 0.16) {
-            v.wpIdx = (v.wpIdx + 1) % v.waypoints.length;
-            goal = v.waypoints[v.wpIdx]!;
-          }
-        }
-
-        const dx = goal.x - v.group.position.x;
-        const dz = goal.z - v.group.position.z;
-        const dist = Math.hypot(dx, dz);
-        const moving = dist > 0.12;
+        const speed = phase === "done" || phase === "executing" ? 0.04 : 0.026;
+        const walk = followRoute(v.group.position, v.waypoints, v.wpIdx, speed);
+        v.wpIdx = walk.i;
+        const moving = walk.moving;
+        const dx = walk.dx;
+        const dz = walk.dz;
         if (moving) {
-          const speed = phase === "done" || phase === "executing" ? 0.045 : 0.022;
-          const stepDist = Math.min(dist, speed);
-          v.group.position.x += (dx / dist) * stepDist;
-          v.group.position.z += (dz / dist) * stepDist;
           const targetRot = Math.atan2(dx, dz);
-          v.group.rotation.y += Math.sin(targetRot - v.group.rotation.y) * 0.14;
-        } else if (facePoint) {
-          const targetRot = Math.atan2(facePoint.x - v.group.position.x, facePoint.z - v.group.position.z);
           v.group.rotation.y += Math.sin(targetRot - v.group.rotation.y) * 0.14;
         }
 
@@ -1331,15 +908,15 @@ export function LiveStageCanvas({
         }
       });
 
-      const foxWalk = Math.sin(t * 0.45);
-      fox.position.x = foxBase.x + foxWalk * 1.15;
-      fox.position.z = foxBase.z + Math.cos(t * 0.45) * 0.55;
-      fox.rotation.y = Math.atan2(Math.cos(t * 0.45) * 1.15, -Math.sin(t * 0.45) * 0.55);
+      const foxStep = followRoute(fox.position, foxRoute, foxWp, 0.046);
+      foxWp = foxStep.i;
+      if (foxStep.moving) fox.rotation.y = Math.atan2(foxStep.dx, foxStep.dz);
       fox.position.y = foxBase.y + (nowMs < foxHopUntil ? Math.sin(((foxHopUntil - nowMs) / 860) * Math.PI) * 0.38 : 0);
       foxTail.rotation.y = Math.sin(t * 5) * 0.45;
 
-      hen.position.x = henBase.x + Math.sin(t * 0.7) * 0.35;
-      hen.position.z = henBase.z + Math.cos(t * 0.55) * 0.2;
+      const henStep = followRoute(hen.position, henRoute, henWp, 0.02);
+      henWp = henStep.i;
+      if (henStep.moving) hen.rotation.y = Math.atan2(henStep.dx, henStep.dz);
       hen.position.y = henBase.y + (nowMs < henHopUntil ? Math.sin(((henHopUntil - nowMs) / 640) * Math.PI) * 0.28 : 0);
       henHead.rotation.x = Math.sin(t * 3.2) > 0.65 ? 0.45 : 0;
 

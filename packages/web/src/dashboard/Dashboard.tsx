@@ -77,7 +77,9 @@ function DashboardInner({ state, live, me, api, clockOffset = 0, onLogout }: Das
             clockOffset={clockOffset}
             onConnectAgent={() => setDrawer("agent")}
           />
+          <StatsStrip stats={state.stats} />
           <ActivityFeed activity={state.activity ?? []} />
+          <CoBuildersRoster coBuilders={state.coBuilders} />
           <CommandHelp />
         </div>
         <div className="grid__ideas">
@@ -171,7 +173,10 @@ export function LoginScreen({ configured }: { configured: boolean | null }) {
         </p>
         {configured === false ? (
           <>
-            <p className="callout callout--warn">Twitch isn't configured on this server yet.</p>
+            <p className="callout callout--warn">
+              This Aria server has no Twitch app yet. The person running the server finishes that once.
+              Streamers do not create a Twitch app.
+            </p>
             <SetupSteps />
           </>
         ) : (
@@ -179,12 +184,7 @@ export function LoginScreen({ configured }: { configured: boolean | null }) {
             <a className="btn btn--primary btn--lg btn--twitch" href="/auth/twitch/login">
               Connect Twitch
             </a>
-            {configured === null && (
-              <details className="details">
-                <summary>First time? Setup steps</summary>
-                <SetupSteps />
-              </details>
-            )}
+            <p className="muted">Aria links the Twitch account you sign in with. Nothing else to configure.</p>
           </>
         )}
       </div>

@@ -73,9 +73,33 @@ result.**
 
 ## Quick start
 
-Requires Node.js 20.11+ (22 recommended) and a Twitch account.
+### Connect your Twitch channel
 
-1. **Register a Twitch application** at <https://dev.twitch.tv/console/apps>:
+Open Aria Live Studio and click **Connect Twitch**. Sign in with the account
+you stream from. Aria links that channel: chat (`!idea`, `!vote`), the stream
+title, markers, and clips. That is the whole connection. You do not create a
+Twitch application, and you do not edit a config file.
+
+Each streamer does this once, in their own browser. Aria keeps the Twitch app
+on the server and uses it to authorize that person's channel. Viewers never
+open the studio. They stay in chat.
+
+After you are in:
+
+1. **Add the overlay to OBS.** On the dashboard, click **Overlay URL**, then in
+   OBS add a *Browser Source*, paste the URL, and set it to 1920 × 1080. The
+   background is transparent.
+2. **Connect your coding agent** (next section). Alternatively, the person
+   running the server can set `ARIA_LIVE_EXECUTOR` and `TARGET_REPO` so the
+   dashboard runs tasks itself in an isolated worktree.
+
+### Host Aria yourself
+
+Only the person running the server does this. Streamers who already have a
+URL skip it. Requires Node.js 20.11+ (22 recommended).
+
+1. **Register one Twitch application** for this deployment at
+   <https://dev.twitch.tv/console/apps>:
    - Name: `Aria Live Studio` (any unique name)
    - OAuth Redirect URL: `http://localhost:3000/auth/twitch/callback`
    - Category: **Chat Bot**
@@ -93,16 +117,11 @@ Requires Node.js 20.11+ (22 recommended) and a Twitch account.
    ```
 
    For development with hot reload, run `npm run dev` with
-   `WEB_DEV_URL=http://localhost:5173` in `.env`.
-3. **Sign in** at <http://localhost:3000> with the Twitch account you stream
-   from. Aria subscribes to your channel's chat (`channel.chat.message`); see
-   [Twitch integration](#twitch-integration) for the scopes it asks for.
-4. **Add the overlay to OBS.** On the dashboard, click **Overlay URL**, then in
-   OBS add a *Browser Source*, paste the URL, and set it to 1920 × 1080. The
-   background is transparent.
-5. **Connect your coding agent** (next section). Alternatively, set
-   `ARIA_LIVE_EXECUTOR` and `TARGET_REPO` to let the dashboard run tasks itself
-   in an isolated worktree.
+   `WEB_DEV_URL=http://localhost:5173` in `.env`. Leave `TWITCH_REDIRECT_URI`
+   empty unless the public URL is not `http://localhost:3000`; it defaults to
+   `{PUBLIC_URL}/auth/twitch/callback`. Restart after changing `.env`.
+3. Streamers then use [Connect your Twitch channel](#connect-your-twitch-channel).
+   The scopes Aria asks for are in [Twitch integration](#twitch-integration).
 
 ### Planning with a model
 
