@@ -23,6 +23,8 @@ export interface Config {
     apiBase: string;
     authBase: string;
     extensionSecret?: string;
+    botUserId?: string;
+    botAccessToken?: string;
   };
   dataDir: string;
   sessionSecret: string;
@@ -151,6 +153,8 @@ export function loadConfig(env: Env = process.env): Config {
       apiBase: stripSlash(str(env, "TWITCH_API_BASE") ?? "https://api.twitch.tv/helix"),
       authBase: stripSlash(str(env, "TWITCH_AUTH_BASE") ?? "https://id.twitch.tv/oauth2"),
       extensionSecret: str(env, "TWITCH_EXTENSION_SECRET"),
+      botUserId: str(env, "TWITCH_BOT_USER_ID"),
+      botAccessToken: str(env, "TWITCH_BOT_TOKEN"),
     },
     dataDir,
     sessionSecret,

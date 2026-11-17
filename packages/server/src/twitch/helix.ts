@@ -109,8 +109,8 @@ export class HelixClient implements EventSubApi {
     this.sleep = opts.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
   }
 
-  async request<T>(method: string, path: string, body?: unknown): Promise<T> {
-    let token = await this.tokens.getAccessToken();
+  async request<T>(method: string, path: string, body?: unknown, tokenOverride?: string): Promise<T> {
+    let token = tokenOverride ?? (await this.tokens.getAccessToken());
     let refreshed = false;
     let rateRetried = false;
     for (;;) {
@@ -125,7 +125,7 @@ export class HelixClient implements EventSubApi {
         body: body === undefined ? undefined : JSON.stringify(body),
         signal: AbortSignal.timeout(this.timeoutMs),
       });
-      if (res.status === 401 && !refreshed) {
+      if (res.status === 401 && !refreshed && !tokenOverride) {
         refreshed = true;
         await res.body?.cancel().catch(() => {});
         token = await this.tokens.refresh();
@@ -194,10 +194,11 @@ export class HelixClient implements EventSubApi {
     senderId: string,
     message: string,
     replyParentMessageId?: string,
+    tokenOverride?: string,
   ): Promise<SentChatMessage> {
     const body: Record<string, string> = { broadcaster_id: broadcasterId, sender_id: senderId, message };
     if (replyParentMessageId) body.reply_parent_message_id = replyParentMessageId;
-    const res = await this.request<{ data: SentChatMessage[] }>("POST", "/chat/messages", body);
+    const res = await this.request<{ data: SentChatMessage[] }>("POST", "/chat/messages", body, tokenOverride);
     const sent = res?.data?.[0];
     if (!sent) throw new HelixError(502, "Chat message response had no data");
     return sent;

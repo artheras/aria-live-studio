@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: aria-live-studio
+    runtime: docker
+    plan: starter
+    healthCheckPath: /healthz
+    disk:
+      name: aria-live-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: PORT
+        value: "3000"
+      - key: DATA_DIR
+        value: /data
+      - key: TRUST_PROXY
+        value: "1"
+      - key: PUBLIC_URL
+        sync: false
+      - key: TWITCH_CLIENT_ID
+        sync: false
+      - key: TWITCH_CLIENT_SECRET
+        sync: false
+      - key: ALLOWED_LOGINS
+        sync: false

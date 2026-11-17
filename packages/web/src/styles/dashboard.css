@@ -2379,3 +2379,87 @@ input[type="checkbox"] {
 .grid--workshop .panel--ideas {
   min-height: calc(100vh - 104px);
 }
+
+/* ── Stage Graphics Mode Switch (3D / Eco / 2D) & 2D Fallback ──────────── */
+.stage-perf-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.stage-perf-btn {
+  border: 0;
+  background: transparent;
+  color: var(--muted, #a1a1b5);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 9px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.14s ease, color 0.14s ease;
+}
+.stage-perf-btn:hover {
+  color: #fff;
+}
+.stage-perf-btn.is-active {
+  background: rgba(145, 70, 255, 0.35);
+  color: #f3ecff;
+  box-shadow: inset 0 0 0 1px rgba(167, 139, 250, 0.45);
+}
+.workshop-scene--2d {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: inherit;
+}
+.workshop-scene--2d .workshop-scene__art {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.stage-2d-badge {
+  position: absolute;
+  right: 14px;
+  bottom: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #e4dcff;
+  background: rgba(18, 14, 30, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  padding: 4px 10px;
+  border-radius: 999px;
+  backdrop-filter: blur(8px);
+}
+
+/* ── History Session Analytics Strip ───────────────────────────────────── */
+.analytics-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.analytics-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.analytics-stat__label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted, #9b9bb0);
+}
+.analytics-stat__val {
+  font-size: 22px;
+  font-weight: 700;
+  color: #f5f2ff;
+}
