@@ -92,18 +92,6 @@ function IdeaList({ round, api }: { round: Round; api: AriaApi }) {
         <p className="muted">
           Chat types <code>!idea your idea</code> to submit.
         </p>
-        {typeof api.demoSimulate === "function" && (
-          <div className="actions" style={{ justifyContent: "center", marginTop: 10 }}>
-            <Btn
-              size="sm"
-              variant="secondary"
-              disabled={isPending("demo:idea")}
-              onClick={() => run("demo:idea", () => api.demoSimulate("idea"))}
-            >
-              + Simulate !idea
-            </Btn>
-          </div>
-        )}
       </div>
     );
   }

@@ -677,31 +677,6 @@ export function RoundControl({ round, settings, me, api, clockOffset, onConnectA
           )}
         </div>
         {body}
-        {typeof api.demoSimulate === "function" && (
-          <details className="prompt-options demo-sandbox">
-            <summary>Demo Sandbox (local rehearsal)</summary>
-            <div className="actions demo-sandbox__actions">
-              {phase === "collecting" && (
-                <>
-                  <Btn size="sm" variant="secondary" disabled={pending} onClick={() => act(() => api.demoSimulate("idea"))}>
-                    + Simulate !idea
-                  </Btn>
-                  <Btn size="sm" variant="ghost" disabled={pending} onClick={() => act(() => api.demoSimulate("boost"))}>
-                    + Channel Points Boost
-                  </Btn>
-                </>
-              )}
-              {phase === "voting" && (
-                <Btn size="sm" variant="secondary" disabled={pending} onClick={() => act(() => api.demoSimulate("vote"))}>
-                  + Simulate !vote
-                </Btn>
-              )}
-              <Btn size="sm" variant="ghost" disabled={pending} onClick={() => act(() => api.demoSimulate("raid"))}>
-                Trigger Raid / Pet
-              </Btn>
-            </div>
-          </details>
-        )}
       </div>
     </section>
   );

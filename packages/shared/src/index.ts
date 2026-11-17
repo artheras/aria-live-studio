@@ -350,7 +350,6 @@ export const Api = {
   rejectTask: "POST /api/task/reject", // { note?: string }
   startExecution: "POST /api/execution/start", // {}
   cancelExecution: "POST /api/execution/cancel", // {}
-  demoSimulate: "POST /api/demo/simulate", // { action: "idea"|"vote"|"boost"|"raid" }
   // Coding-agent API (MCP bridge for Codex / Claude Code / Aria Code).
   // Authorization: Bearer AGENT_TOKEN. Agents can read, claim an APPROVED
   // task, report progress and finish it — never approve, reject or vote.
