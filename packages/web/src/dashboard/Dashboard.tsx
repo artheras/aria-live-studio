@@ -9,7 +9,7 @@ import { Header, Logo } from "./Header";
 import { IdeasPanel } from "./IdeasPanel";
 import { RoundControl } from "./RoundControl";
 import { SettingsForm } from "./SettingsDrawer";
-import { ActivityFeed, CommandHelp, StatsStrip } from "./Side";
+import { ActivityFeed, CoBuildersRoster, CommandHelp, StatsStrip } from "./Side";
 
 export interface DashboardViewProps {
   state: LiveState | null;
@@ -56,6 +56,7 @@ function DashboardInner({ state, live, me, api, clockOffset = 0, onLogout }: Das
         live={live}
         me={me}
         api={api}
+        agentStatus={state.agentStatus}
         onSettings={() => setDrawer("settings")}
         onAgent={() => setDrawer("agent")}
         onLogout={logout}
@@ -66,8 +67,7 @@ function DashboardInner({ state, live, me, api, clockOffset = 0, onLogout }: Das
         </p>
       )}
       <ScopeBanner connection={state.connection} />
-      <StatsStrip stats={state.stats} />
-      <main className="grid">
+      <main className="grid grid--workshop">
         <div className="grid__main">
           <RoundControl
             round={state.round}
@@ -77,13 +77,17 @@ function DashboardInner({ state, live, me, api, clockOffset = 0, onLogout }: Das
             clockOffset={clockOffset}
             onConnectAgent={() => setDrawer("agent")}
           />
-        </div>
-        <div className="grid__ideas">
-          <IdeasPanel round={state.round} api={api} maxIdeas={state.settings.maxIdeasPerRound} />
-        </div>
-        <div className="grid__side">
           <ActivityFeed activity={state.activity ?? []} />
           <CommandHelp />
+        </div>
+        <div className="grid__ideas">
+          <IdeasPanel
+            state={state}
+            round={state.round}
+            api={api}
+            maxIdeas={state.settings.maxIdeasPerRound}
+            onOpenSettings={() => setDrawer("settings")}
+          />
         </div>
       </main>
       <Drawer open={drawer === "settings"} title="Settings" onClose={close}>

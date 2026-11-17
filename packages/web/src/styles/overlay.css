@@ -13,6 +13,15 @@
   --ov-shadow: 0 2px 6px rgba(0, 0, 0, 0.55);
 }
 
+.ov-3d-corner {
+  position: absolute;
+  right: 40px;
+  bottom: 40px;
+  width: 520px;
+  height: 320px;
+  pointer-events: none;
+}
+
 .ov-anchor {
   position: absolute;
   left: 56px;
@@ -24,12 +33,25 @@
 .ov-card {
   position: relative;
   padding: 26px 30px 24px;
-  background: var(--ov-bg);
+  background: linear-gradient(180deg, rgba(24, 18, 38, 0.9), rgba(14, 10, 24, 0.92));
   border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(167, 139, 250, 0.36);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55), 0 0 36px rgba(145, 70, 255, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(14px);
   overflow: hidden;
   text-shadow: var(--ov-shadow);
+}
+.ov-stage-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #f3e8ff;
+}
+.ov-stage-title svg {
+  color: #b589ff;
 }
 .ov-card::before {
   content: "";
@@ -461,4 +483,88 @@
 }
 .ov-cobuilder b {
   color: #ffd166;
+}
+
+.ov-mods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.ov-mod {
+  font-family: var(--mono);
+  font-size: 13px;
+  padding: 3px 9px;
+  border-radius: 6px;
+  background: rgba(145, 70, 255, 0.16);
+  border: 1px solid rgba(145, 70, 255, 0.45);
+  color: #d8bfff;
+}
+.ov-lead-change {
+  display: inline-block;
+  margin-left: 12px;
+  vertical-align: middle;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  padding: 3px 9px;
+  border-radius: 6px;
+  background: rgba(255, 209, 102, 0.2);
+  border: 1px solid rgba(255, 209, 102, 0.65);
+  color: #ffd166;
+}
+.ov-card--overtake {
+  box-shadow: 0 0 0 1px rgba(255, 209, 102, 0.6), 0 18px 48px rgba(0, 0, 0, 0.55);
+}
+
+.ov-voxel-burst {
+  position: absolute;
+  top: 14px;
+  right: 18px;
+  width: 68px;
+  height: 44px;
+  pointer-events: none;
+}
+.ov-voxel {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  transform: rotate(45deg);
+  border-radius: 2px;
+  animation: ovVoxelPop 1.4s ease-out infinite alternate;
+}
+.ov-voxel--1 { top: 6px; right: 8px; background: #9146ff; }
+.ov-voxel--2 { top: 18px; right: 26px; width: 8px; height: 8px; background: #ffd166; animation-delay: 0.2s; }
+.ov-voxel--3 { top: 4px; right: 42px; width: 7px; height: 7px; background: #7dffc1; animation-delay: 0.4s; }
+.ov-voxel--4 { top: 26px; right: 10px; width: 6px; height: 6px; background: #b589ff; animation-delay: 0.6s; }
+@keyframes ovVoxelPop {
+  from { transform: rotate(45deg) translateY(0) scale(0.85); opacity: 0.65; }
+  to { transform: rotate(45deg) translateY(-6px) scale(1.1); opacity: 1; }
+}
+
+.ov-shrine-wrap {
+  margin-top: 10px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: transparent;
+}
+.ov-shrine {
+  display: block;
+  width: 100%;
+  height: 210px;
+  object-fit: cover;
+  object-position: center 62%;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 22%, #000 90%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 22%, #000 90%, transparent 100%);
+}
+.ov-done--showcase {
+  text-align: center;
+  background: rgba(20, 20, 32, 0.94);
+  box-shadow: 0 0 36px rgba(145, 70, 255, 0.28), 0 18px 48px rgba(0, 0, 0, 0.65);
+}
+.ov-done--showcase .ov-head,
+.ov-done--showcase .ov-built-for,
+.ov-done--showcase .ov-files,
+.ov-done--showcase .ov-cobuilders {
+  justify-content: center;
 }

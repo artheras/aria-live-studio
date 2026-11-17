@@ -124,10 +124,17 @@ export function createApi(getCsrf: () => string | null) {
       throw new ApiRequestError(200, "Server did not return agent connection details", "bad_response", data);
     },
     settings: (patchBody: Partial<Settings>) => patch("/api/settings", patchBody),
-    openRound: (prompt?: string) => post("/api/round/open", prompt ? { prompt } : {}),
+    openRound: (prompt?: string, modifiers?: string[]) =>
+      post("/api/round/open", {
+        ...(prompt ? { prompt } : {}),
+        ...(modifiers?.length ? { modifiers } : {}),
+      }),
     startVote: () => post("/api/round/vote"),
     closeVote: () => post("/api/round/close"),
     resetRound: () => post("/api/round/reset"),
+    revertRound: () => post<{ reverted: boolean; branch: string }>("/api/round/revert"),
+    mergeRound: () => post<{ merged: boolean; branch: string }>("/api/round/merge"),
+    roundDiff: () => request<{ branch: string; stat: string; diff: string }>("GET", "/api/round/diff"),
     hideIdea: (id: string, hidden: boolean) => post(`/api/ideas/${encodeURIComponent(id)}/hide`, { hidden }),
     planTask: () => post("/api/task/plan"),
     editTask: (edit: TaskEdit) => patch("/api/task", edit),
@@ -135,8 +142,6 @@ export function createApi(getCsrf: () => string | null) {
     rejectTask: (note?: string) => post("/api/task/reject", note ? { note } : {}),
     startExecution: () => post("/api/execution/start"),
     cancelExecution: () => post("/api/execution/cancel"),
-    demoSimulate: (action: "idea" | "vote" | "boost" | "raid", extra?: Record<string, unknown>) =>
-      post("/api/demo/simulate", { action, ...(extra ?? {}) }),
     logout: () => post("/auth/logout"),
   };
 }

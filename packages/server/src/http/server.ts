@@ -17,6 +17,8 @@
  * - /ws?role=dashboard: session cookie; /ws?role=overlay&key=OVERLAY_KEY.
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { createReadStream, existsSync, statSync } from "node:fs";
 import { extname, join, normalize, resolve, sep } from "node:path";
 import type { AddressInfo } from "node:net";
@@ -29,8 +31,11 @@ import { ServiceError, type LiveService } from "../live/service.ts";
 import type { Store } from "../live/store.ts";
 import { createMcpHttp } from "../mcp/http.ts";
 import { AuthError, safeEqual, type Session, type TwitchAuth } from "../twitch/auth.ts";
+import { verifyExtensionJwt, type ExtensionJwtClaims } from "../twitch/extension.ts";
+import { overlaySnapshot } from "./redact.ts";
 import { WsHub } from "./ws.ts";
 
+const execFileAsync = promisify(execFile);
 export const BODY_LIMIT = 64 * 1024;
 const MAX_WAIT_SEC = 60;
 
@@ -238,12 +243,67 @@ export function createApp(deps: AppDeps): App {
     if (body.prompt !== undefined && typeof body.prompt !== "string") {
       throw new HttpError(400, "bad_input", "prompt must be a string");
     }
-    service.openRound((body.prompt as string | undefined) ?? "");
+    if (body.modifiers !== undefined && (!Array.isArray(body.modifiers) || body.modifiers.some((m) => typeof m !== "string"))) {
+      throw new HttpError(400, "bad_input", "modifiers must be an array of strings");
+    }
+    service.openRound((body.prompt as string | undefined) ?? "", undefined, body.modifiers as string[] | undefined);
     return engine.state.round;
   });
   route("POST /api/round/vote", "session", () => engine.startVote());
   route("POST /api/round/close", "session", () => engine.closeVote());
   route("POST /api/round/reset", "session", () => ({ archived: service.resetRound() }));
+  const requireRoundBranch = () => {
+    const branch = engine.state.round?.execution?.branch;
+    if (!branch) throw new HttpError(409, "no_branch", "No branch recorded for this round");
+    if (!/^[a-zA-Z0-9._/-]+$/.test(branch) || branch.includes("..") || branch.startsWith("-")) {
+      throw new HttpError(400, "bad_branch", "Invalid branch name");
+    }
+    return { branch, cwd: config.executor.targetRepo ?? REPO_ROOT };
+  };
+
+  route("POST /api/round/revert", "session", async () => {
+    const { branch, cwd } = requireRoundBranch();
+    try {
+      await execFileAsync("git", ["worktree", "prune"], { cwd });
+      await execFileAsync("git", ["branch", "-D", branch], { cwd });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (!/not found/i.test(msg)) {
+        throw new HttpError(500, "revert_failed", `Could not delete branch ${branch}: ${msg}`);
+      }
+    }
+    service.resetRound();
+    return { reverted: true, branch };
+  });
+
+  route("POST /api/round/merge", "session", async () => {
+    const { branch, cwd } = requireRoundBranch();
+    try {
+      await execFileAsync("git", ["merge", "--no-ff", branch, "-m", `Merge ${branch} from Aria Live Studio`], { cwd });
+    } catch (err) {
+      await execFileAsync("git", ["merge", "--abort"], { cwd }).catch(() => {});
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new HttpError(409, "merge_conflict", `Could not merge ${branch}: ${msg}`);
+    }
+    await execFileAsync("git", ["worktree", "prune"], { cwd }).catch(() => {});
+    await execFileAsync("git", ["branch", "-d", branch], { cwd }).catch(() => {});
+    service.resetRound();
+    return { merged: true, branch };
+  });
+
+  route("GET /api/round/diff", "session", async () => {
+    const { branch, cwd } = requireRoundBranch();
+    try {
+      const [{ stdout: stat }, { stdout: diff }] = await Promise.all([
+        execFileAsync("git", ["diff", `HEAD...${branch}`, "--stat"], { cwd }),
+        execFileAsync("git", ["diff", `HEAD...${branch}`], { cwd }),
+      ]);
+      return { branch, stat: stat.trim(), diff: diff.slice(0, 8000) };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new HttpError(500, "diff_failed", `Could not read diff for ${branch}: ${msg}`);
+    }
+  });
   route("POST /api/ideas/:id/hide", "session", ({ params, body }) => {
     if (typeof body.hidden !== "boolean") throw new HttpError(400, "bad_input", "hidden must be a boolean");
     return engine.hideIdea(params.id!, body.hidden);
@@ -264,39 +324,6 @@ export function createApp(deps: AppDeps): App {
   route("POST /api/execution/cancel", "session", () => {
     service.cancelExecution();
     return engine.state.round?.execution ?? null;
-  });
-  route("POST /api/demo/simulate", "session", ({ session, body }) => {
-    const action = typeof body.action === "string" ? body.action : "idea";
-    const demoUser = {
-      id: `demo_${Math.floor(Math.random() * 900 + 100)}`,
-      login: "demo_viewer",
-      displayName: "DemoViewer",
-    };
-    if (action === "idea") {
-      const sampleIdeas = [
-        "Add a boss fight with laser hazards",
-        "Add live confetti burst when chat hits 10 votes",
-        "Show dark-mode neon theme toggle",
-        "Add combo multiplier sound & HUD counter",
-      ];
-      const text = typeof body.text === "string" && body.text.trim()
-        ? body.text
-        : sampleIdeas[Math.floor(Math.random() * sampleIdeas.length)]!;
-      return engine.submitIdea(demoUser, text, "viewer");
-    }
-    if (action === "vote") {
-      const n = typeof body.number === "number" ? body.number : 1;
-      return engine.castVote(demoUser, n, "viewer");
-    }
-    if (action === "boost") {
-      const n = typeof body.number === "number" ? body.number : 1;
-      return engine.boostIdea(demoUser, n, 2, "channel_points");
-    }
-    if (action === "raid") {
-      const raider = session?.user ?? demoUser;
-      return engine.recordCelebration("raid", raider, `${raider.displayName} raided with 42 viewers!`, 42);
-    }
-    throw new HttpError(400, "bad_input", "action must be idea, vote, boost, or raid");
   });
 
   // ── coding-agent API ──
@@ -360,6 +387,43 @@ export function createApp(deps: AppDeps): App {
     service.agent.complete(body);
     res.writeHead(204).end();
     return undefined;
+  });
+
+  // ── Twitch Extension EBS endpoints (JWT signed with TWITCH_EXTENSION_SECRET) ──
+  const extClaims = (req: IncomingMessage, res: ServerResponse): ExtensionJwtClaims => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    const secret = config.twitch.extensionSecret;
+    if (!secret) throw new HttpError(503, "ext_disabled", "TWITCH_EXTENSION_SECRET is not configured");
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+    const claims = verifyExtensionJwt(token, secret);
+    if (!claims) throw new HttpError(401, "unauthorized", "Invalid Twitch Extension JWT");
+    return claims;
+  };
+
+  route("GET /api/ext/state", "optional", ({ req, res }) => {
+    extClaims(req, res);
+    return overlaySnapshot(engine.state);
+  });
+
+  route("POST /api/ext/idea", "optional", ({ req, res, body }) => {
+    const claims = extClaims(req, res);
+    const text = typeof body.text === "string" ? body.text.trim() : "";
+    if (!text) throw new HttpError(400, "bad_input", "text is required");
+    const login = claims.userId ? `twitch_${claims.userId}` : claims.opaqueUserId.toLowerCase();
+    const user = { id: claims.userId ?? claims.opaqueUserId, login, displayName: login };
+    return engine.submitIdea(user, text, claims.role);
+  });
+
+  route("POST /api/ext/vote", "optional", ({ req, res, body }) => {
+    const claims = extClaims(req, res);
+    const num = Number(body.number);
+    if (!Number.isInteger(num) || num < 1) throw new HttpError(400, "bad_input", "number must be a positive integer");
+    const login = claims.userId ? `twitch_${claims.userId}` : claims.opaqueUserId.toLowerCase();
+    const user = { id: claims.userId ?? claims.opaqueUserId, login, displayName: login };
+    return engine.castVote(user, num, claims.role);
   });
 
   const mcp = createMcpHttp({ config, service, store, allowedOrigins, takeProgress: () => progressLimiter.take() });

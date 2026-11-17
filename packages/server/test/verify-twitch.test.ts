@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { TWITCH_SCOPES } from "@aria-live/shared";
 import { formatReport, verifyTwitch, type VerifyOptions } from "../src/twitch/verify.ts";
 
-const ALL = ["user:read:chat", "user:write:chat", "channel:manage:broadcast", "clips:edit"];
+const ALL = [...TWITCH_SCOPES];
 
 interface Fake {
   live?: boolean;

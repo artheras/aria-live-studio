@@ -19,7 +19,9 @@ export interface FetchCall {
   body: string;
 }
 
-export const ALL_SCOPES = ["user:read:chat", "user:write:chat", "channel:manage:broadcast", "clips:edit"];
+import { TWITCH_SCOPES } from "@aria-live/shared";
+
+export const ALL_SCOPES = [...TWITCH_SCOPES];
 
 export class FakeTwitch {
   calls: FetchCall[] = [];

@@ -107,7 +107,13 @@ export class TwitchExtras {
     return this.deps.engine;
   }
 
+  private offlineNoted = false;
+
   private note(text: string): void {
+    if (text === "Markers skipped: the channel is offline") {
+      if (this.offlineNoted) return;
+      this.offlineNoted = true;
+    }
     try {
       this.engine.note("system", text);
     } catch {
@@ -222,6 +228,7 @@ export class TwitchExtras {
         const list = this.made.get(roundId) ?? [];
         list.push(marker);
         this.made.set(roundId, list);
+        this.offlineNoted = false;
         this.engine.addMarker(roundId, marker);
       } catch (err) {
         this.markersOff.add(roundId);

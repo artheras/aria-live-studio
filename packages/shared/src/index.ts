@@ -14,6 +14,7 @@ export interface TwitchUser {
   id: string;
   login: string;
   displayName: string;
+  avatarUrl?: string;
 }
 
 export type ChatRole = "broadcaster" | "moderator" | "vip" | "subscriber" | "viewer";
@@ -81,6 +82,8 @@ export interface Round {
   openedAt: number;
   /** Optional theme the streamer gives the round ("features for the boss fight"). */
   prompt: string;
+  /** Optional creative constraints/buffs selected for this round (e.g. "Speedrun MVP"). */
+  modifiers?: string[];
   ideas: Idea[];
   /** Idea ids frozen into the ballot when voting starts, in ballot order. */
   candidates: string[];
@@ -188,10 +191,22 @@ export interface Connection {
   scopes: string[];
   /** Scopes from `TWITCH_SCOPES` the token lacks (reconnect to grant them). */
   missingScopes: string[];
+  /** Live stream status & viewer count from Twitch Helix (when live). */
+  isLive?: boolean;
+  viewerCount?: number | null;
+  streamTitle?: string | null;
 }
 
 /** Everything the studio asks for at login, and what each one is for. */
-export const TWITCH_SCOPES = ["user:read:chat", "user:write:chat", "channel:manage:broadcast", "clips:edit"] as const;
+export const TWITCH_SCOPES = [
+  "user:read:chat",
+  "user:write:chat",
+  "channel:manage:broadcast",
+  "clips:edit",
+  "channel:read:redemptions",
+  "bits:read",
+  "channel:read:subscriptions",
+] as const;
 export type TwitchScope = (typeof TWITCH_SCOPES)[number];
 
 /** Scopes each optional Twitch feature needs. */
@@ -224,6 +239,10 @@ export interface Settings {
   streamMarkers: boolean;
   /** Clip the last ~30 s when a build succeeds (clips:edit). */
   autoClip: boolean;
+  /** Automatically open a round when Twitch EventSub reports stream.online. */
+  autoOpenOnStreamOnline?: boolean;
+  /** OBS Overlay density ("standard" | "compact"). */
+  overlayDensity?: "standard" | "compact";
 }
 
 // ── Activity feed (what scrolls on the dashboard) ────────────────────────
@@ -276,6 +295,8 @@ export interface LiveState {
   celebrations?: StreamCelebration[];
   /** Top viewers whose winning ideas were successfully shipped. */
   coBuilders?: CoBuilder[];
+  /** Latest connected MCP coding agent heartbeat. */
+  agentStatus?: { name: string; lastSeenAt: number } | null;
   stats: {
     rounds: number;
     ideas: number;
@@ -298,6 +319,7 @@ export interface RoundSummary {
   openedAt: number;
   closedAt: number | null;
   prompt: string;
+  modifiers?: string[];
   ideaCount: number;
   voters: number;
   winner: { number: number; text: string; author: TwitchUser; votes: number } | null;
@@ -328,7 +350,6 @@ export const Api = {
   rejectTask: "POST /api/task/reject", // { note?: string }
   startExecution: "POST /api/execution/start", // {}
   cancelExecution: "POST /api/execution/cancel", // {}
-  demoSimulate: "POST /api/demo/simulate", // { action: "idea"|"vote"|"boost"|"raid" }
   // Coding-agent API (MCP bridge for Codex / Claude Code / Aria Code).
   // Authorization: Bearer AGENT_TOKEN. Agents can read, claim an APPROVED
   // task, report progress and finish it — never approve, reject or vote.

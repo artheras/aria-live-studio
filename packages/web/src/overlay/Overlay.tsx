@@ -1,10 +1,12 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Eligibility, LiveState, Round } from "@aria-live/shared";
 import { COMMANDS } from "@aria-live/shared";
 import { executorInfo } from "../lib/agents";
 import { ballotNumber, computeBallot, winnerIdea } from "../lib/round";
+import { playCue } from "../lib/sound";
 import { duration, truncate, useNow } from "../lib/time";
 import { useLive } from "../lib/useLive";
+import { LiveStageCanvas } from "../dashboard/LiveStageCanvas";
 import "../styles/overlay.css";
 
 function Ring({ endsAt, totalSec, now }: { endsAt: number; totalSec: number; now: number }) {
@@ -65,13 +67,50 @@ function Header({ round, label, only }: { round: Round; label: string; only?: El
 function OverlayCard({ state, now }: { state: LiveState; now: number }) {
   const round = state.round;
   const phase = round?.phase ?? "idle";
+  const prevLeaderRef = useRef<string | null>(null);
+  const prevPhaseRef = useRef<string>(phase);
+  const [leadChange, setLeadChange] = useState(false);
+
+  const votingLeaderId = useMemo(() => {
+    if (!round || phase !== "voting") return null;
+    return computeBallot(round, false).find((r) => r.isLeader && r.votes > 0)?.idea.id ?? null;
+  }, [round, phase]);
+
+  useEffect(() => {
+    if (phase !== "voting") {
+      prevLeaderRef.current = null;
+      setLeadChange(false);
+      return;
+    }
+    if (votingLeaderId && prevLeaderRef.current && prevLeaderRef.current !== votingLeaderId) {
+      setLeadChange(true);
+      playCue("lead_change");
+      const timer = setTimeout(() => setLeadChange(false), 3500);
+      prevLeaderRef.current = votingLeaderId;
+      return () => clearTimeout(timer);
+    }
+    if (votingLeaderId) prevLeaderRef.current = votingLeaderId;
+  }, [phase, votingLeaderId]);
+
+  useEffect(() => {
+    if (phase === "done" && prevPhaseRef.current !== "done" && round?.execution?.status === "succeeded") {
+      playCue("shipped");
+    }
+    prevPhaseRef.current = phase;
+  }, [phase, round?.execution?.status]);
 
   if (!round || phase === "idle") {
     return (
-      <div className="ov-card ov-card--small" data-phase="idle">
-        <span className="ov-brand">Aria Live</span>
+      <div className="ov-card ov-card--small ov-card--stage" data-phase="idle">
+        <span className="ov-stage-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 2l2.1 6.9L21 11l-6.9 2.1L12 20l-2.1-6.9L3 11l6.9-2.1L12 2z" />
+          </svg>
+          Interactive Stage
+        </span>
+        <span className="ov-sep" />
         <p className="ov-small">
-          Type <b>{COMMANDS.idea} &lt;your idea&gt;</b> when a round opens
+          Build. Chat. Shape the scene — Type <b>{COMMANDS.idea} &lt;your idea&gt;</b> when a round opens
         </p>
       </div>
     );
@@ -86,6 +125,15 @@ function OverlayCard({ state, now }: { state: LiveState; now: number }) {
         <div className="ov-card" data-phase="collecting">
           <Header round={round} label="Ideas open" only={state.settings.ideaEligibility} />
           <h1 className="ov-title">{round.prompt ? truncate(round.prompt, 70) : "What should we build next?"}</h1>
+          {round.modifiers?.length ? (
+            <div className="ov-mods">
+              {round.modifiers.map((m) => (
+                <span key={m} className="ov-mod">
+                  // {m}
+                </span>
+              ))}
+            </div>
+          ) : null}
           <p className="ov-cta">
             Type <b>{COMMANDS.idea} &lt;your idea&gt;</b> in chat
             {visible.length > 0 && (
@@ -113,13 +161,23 @@ function OverlayCard({ state, now }: { state: LiveState; now: number }) {
     case "voting": {
       const rows = computeBallot(round, false);
       return (
-        <div className="ov-card" data-phase="voting">
+        <div className={`ov-card ${leadChange ? "ov-card--overtake" : ""}`} data-phase="voting">
           <div className="ov-row">
             <div className="ov-grow">
               <Header round={round} label="Vote now" only={state.settings.voteEligibility} />
               <h1 className="ov-title">
                 Type <b>{COMMANDS.vote} &lt;number&gt;</b>
+                {leadChange && <span className="ov-lead-change">LEAD CHANGE</span>}
               </h1>
+              {round.modifiers?.length ? (
+                <div className="ov-mods">
+                  {round.modifiers.map((m) => (
+                    <span key={m} className="ov-mod">
+                      // {m}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
             </div>
             {round.votingEndsAt && <Ring endsAt={round.votingEndsAt} totalSec={state.settings.voteDurationSec} now={now} />}
           </div>
@@ -221,12 +279,22 @@ function OverlayCard({ state, now }: { state: LiveState; now: number }) {
       const w = winnerIdea(round);
       const winnerLogin = w?.author.login.toLowerCase();
       const winnerRecord = winnerLogin ? state.coBuilders?.find((b) => b.login === winnerLogin) : undefined;
-      const topBuilders = state.coBuilders?.slice(0, 3) ?? [];
+      const compact = state.settings.overlayDensity === "compact";
+      const topBuilders = compact ? [] : state.coBuilders?.slice(0, 3) ?? [];
       return (
-        <div className={`ov-card ov-done ov-done--${tone}`} data-phase="done">
-          <Header round={round} label="Result" />
-          <h1 className="ov-title">{text}</h1>
-          {round.task && <p className="ov-sub">{truncate(round.task.title, 70)}</p>}
+        <div className={`ov-card ov-done ov-done--${tone} ${compact ? "ov-card--compact" : "ov-done--showcase"}`} data-phase="done">
+          {!compact && ok && (
+            <div className="ov-voxel-burst" aria-hidden="true">
+              <span className="ov-voxel ov-voxel--1" />
+              <span className="ov-voxel ov-voxel--2" />
+              <span className="ov-voxel ov-voxel--3" />
+              <span className="ov-voxel ov-voxel--4" />
+            </div>
+          )}
+          <Header round={round} label={ok ? "Building complete" : "Result"} />
+          <h1 className="ov-title">{ok && round.task?.title ? truncate(round.task.title, 54) : text}</h1>
+          {ok && round.task?.title && <p className="ov-sub">{text}</p>}
+          {!ok && round.task && <p className="ov-sub">{truncate(round.task.title, 70)}</p>}
           {w && !w.hidden && (
             <p className="ov-built-for">
               Built for <strong>@{w.author.displayName || w.author.login}</strong>
@@ -243,7 +311,12 @@ function OverlayCard({ state, now }: { state: LiveState; now: number }) {
               ))}
             </ul>
           ) : null}
-          {ok && ex?.previewUrl && (
+          {!compact && ok && !ex?.previewUrl && (
+            <div className="ov-shrine-wrap">
+              <img className="ov-shrine" src="/art/voxel-shrine.jpg" alt="" aria-hidden="true" />
+            </div>
+          )}
+          {!compact && ok && ex?.previewUrl && (
             <div className="ov-preview-wrap">
               <iframe
                 className="ov-preview"
@@ -288,10 +361,12 @@ export function OverlayView({
   state,
   connected,
   clockOffset = 0,
+  stageMode = false,
 }: {
   state: LiveState | null;
   connected: boolean;
   clockOffset?: number;
+  stageMode?: boolean;
 }) {
   const now = useNow(500) + clockOffset;
   if (!state) return null;
@@ -301,6 +376,11 @@ export function OverlayView({
     .at(-1);
   return (
     <div className="ov-stage">
+      {stageMode && (
+        <div className="ov-3d-corner" aria-hidden="true">
+          <LiveStageCanvas state={state} transparent />
+        </div>
+      )}
       {activeCelebration && (
         <div className={`ov-celebration ov-celebration--${activeCelebration.kind}`} key={activeCelebration.id}>
           <span className="ov-celebration__tag">{activeCelebration.kind.replace("_", " ")}</span>
@@ -316,7 +396,9 @@ export function OverlayView({
 }
 
 export function OverlayPage() {
-  const key = useMemo(() => new URLSearchParams(window.location.search).get("key"), []);
+  const params = useMemo(() => new URLSearchParams(window.location.search), []);
+  const key = params.get("key");
+  const stageMode = params.get("mode") === "stage";
   useEffect(() => {
     document.documentElement.classList.add("is-overlay");
     if (!key) console.warn("[aria-overlay] Missing ?key=… — copy the Overlay URL from the dashboard.");
@@ -330,5 +412,12 @@ export function OverlayPage() {
       console.warn("[aria-overlay] Can't connect — is the server running and the overlay key correct?"),
   });
   if (!key) return null;
-  return <OverlayView state={live.state} connected={live.status === "open"} clockOffset={live.clockOffset} />;
+  return (
+    <OverlayView
+      state={live.state}
+      connected={live.status === "open"}
+      clockOffset={live.clockOffset}
+      stageMode={stageMode}
+    />
+  );
 }

@@ -1,6 +1,7 @@
+import { useState } from "react";
 import type { Activity, LiveState } from "@aria-live/shared";
 import { COMMANDS, EXTEND_MAX_SEC, EXTEND_MIN_SEC, MOD_COMMANDS } from "@aria-live/shared";
-import { clock } from "../lib/time";
+import { timeAgo, useNow } from "../lib/time";
 
 const KIND: Record<Activity["kind"], { label: string; icon: string }> = {
   idea: { label: "Idea", icon: "+" },
@@ -13,12 +14,34 @@ const KIND: Record<Activity["kind"], { label: string; icon: string }> = {
   system: { label: "System", icon: "i" },
 };
 
+type FeedFilter = "all" | "ideas" | "votes" | "builds";
+
 export function ActivityFeed({ activity }: { activity: Activity[] }) {
-  const items = activity.slice(-150).reverse();
+  const now = useNow(15_000);
+  const [filter, setFilter] = useState<FeedFilter>("all");
+  const raw = activity.slice(-150).reverse();
+  const items = raw.filter((a) => {
+    if (filter === "all") return true;
+    if (filter === "ideas") return a.kind === "idea" || a.kind === "idea_duplicate";
+    if (filter === "votes") return a.kind === "vote";
+    return a.kind === "round" || a.kind === "task" || a.kind === "execution";
+  });
   return (
     <section className="panel panel--activity" aria-labelledby="activity-h">
       <header className="panel__head">
-        <h2 id="activity-h">Activity</h2>
+        <h2 id="activity-h">Activity Feed</h2>
+        <div className="feed-filters" role="group" aria-label="Filter activity">
+          {(["all", "ideas", "votes", "builds"] as const).map((f) => (
+            <button
+              key={f}
+              type="button"
+              className={`feed-filter ${filter === f ? "is-active" : ""}`}
+              onClick={() => setFilter(f)}
+            >
+              {f[0]!.toUpperCase() + f.slice(1)}
+            </button>
+          ))}
+        </div>
       </header>
       <div className="panel__body panel__body--scroll">
         {items.length === 0 ? (
@@ -29,7 +52,7 @@ export function ActivityFeed({ activity }: { activity: Activity[] }) {
               const k = KIND[a.kind] ?? KIND.system;
               return (
                 <li key={a.id} className={`feed__item feed__item--${a.kind}`}>
-                  <span className="feed__icon" aria-hidden="true">
+                  <span className={`feed__icon feed__icon--${a.kind}`} aria-hidden="true">
                     {k.icon}
                   </span>
                   <div className="feed__body">
@@ -39,7 +62,7 @@ export function ActivityFeed({ activity }: { activity: Activity[] }) {
                       {a.text}
                     </p>
                   </div>
-                  <time className="feed__at num">{clock(a.at)}</time>
+                  <time className="feed__at num">{timeAgo(a.at, now)}</time>
                 </li>
               );
             })}
@@ -66,6 +89,27 @@ export function StatsStrip({ stats }: { stats: LiveState["stats"] }) {
         </div>
       ))}
     </dl>
+  );
+}
+
+export function CoBuildersRoster({ coBuilders }: { coBuilders: LiveState["coBuilders"] }) {
+  if (!coBuilders?.length) return null;
+  return (
+    <section className="panel panel--cobuilders" aria-labelledby="cobuilders-h">
+      <header className="panel__head">
+        <h2 id="cobuilders-h">Co-Builders</h2>
+        <span className="muted num">{coBuilders.length}</span>
+      </header>
+      <ol className="cobuilders">
+        {coBuilders.slice(0, 5).map((b, i) => (
+          <li key={b.login} className="cobuilder-row">
+            <span className="cobuilder-row__rank num">{String(i + 1).padStart(2, "0")}</span>
+            <span className="cobuilder-row__name">@{b.displayName || b.login}</span>
+            <span className="cobuilder-row__count num">{b.shipped} shipped</span>
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
 

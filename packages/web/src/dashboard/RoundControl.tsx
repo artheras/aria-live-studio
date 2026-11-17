@@ -7,6 +7,7 @@ import { clock, duration, useNow } from "../lib/time";
 import { executorInfo } from "../lib/agents";
 import { Btn, Spinner, useActions } from "./actions";
 import { TaskCard, TaskEditor } from "./TaskCard";
+import { isSfxEnabled, playCue, setSfxEnabled } from "../lib/sound";
 
 const KEY = "round";
 
@@ -34,6 +35,7 @@ export function PhaseStepper({ round }: { round: Round | null }) {
 }
 
 const THEME_PRESETS = ["Boss fight mechanic", "UI & animations", "Sound effects", "Mini-game"];
+const ROUND_MODIFIERS = ["Speedrun MVP", "Extra Juice", "Retro Pixel", "Sound & VFX"];
 
 function PromptForm({
   label,
@@ -41,44 +43,89 @@ function PromptForm({
   pending,
 }: {
   label: string;
-  onSubmit: (prompt: string) => void;
+  onSubmit: (prompt: string, modifiers: string[]) => void;
   pending: boolean;
 }) {
   const [prompt, setPrompt] = useState("");
+  const [modifiers, setModifiers] = useState<string[]>([]);
+
+  const toggleMod = (mod: string) => {
+    setModifiers((prev) =>
+      prev.includes(mod) ? prev.filter((m) => m !== mod) : prev.length < 3 ? [...prev, mod] : prev,
+    );
+  };
+
   return (
     <div className="prompt-wrap">
       <form
-        className="prompt-form"
+        className="prompt-form prompt-form--stacked"
         onSubmit={(e) => {
           e.preventDefault();
-          onSubmit(prompt.trim());
+          onSubmit(prompt.trim(), modifiers);
         }}
       >
         <label className="field field--grow">
-          <span>Theme for this round (optional)</span>
-          <input
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            placeholder="e.g. features for the boss fight"
-            maxLength={140}
-          />
+          <span className="field__eyebrow">Round theme (optional)</span>
+          <span className="field-input-wrap">
+            <svg className="field-input-wrap__icon" width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 2l2.1 6.9L21 11l-6.9 2.1L12 20l-2.1-6.9L3 11l6.9-2.1L12 2z" />
+            </svg>
+            <input
+              id="round-theme-input"
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              placeholder="e.g., Floating Islands, Boss fight mechanic..."
+              maxLength={140}
+            />
+          </span>
+          <span className="field__hint">This sets the vibe for your community build.</span>
         </label>
-        <Btn type="submit" variant="primary" size="lg" pending={pending}>
+        <Btn type="submit" variant="primary" size="lg" pending={pending} className="btn--full">
           {label}
         </Btn>
       </form>
-      <div className="theme-chips" aria-label="Theme presets">
-        {THEME_PRESETS.map((preset) => (
-          <button
-            key={preset}
-            type="button"
-            className="theme-chip"
-            onClick={() => setPrompt(preset)}
-          >
-            {preset}
-          </button>
-        ))}
-      </div>
+      <p className="muted prompt-caption">
+        <svg className="prompt-caption__icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+          <path d="M12 2l7 3v6c0 5-3.5 9-7 11-3.5-2-7-6-7-11V5l7-3z" />
+          <path d="M9.5 12l2 2 3.5-3.5" />
+        </svg>
+        Your round will be live for your community to join and build.
+      </p>
+      <details className="prompt-options">
+        <summary>Presets &amp; round rules{modifiers.length ? ` (${modifiers.length} active)` : ""}</summary>
+        <div className="prompt-options__body">
+          <div className="theme-chips" aria-label="Theme presets">
+            {THEME_PRESETS.map((preset) => (
+              <button
+                key={preset}
+                type="button"
+                className="theme-chip"
+                onClick={() => setPrompt(preset)}
+              >
+                {preset}
+              </button>
+            ))}
+          </div>
+          <div className="modifier-strip" aria-label="Round rules">
+            <span className="modifier-strip__label">Rules</span>
+            {ROUND_MODIFIERS.map((mod) => {
+              const active = modifiers.includes(mod);
+              return (
+                <button
+                  key={mod}
+                  type="button"
+                  className={`modifier-switch ${active ? "is-active" : ""}`}
+                  aria-pressed={active}
+                  onClick={() => toggleMod(mod)}
+                >
+                  <span className="modifier-switch__dot" aria-hidden="true" />
+                  {mod}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </details>
     </div>
   );
 }
@@ -229,6 +276,8 @@ export function RoundControl({ round, settings, me, api, clockOffset, onConnectA
   const [editing, setEditing] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   const [note, setNote] = useState("");
+  const [diffText, setDiffText] = useState<string | null>(null);
+  const [sfx, setSfx] = useState(() => isSfxEnabled());
   const now = useNow(1000) + clockOffset;
 
   const phase = round?.phase ?? "idle";
@@ -240,14 +289,16 @@ export function RoundControl({ round, settings, me, api, clockOffset, onConnectA
     setEditing(false);
     setRejecting(false);
     setNote("");
+    setDiffText(null);
   }, [phase, taskId]);
 
   const act = (fn: () => Promise<unknown>, success?: string) => run(KEY, fn, { success });
 
-  const openRound = async (prompt: string) => {
+  const openRound = async (prompt: string, modifiers: string[] = []) => {
     await act(async () => {
       try {
-        await api.openRound(prompt || undefined);
+        await api.openRound(prompt || undefined, modifiers.length ? modifiers : undefined);
+        playCue("open");
       } catch (err) {
         // From done/rejected, the server may want an explicit reset first.
         if (err instanceof ApiRequestError && err.code === "wrong_phase" && phase !== "idle") {
@@ -276,7 +327,7 @@ export function RoundControl({ round, settings, me, api, clockOffset, onConnectA
     title = "Ready for a new round";
     body = (
       <>
-        <p className="lede">Open a round and chat starts submitting ideas with <code>!idea</code>.</p>
+        <p className="lede">Start a new interactive session and invite your community to join the build.</p>
         <PromptForm label="Open round" onSubmit={openRound} pending={pending} />
       </>
     );
@@ -510,6 +561,46 @@ export function RoundControl({ round, settings, me, api, clockOffset, onConnectA
             <StepLog execution={execution} />
           </details>
         )}
+        {execution?.branch && (
+          <div className="round-git-box">
+            <div className="actions">
+              <Btn
+                variant="success"
+                size="sm"
+                pending={pending}
+                onClick={() => act(() => api.mergeRound(), `Merged ${execution.branch}`)}
+              >
+                Merge to main
+              </Btn>
+              <Btn
+                variant="secondary"
+                size="sm"
+                disabled={pending}
+                onClick={() => {
+                  if (diffText !== null) {
+                    setDiffText(null);
+                    return;
+                  }
+                  act(async () => {
+                    const res = await api.roundDiff();
+                    setDiffText(res.diff || res.stat || "No changes");
+                  });
+                }}
+              >
+                {diffText !== null ? "Hide diff" : "Inspect diff"}
+              </Btn>
+              <Btn
+                variant="danger"
+                size="sm"
+                pending={pending}
+                onClick={() => act(() => api.revertRound(), `Reverted branch ${execution.branch}`)}
+              >
+                Revert round ({execution.branch})
+              </Btn>
+            </div>
+            {diffText !== null && <pre className="diff-preview">{diffText}</pre>}
+          </div>
+        )}
         {task && <TaskCard task={task} compact />}
         <PromptForm label="Next round" onSubmit={openRound} pending={pending} />
       </>
@@ -554,31 +645,38 @@ export function RoundControl({ round, settings, me, api, clockOffset, onConnectA
 
   return (
     <section className="panel panel--round" aria-labelledby="round-h">
-      <PhaseStepper round={round} />
+      {phase !== "idle" && <PhaseStepper round={round} />}
       <div className="panel__body">
         <div className="round-title">
           <h2 id="round-h">{title}</h2>
           <EligibilityBadges round={round} settings={settings} />
-          <span className={`phase-tag phase-tag--${phase}`}>{phase === "awaiting_approval" && task?.status === "approved" ? "Ready to build" : PHASE_LABEL[phase]}</span>
+          {round?.modifiers?.map((m) => (
+            <span key={m} className="badge badge--mod">
+              {m}
+            </span>
+          ))}
+          {phase !== "idle" && (
+            <div className="round-title__meta">
+              <button
+                type="button"
+                className={`sfx-toggle ${sfx ? "is-on" : ""}`}
+                aria-pressed={sfx}
+                onClick={() => {
+                  const next = !sfx;
+                  setSfxEnabled(next);
+                  setSfx(next);
+                  if (next) playCue("open");
+                }}
+              >
+                SFX {sfx ? "ON" : "OFF"}
+              </button>
+              <span className={`phase-tag phase-tag--${phase}`}>
+                {phase === "awaiting_approval" && task?.status === "approved" ? "Ready to build" : PHASE_LABEL[phase]}
+              </span>
+            </div>
+          )}
         </div>
         {body}
-        <details className="demo-sim" style={{ marginTop: "1rem", opacity: 0.85 }}>
-          <summary style={{ cursor: "pointer", fontSize: "0.85rem" }}>Demo simulator (test chat &amp; Twitch events without going live)</summary>
-          <div className="actions" style={{ marginTop: "0.5rem" }}>
-            <Btn size="sm" variant="ghost" disabled={pending || phase !== "collecting"} onClick={() => act(() => api.demoSimulate("idea"))}>
-              Simulate !idea
-            </Btn>
-            <Btn size="sm" variant="ghost" disabled={pending || phase !== "voting"} onClick={() => act(() => api.demoSimulate("vote", { number: 1 }))}>
-              Simulate !vote 1
-            </Btn>
-            <Btn size="sm" variant="ghost" disabled={pending || (phase !== "collecting" && phase !== "voting")} onClick={() => act(() => api.demoSimulate("boost", { number: 1 }))}>
-              Channel Points Boost #1
-            </Btn>
-            <Btn size="sm" variant="ghost" disabled={pending} onClick={() => act(() => api.demoSimulate("raid"))}>
-              Simulate Raid
-            </Btn>
-          </div>
-        </details>
       </div>
     </section>
   );

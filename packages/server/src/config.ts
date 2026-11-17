@@ -22,6 +22,7 @@ export interface Config {
     eventsubUrl: string;
     apiBase: string;
     authBase: string;
+    extensionSecret?: string;
   };
   dataDir: string;
   sessionSecret: string;
@@ -149,6 +150,7 @@ export function loadConfig(env: Env = process.env): Config {
       eventsubUrl: str(env, "EVENTSUB_WS_URL") ?? "wss://eventsub.wss.twitch.tv/ws",
       apiBase: stripSlash(str(env, "TWITCH_API_BASE") ?? "https://api.twitch.tv/helix"),
       authBase: stripSlash(str(env, "TWITCH_AUTH_BASE") ?? "https://id.twitch.tv/oauth2"),
+      extensionSecret: str(env, "TWITCH_EXTENSION_SECRET"),
     },
     dataDir,
     sessionSecret,

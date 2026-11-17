@@ -101,4 +101,11 @@ describe("overlay", () => {
     expect(iframe).not.toBeNull();
     expect(iframe?.getAttribute("src")).toBe("http://127.0.0.1:4173/preview");
   });
+
+  it("renders round modifiers in collecting phase", () => {
+    const state = makeState(makeRound("collecting", { modifiers: ["Speedrun MVP", "Extra Juice"] }));
+    const { container } = render(<OverlayView state={state} connected />);
+    expect(container.textContent).toContain("// Speedrun MVP");
+    expect(container.textContent).toContain("// Extra Juice");
+  });
 });

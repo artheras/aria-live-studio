@@ -84,7 +84,14 @@ export const DEFAULT_SETTINGS: Settings = {
   autoClip: true,
 };
 
-const BOOLEAN_SETTINGS = ["chatReplies", "executorEnabled", "autoTitle", "streamMarkers", "autoClip"] as const;
+const BOOLEAN_SETTINGS = [
+  "chatReplies",
+  "executorEnabled",
+  "autoTitle",
+  "streamMarkers",
+  "autoClip",
+  "autoOpenOnStreamOnline",
+] as const;
 
 const ELIGIBILITIES: readonly Eligibility[] = ["everyone", "subscribers", "vip_mod"];
 
@@ -361,6 +368,11 @@ export class RoundEngine {
           throw new EngineError("bad_input", `${k} must be one of ${ELIGIBILITIES.join(", ")}`);
         }
         next[k] = v as Eligibility;
+      } else if (k === "overlayDensity") {
+        if (v !== "standard" && v !== "compact") {
+          throw new EngineError("bad_input", "overlayDensity must be standard or compact");
+        }
+        next.overlayDensity = v;
       } else {
         throw new EngineError("bad_input", `Unknown setting: ${k}`);
       }
@@ -374,19 +386,24 @@ export class RoundEngine {
   // ── rounds ─────────────────────────────────────────────────────────────
 
   /** `by`: the moderator who opened it from chat (dashboard actions pass nothing). */
-  openRound(prompt = "", by?: Actor): Round {
+  openRound(prompt = "", by?: Actor, modifiers?: string[]): Round {
     const cur = this.s.round;
     if (cur && ["collecting", "voting", "planning", "executing"].includes(cur.phase)) {
       throw new EngineError("wrong_phase", `Cannot open a new round while the current one is ${cur.phase}`);
     }
     if (cur) this.archive(cur);
     const p = streamSafeLine(prompt, 200);
+    const mods = (modifiers ?? [])
+      .map((m) => streamSafeLine(m, 32))
+      .filter(Boolean)
+      .slice(0, 3);
     const round: Round = {
       id: this.deps.id(),
       index: this.s.stats.rounds + 1,
       phase: "collecting",
       openedAt: this.deps.now(),
       prompt: p,
+      ...(mods.length ? { modifiers: mods } : {}),
       ideas: [],
       candidates: [],
       tallies: [],
@@ -436,6 +453,7 @@ export class RoundEngine {
       openedAt: r.openedAt,
       closedAt: this.deps.now(),
       prompt: r.prompt,
+      ...(r.modifiers?.length ? { modifiers: r.modifiers } : {}),
       ideaCount: r.ideas.length,
       voters: r.voters,
       winner: w ? { number: wt?.number ?? w.number, text: w.text, author: w.author, votes: wt?.votes ?? 0 } : null,
@@ -965,6 +983,30 @@ export class RoundEngine {
       w,
     );
     return idea;
+  }
+
+  /** Attach a Twitch avatarUrl resolved asynchronously from Helix onto matching ideas. */
+  setUserAvatar(userId: string, avatarUrl: string): void {
+    const r = this.s.round;
+    if (!r) return;
+    let updated = false;
+    for (const idea of r.ideas) {
+      if (idea.author.id === userId && idea.author.avatarUrl !== avatarUrl) {
+        idea.author.avatarUrl = avatarUrl;
+        updated = true;
+      }
+    }
+    if (updated) this.changed();
+  }
+
+  /** Record the latest MCP coding agent heartbeat without spamming snapshots. */
+  touchAgent(name: string): void {
+    const clean = streamSafeLine(name, 48) || "MCP";
+    const now = this.deps.now();
+    const prev = this.s.agentStatus;
+    if (prev && prev.name === clean && now - prev.lastSeenAt < 15_000) return;
+    this.s.agentStatus = { name: clean, lastSeenAt: now };
+    this.changed();
   }
 
   // ── Twitch extras (written back by the service after Helix answered) ──

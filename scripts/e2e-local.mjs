@@ -509,7 +509,7 @@ async function login(base) {
   const r1 = await fetch(`${base}/auth/twitch/login`, { redirect: "manual" });
   must(r1.status === 302, "login redirects to Twitch authorize", r1.status);
   const authorize = new URL(r1.headers.get("location"));
-  check(authorize.searchParams.get("scope") === "user:read:chat user:write:chat channel:manage:broadcast clips:edit", "authorize URL asks for chat, broadcast (title + markers) and clips:edit scopes", authorize.search);
+  check(authorize.searchParams.get("scope") === "user:read:chat user:write:chat channel:manage:broadcast clips:edit channel:read:redemptions bits:read channel:read:subscriptions", "authorize URL asks for chat, broadcast, clips, redemptions, bits and subs scopes", authorize.search);
   const r2 = await fetch(authorize, { redirect: "manual" });
   must(r2.status === 302, "fake Twitch redirects back to redirect_uri", r2.status);
   const callback = new URL(r2.headers.get("location"));

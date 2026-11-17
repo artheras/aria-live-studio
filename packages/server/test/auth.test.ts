@@ -44,7 +44,9 @@ describe("Twitch login flow", () => {
     expect(u.searchParams.get("response_type")).toBe("code");
     expect(u.searchParams.get("client_id")).toBe("cid");
     expect(u.searchParams.get("redirect_uri")).toBe("http://localhost:3999/auth/twitch/callback");
-    expect(u.searchParams.get("scope")).toBe("user:read:chat user:write:chat channel:manage:broadcast clips:edit");
+    expect(u.searchParams.get("scope")).toBe(
+      "user:read:chat user:write:chat channel:manage:broadcast clips:edit channel:read:redemptions bits:read channel:read:subscriptions",
+    );
     expect(u.searchParams.get("state")!.length).toBeGreaterThan(20);
   });
 

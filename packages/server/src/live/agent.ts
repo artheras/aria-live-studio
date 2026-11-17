@@ -72,6 +72,7 @@ export class AgentBridge {
   ) {}
 
   status(): AgentStatus {
+    this.engine.touchAgent(this.engine.state.agentStatus?.name || "MCP");
     const st = this.engine.state;
     const r = st.round;
     const ideas = new Map((r?.ideas ?? []).map((i) => [i.id, i]));
@@ -134,7 +135,9 @@ export class AgentBridge {
       throw new AgentError(409, "wrong_phase", "The task is not approved");
     }
     try {
-      this.engine.beginExecution(`${AGENT_EXECUTOR_PREFIX}${sanitizeClient(client)}`);
+      const clientName = sanitizeClient(client);
+      this.engine.touchAgent(clientName);
+      this.engine.beginExecution(`${AGENT_EXECUTOR_PREFIX}${clientName}`);
     } catch (err) {
       if (err instanceof EngineError) throw new AgentError(409, err.code, err.message);
       throw err;

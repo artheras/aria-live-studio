@@ -38,6 +38,15 @@ export function HistoryCard({ r }: { r: RoundSummary }) {
         <time className="muted">{dateTime(r.openedAt)}</time>
       </header>
       <p className="hcard__prompt">{r.prompt ? `“${r.prompt}”` : <span className="muted">No theme</span>}</p>
+      {r.modifiers?.length ? (
+        <div className="task__badges">
+          {r.modifiers.map((m) => (
+            <span key={m} className="badge badge--mod">
+              // {m}
+            </span>
+          ))}
+        </div>
+      ) : null}
       <dl className="hcard__facts">
         <div>
           <dt>Ideas</dt>
@@ -108,9 +117,34 @@ export function HistoryCard({ r }: { r: RoundSummary }) {
   );
 }
 
+import { copyText } from "../dashboard/Drawer";
+
+function formatHistoryRecap(rounds: RoundSummary[]): string {
+  const coBuilders = new Set<string>();
+  const lines = ["# Aria Live Studio — Stream Recap", ""];
+  for (const r of rounds) {
+    lines.push(`## Round ${r.index}${r.prompt ? `: ${r.prompt}` : ""}`);
+    if (r.winner) {
+      const author = r.winner.author.displayName || r.winner.author.login;
+      coBuilders.add(`@${author}`);
+      lines.push(`- **Winner**: ${r.winner.text} (by @${author}, ${r.winner.votes} votes)`);
+    }
+    if (r.execution?.summary) lines.push(`- **Build**: ${r.execution.summary}`);
+    if (r.execution?.changedFiles.length) {
+      lines.push(`- **Changed files**: ${r.execution.changedFiles.map((f) => `\`${f}\``).join(", ")}`);
+    }
+    lines.push("");
+  }
+  if (coBuilders.size > 0) {
+    lines.push("## Co-Builders Credits", Array.from(coBuilders).join(" · "), "");
+  }
+  return lines.join("\n");
+}
+
 export function HistoryPage() {
   const [rounds, setRounds] = useState<RoundSummary[] | null>(null);
   const [error, setError] = useState<{ message: string; auth: boolean } | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     api.history().then(
@@ -129,6 +163,21 @@ export function HistoryPage() {
         <Logo />
         <h1 className="topbar__page">History</h1>
         <nav className="topbar__actions">
+          {rounds && rounds.length > 0 && (
+            <button
+              type="button"
+              className="btn btn--ghost btn--sm"
+              onClick={async () => {
+                const ok = await copyText(formatHistoryRecap(rounds));
+                if (ok) {
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                }
+              }}
+            >
+              {copied ? "Copied Recap" : "Export Recap (MD)"}
+            </button>
+          )}
           <a className="btn btn--secondary btn--sm" href="/">
             Back to studio
           </a>

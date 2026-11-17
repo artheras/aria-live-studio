@@ -78,7 +78,13 @@ describe("Twitch extras: scopes", () => {
     await start(["user:read:chat", "user:write:chat"]);
     const c = h!.service.engine.state.connection;
     expect(c.scopes).toEqual(["user:read:chat", "user:write:chat"]);
-    expect(c.missingScopes).toEqual(["channel:manage:broadcast", "clips:edit"]);
+    expect(c.missingScopes).toEqual([
+      "channel:manage:broadcast",
+      "clips:edit",
+      "channel:read:redemptions",
+      "bits:read",
+      "channel:read:subscriptions",
+    ]);
     await toApproved();
     await build();
     expect((await h!.api("POST", "/api/round/reset", {})).status).toBe(200);
