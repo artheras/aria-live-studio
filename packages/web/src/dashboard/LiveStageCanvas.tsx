@@ -119,28 +119,28 @@ export function LiveStageCanvas({
     const scene = new THREE.Scene();
     scene.fog = new THREE.Fog(0x6e5a86, 48, 110);
 
-    // Closer three-quarter view so the door, yard, and crane fill the frame.
-    const camera = new THREE.PerspectiveCamera(34, width / height, 0.1, 180);
-    camera.position.set(compact ? 7.6 : 6.2, compact ? 4.4 : 3.9, compact ? 8.0 : 7.0);
+    // Balanced 3/4 isometric view framing the entire floating island, deep cliff roots, and castle.
+    const camera = new THREE.PerspectiveCamera(35, width / height, 0.1, 180);
+    camera.position.set(compact ? 17.2 : 16.0, compact ? 8.8 : 8.2, compact ? 18.0 : 16.8);
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
     controls.autoRotate = false;
-    controls.minDistance = 4.5;
-    controls.maxDistance = 32;
+    controls.minDistance = 5.5;
+    controls.maxDistance = 34;
     controls.maxPolarAngle = Math.PI * 0.46;
-    controls.target.set(0.9, 1.7, 0.55);
+    controls.target.set(0.2, compact ? 0.35 : 0.25, 0.0);
 
-    // Twilight sky dome mapped to the isometric camera view (dir.y spans -0.60 at bottom to +0.05 at top)
+    // Twilight sky dome: deep indigo-purple top -> soft violet mid -> warm peach horizon
     const skyGeo = new THREE.SphereGeometry(76, 24, 16);
     const skyMat = new THREE.ShaderMaterial({
       side: THREE.BackSide,
       depthWrite: false,
       uniforms: {
-        topColor: { value: new THREE.Color(0x16112e) },
-        midColor: { value: new THREE.Color(0x4b3175) },
-        horizonColor: { value: new THREE.Color(0xf29f6d) },
+        topColor: { value: new THREE.Color(0x140f29) },
+        midColor: { value: new THREE.Color(0x452d6b) },
+        horizonColor: { value: new THREE.Color(0xd99b82) },
       },
       vertexShader: `
         varying vec3 vWorldPosition;
@@ -158,10 +158,10 @@ export function LiveStageCanvas({
         void main() {
           vec3 dir = normalize(vWorldPosition);
           float h = dir.y;
-          vec3 col = mix(horizonColor, midColor, smoothstep(-0.56, -0.22, h));
-          col = mix(col, topColor, smoothstep(-0.26, 0.04, h));
-          float sunGlow = pow(max(dot(dir, normalize(vec3(0.45, 0.2, 0.78))), 0.0), 3.0);
-          col = mix(col, vec3(0.99, 0.78, 0.52), sunGlow * 0.62);
+          vec3 col = mix(horizonColor, midColor, smoothstep(-0.42, -0.08, h));
+          col = mix(col, topColor, smoothstep(-0.12, 0.22, h));
+          float sunGlow = pow(max(dot(dir, normalize(vec3(0.58, -0.1, 0.8))), 0.0), 3.2);
+          col = mix(col, vec3(0.98, 0.80, 0.58), sunGlow * 0.52);
           gl_FragColor = vec4(col, 1.0);
         }
       `,
@@ -204,18 +204,18 @@ export function LiveStageCanvas({
     const stoneMidMat = new THREE.MeshStandardMaterial({ color: 0xb7ab9c, roughness: 0.84 });
     const stoneDarkMat = new THREE.MeshStandardMaterial({ color: 0x8d8276, roughness: 0.88 });
     const dirtMat = new THREE.MeshStandardMaterial({ color: 0x6b5040, roughness: 0.92 });
-    const grassMat = new THREE.MeshStandardMaterial({ color: 0x7ec86a, roughness: 0.78 });
-    const mossMat = new THREE.MeshStandardMaterial({ color: 0x4e9a52, roughness: 0.76 });
+    const grassMat = new THREE.MeshStandardMaterial({ color: 0x5aa656, roughness: 0.78 });
+    const mossMat = new THREE.MeshStandardMaterial({ color: 0x4c914b, roughness: 0.76 });
     const pineMat = new THREE.MeshStandardMaterial({ color: 0x2f7a45, roughness: 0.8 });
     const woodMat = new THREE.MeshStandardMaterial({ color: 0xc4894a, roughness: 0.74 });
-    const darkWoodMat = new THREE.MeshStandardMaterial({ color: 0x6b3e22, roughness: 0.84 });
-    const roofMat = new THREE.MeshStandardMaterial({ color: 0x5a4032, roughness: 0.78 });
-    const roofLightMat = new THREE.MeshStandardMaterial({ color: 0x6e5240, roughness: 0.74 });
+    const darkWoodMat = new THREE.MeshStandardMaterial({ color: 0x5c341c, roughness: 0.84 });
+    const roofMat = new THREE.MeshStandardMaterial({ color: 0x332d45, roughness: 0.74 });
+    const roofLightMat = new THREE.MeshStandardMaterial({ color: 0x433b59, roughness: 0.72 });
     const crystalMat = new THREE.MeshStandardMaterial({
       color: 0xf0dbff,
-      emissive: 0x9b6dff,
-      emissiveIntensity: 0.55,
-      roughness: 0.28,
+      emissive: 0xa855f7,
+      emissiveIntensity: 1.65,
+      roughness: 0.22,
     });
     const lanternMat = new THREE.MeshStandardMaterial({
       color: 0xffe49e,
@@ -368,23 +368,20 @@ export function LiveStageCanvas({
       mossSpecs.push({ x: vx, y: -0.95, z: vz, sx: 0.55, sy: 1.1, sz: 0.55 });
     }
 
-    // L-shaped stair leaving the side door, with a turn toward the yard.
-    for (let s = 0; s < 3; s++) {
-      pushStone(1.4, 0.08 + s * 0.14, 2.15 - s * 0.24, 1.15, 0.5, 0.85);
+    // Refined stone porch landing + 5-step L-shaped stair + twin timber handrails
+    for (let s = 0; s < 5; s++) {
+      pushStone(1.42, 0.06 + s * 0.14, 2.38 - s * 0.26, 1.24, 0.42, 0.68);
     }
-    pushStone(1.45, 0.5, 1.42, 1.35, 0.45, 1.05);
-    for (let s = 0; s < 3; s++) {
-      pushStone(1.42, 0.62 + s * 0.14, 1.05 - s * 0.26, 1.05, 0.5, 0.8);
-    }
+    pushStone(1.42, 0.76, 0.92, 1.48, 0.42, 1.25);
+    pushStone(1.12, 0.76, 0.28, 1.15, 0.42, 1.25);
     timberSpecs.push(
-      { x: 1.82, y: 0.55, z: 2.15, sx: 0.12, sy: 0.85, sz: 0.12 },
-      { x: 1.82, y: 0.85, z: 1.42, sx: 0.12, sy: 1.15, sz: 0.12 },
-      { x: 1.82, y: 1.15, z: 0.55, sx: 0.12, sy: 1.05, sz: 0.12 },
-      { x: 1.82, y: 0.95, z: 1.78, sx: 0.1, sy: 0.1, sz: 1.5 },
-      { x: 1.82, y: 1.35, z: 0.98, sx: 0.1, sy: 0.1, sz: 1.15 },
-      { x: 1.12, y: 0.7, z: 2.15, sx: 0.1, sy: 0.7, sz: 0.1 },
-      { x: 1.12, y: 1.05, z: 0.55, sx: 0.1, sy: 0.85, sz: 0.1 },
-      { x: 1.12, y: 1.15, z: 1.35, sx: 0.08, sy: 0.08, sz: 2.4 },
+      { x: 1.88, y: 0.48, z: 2.38, sx: 0.12, sy: 0.85, sz: 0.12 },
+      { x: 1.88, y: 0.88, z: 1.62, sx: 0.12, sy: 1.05, sz: 0.12 },
+      { x: 1.88, y: 1.18, z: 0.88, sx: 0.12, sy: 1.0, sz: 0.12 },
+      { x: 1.88, y: 1.05, z: 1.62, sx: 0.1, sy: 0.1, sz: 1.75 },
+      { x: 1.04, y: 0.62, z: 2.38, sx: 0.1, sy: 0.75, sz: 0.1 },
+      { x: 1.04, y: 1.08, z: 0.88, sx: 0.1, sy: 0.9, sz: 0.1 },
+      { x: 1.04, y: 1.08, z: 1.62, sx: 0.09, sy: 0.09, sz: 1.75 },
     );
 
     // 3. Main Two-Story Gabled Manor Hall (fine 0.5u stone masonry, dark wood door, arched purple windows)
@@ -422,16 +419,17 @@ export function LiveStageCanvas({
         }
       }
     }
-    // Side door leaf and the small lantern beside it.
-    scaffSpecs.push({ x: 0.92, y: 1.22, z: 0.25, sx: 0.16, sy: 1.35, sz: 0.72 });
+    // Arched stone door frame, recessed plank door leaf, and hanging warm porch lantern
+    pushStone(1.06, 2.02, 0.25, 0.35, 0.36, 1.35);
+    scaffSpecs.push({ x: 0.92, y: 1.32, z: 0.25, sx: 0.16, sy: 1.42, sz: 0.78 });
     timberSpecs.push(
-      { x: 1.08, y: 1.22, z: -0.12, sx: 0.14, sy: 1.55, sz: 0.12 },
-      { x: 1.08, y: 1.22, z: 0.62, sx: 0.14, sy: 1.55, sz: 0.12 },
-      { x: 1.08, y: 1.9, z: 0.25, sx: 0.14, sy: 0.12, sz: 0.9 },
-      { x: 1.38, y: 0.72, z: 0.82, sx: 0.1, sy: 0.55, sz: 0.1 },
-      { x: 1.38, y: 1.12, z: 0.82, sx: 0.28, sy: 0.08, sz: 0.28 },
+      { x: 1.08, y: 1.32, z: -0.16, sx: 0.16, sy: 1.55, sz: 0.14 },
+      { x: 1.08, y: 1.32, z: 0.66, sx: 0.16, sy: 1.55, sz: 0.14 },
+      { x: 1.08, y: 2.02, z: 0.25, sx: 0.16, sy: 0.14, sz: 0.98 },
+      { x: 1.38, y: 1.72, z: 0.92, sx: 0.42, sy: 0.1, sz: 0.1 },
+      { x: 1.52, y: 1.56, z: 0.92, sx: 0.08, sy: 0.28, sz: 0.08 },
     );
-    lanternSpecs.push({ x: 1.38, y: 0.96, z: 0.82, sx: 0.2, sy: 0.24, sz: 0.2 });
+    lanternSpecs.push({ x: 1.52, y: 1.34, z: 0.92, sx: 0.24, sy: 0.28, sz: 0.24 });
     timberSpecs.push(
       { x: -0.75, y: 2.15, z: 1.12, sx: 3.4, sy: 0.14, sz: 0.18 },
       { x: -0.75, y: 2.85, z: 1.12, sx: 3.4, sy: 0.14, sz: 0.18 },
@@ -487,21 +485,36 @@ export function LiveStageCanvas({
       { x: 2.55, y: 2.55, z: -0.15, sx: 0.42, sy: 11.2, sz: 0.42 },
       { x: 3.95, y: 2.55, z: -0.15, sx: 0.42, sy: 11.2, sz: 0.42 },
       { x: 3.25, y: 1.25, z: 0.45, sx: 5.4, sy: 0.38, sz: 3.6 },
+    );
+    // Multi-tier right scaffolding platforms, cross-rails, barrels, crane arm & pulley block
+    scaffSpecs.push(
       { x: 3.25, y: 2.45, z: 0.45, sx: 5.4, sy: 0.38, sz: 3.6 },
       { x: 3.25, y: 3.65, z: 0.45, sx: 5.4, sy: 0.38, sz: 3.6 },
       { x: 3.25, y: 4.75, z: 0.45, sx: 5.4, sy: 0.42, sz: 3.6 },
+      // Safety guardrails & ladder rungs on front face
+      { x: 3.25, y: 5.15, z: 1.35, sx: 5.2, sy: 0.16, sz: 0.16 },
+      { x: 3.25, y: 4.05, z: 1.35, sx: 5.2, sy: 0.16, sz: 0.16 },
+      { x: 3.25, y: 2.85, z: 1.35, sx: 5.2, sy: 0.16, sz: 0.16 },
+      // Barrels & supply crates on scaffolding platforms
       { x: 2.7, y: 1.62, z: 0.35, sx: 1.15, sy: 1.15, sz: 1.15 },
       { x: 3.75, y: 1.58, z: 0.7, sx: 1.05, sy: 1.05, sz: 1.05 },
       { x: 3.15, y: 2.82, z: 0.25, sx: 1.15, sy: 1.15, sz: 1.15 },
       { x: 3.7, y: 4.05, z: 0.3, sx: 1.1, sy: 1.1, sz: 1.1 },
-      { x: 2.65, y: 5.15, z: 0.2, sx: 1.05, sy: 1.05, sz: 1.05 },
-      { x: 3.25, y: 5.15, z: 1.55, sx: 0.42, sy: 0.42, sz: 5.2 },
-      { x: 3.25, y: 3.55, z: 2.45, sx: 0.22, sy: 3.4, sz: 0.22 },
-      { x: 3.25, y: 2.65, z: 2.45, sx: 0.85, sy: 0.7, sz: 0.85 },
-      { x: 2.45, y: 0.38, z: 1.85, sx: 1.2, sy: 1.15, sz: 1.2 },
-      { x: 3.35, y: 0.34, z: 1.95, sx: 1.1, sy: 1.05, sz: 1.1 },
+      { x: 2.65, y: 5.15, z: 0.2, sx: 1.15, sy: 1.35, sz: 1.15 },
+      { x: 3.9, y: 5.15, z: 0.1, sx: 1.05, sy: 1.25, sz: 1.05 },
+      // Crane boom + suspended pulley hook
+      { x: 3.25, y: 5.55, z: 0.45, sx: 0.38, sy: 1.6, sz: 0.38 },
+      { x: 3.25, y: 6.15, z: 1.65, sx: 0.38, sy: 0.38, sz: 5.4 },
+      { x: 3.25, y: 4.55, z: 2.65, sx: 0.18, sy: 3.2, sz: 0.18 },
+      { x: 3.25, y: 3.45, z: 2.65, sx: 0.92, sy: 0.82, sz: 0.92 },
+      // Ground-level barrels & crates beside the scaffolding
+      { x: 2.45, y: 0.38, z: 1.85, sx: 1.2, sy: 1.25, sz: 1.2 },
+      { x: 3.35, y: 0.34, z: 1.95, sx: 1.1, sy: 1.15, sz: 1.1 },
       { x: 4.15, y: 0.3, z: 1.7, sx: 1.05, sy: 1.0, sz: 1.05 },
     );
+    for (let r = 0; r < 6; r++) {
+      timberSpecs.push({ x: 2.15, y: 0.55 + r * 0.72, z: 1.35, sx: 0.85, sy: 0.14, sz: 0.14 });
+    }
 
     // 7. Fine-Detail Clustered Sub-Voxel Pine Trees, Shrubs, Cobblestones & Flowers
     const trunkSpecs: VoxelSpec[] = [
@@ -566,6 +579,10 @@ export function LiveStageCanvas({
       [0.55, 2.35],
       [-3.3, 3.1],
       [2.7, 2.15],
+      [-1.4, 4.4],
+      [1.8, 4.5],
+      [-4.1, 4.0],
+      [3.8, 3.9],
     ] as const) {
       addBush(sx, sz, 0.85);
     }
@@ -574,9 +591,23 @@ export function LiveStageCanvas({
       [-0.75, 2.15],
       [-0.75, 2.6],
       [-0.75, 3.05],
+      [-0.65, 3.65],
+      [-0.15, 4.05],
+      [0.55, 3.85],
+      [1.25, 3.35],
+      [1.38, 2.8],
+      [-1.45, 3.85],
+      [-2.15, 3.7],
     ] as const) {
-      stoneLightSpecs.push({ x: cx, y: 0.16, z: cz, sx: 0.55, sy: 0.12, sz: 0.42 });
+      stoneLightSpecs.push({ x: cx, y: 0.16, z: cz, sx: 0.62, sy: 0.14, sz: 0.48 });
     }
+    // Left-foreground stone wishing well + wooden canopy
+    stoneMidSpecs.push({ x: -3.25, y: 0.36, z: 3.65, sx: 1.35, sy: 0.72, sz: 1.35 });
+    timberSpecs.push(
+      { x: -3.55, y: 0.92, z: 3.65, sx: 0.14, sy: 1.05, sz: 0.14 },
+      { x: -2.95, y: 0.92, z: 3.65, sx: 0.14, sy: 1.05, sz: 0.14 },
+    );
+    roofDarkSpecs.push({ x: -3.25, y: 1.38, z: 3.65, sx: 1.6, sy: 0.36, sz: 1.3 });
     scaffSpecs.push(
       { x: -2.35, y: 0.2, z: 2.25, sx: 1.35, sy: 0.16, sz: 0.6 },
       { x: 0.55, y: 0.2, z: 2.4, sx: 1.2, sy: 0.16, sz: 0.55 },
@@ -722,10 +753,10 @@ export function LiveStageCanvas({
         rightArm,
       });
     };
-    addVillager(-1.15, 0.08, 2.55, 0xc47a4a, 0x6b3e22, 0.4, 0.2);
-    addVillager(-0.2, 0.08, 3.15, 0x4e9a52, 0x8d8276, 0.1, 1.4);
-    addVillager(0.45, 0.08, 2.85, 0xd9d0c4, 0x5a4032, -0.4, 2.6);
-    addVillager(4.6, 0.08, 2.7, 0xc4894a, 0xf5b942, -1.6, 3.8);
+    addVillager(-0.45, 0.08, 3.65, 0xc47a4a, 0x6b3e22, 0.25, 0.2);
+    addVillager(2.85, 0.08, 3.35, 0x4e9a52, 0x8d8276, -0.55, 1.4);
+    addVillager(-2.45, 0.08, 2.75, 0xd9d0c4, 0x5a4032, 0.65, 2.6);
+    addVillager(4.45, 0.08, 1.55, 0xc4894a, 0xf5b942, -1.25, 3.8);
 
     // Upgrade villagers with the 1:1 Aria Voxel Engineer GLB model (with articulated joints & tools)
     const toolRoles: Array<"hammer" | "wrench" | "tablet" | "hammer"> = ["hammer", "wrench", "tablet", "hammer"];
@@ -934,15 +965,15 @@ export function LiveStageCanvas({
     bgIslands.add(buildVoxelInstances(voxelGeo, cloudShadeMat, cloudBotSpecs, false, false));
     bgIslands.add(buildVoxelInstances(voxelGeo, cloudLightMat, cloudTopSpecs, false, false));
 
-    // Distant upper-left atmospheric mini floating island (silhouette depth from 2D reference)
-    const farGrassMat = new THREE.MeshStandardMaterial({ color: 0x456b5a, roughness: 0.9 });
-    const farStoneMat = new THREE.MeshStandardMaterial({ color: 0x3b3354, roughness: 0.92 });
-    const farPineMat = new THREE.MeshStandardMaterial({ color: 0x2f4f46, roughness: 0.9 });
+    // Distant upper-left atmospheric mini floating island (offset far left-back so it never blocks roof)
+    const farGrassMat = new THREE.MeshStandardMaterial({ color: 0x3e5e56, roughness: 0.92 });
+    const farStoneMat = new THREE.MeshStandardMaterial({ color: 0x352c4b, roughness: 0.94 });
+    const farPineMat = new THREE.MeshStandardMaterial({ color: 0x2c4742, roughness: 0.92 });
     bgIslands.add(
       buildVoxelInstances(
         voxelGeo,
         farGrassMat,
-        [{ x: -13.5, y: 4.5, z: -15.5, sx: 5.5, sy: 0.9, sz: 5.2 }],
+        [{ x: -16.5, y: 5.8, z: -12.0, sx: 5.5, sy: 0.9, sz: 5.2 }],
         false,
         false,
       ),
@@ -952,9 +983,9 @@ export function LiveStageCanvas({
         voxelGeo,
         farStoneMat,
         [
-          { x: -13.5, y: 3.6, z: -15.5, sx: 4.6, sy: 2.2, sz: 4.4 },
-          { x: -13.5, y: 2.2, z: -15.5, sx: 2.8, sy: 2.0, sz: 2.8 },
-          { x: -13.0, y: 5.4, z: -15.3, sx: 1.8, sy: 1.8, sz: 1.8 },
+          { x: -16.5, y: 4.9, z: -12.0, sx: 4.6, sy: 2.2, sz: 4.4 },
+          { x: -16.5, y: 3.5, z: -12.0, sx: 2.8, sy: 2.0, sz: 2.8 },
+          { x: -16.0, y: 6.7, z: -11.8, sx: 1.8, sy: 1.8, sz: 1.8 },
         ],
         false,
         false,
@@ -965,8 +996,8 @@ export function LiveStageCanvas({
         voxelGeo,
         farPineMat,
         [
-          { x: -14.8, y: 5.5, z: -15.6, sx: 1.3, sy: 2.2, sz: 1.3 },
-          { x: -12.1, y: 5.3, z: -16.2, sx: 1.1, sy: 1.8, sz: 1.1 },
+          { x: -17.8, y: 6.8, z: -12.1, sx: 1.3, sy: 2.2, sz: 1.3 },
+          { x: -15.1, y: 6.6, z: -12.7, sx: 1.1, sy: 1.8, sz: 1.1 },
         ],
         false,
         false,
@@ -976,7 +1007,7 @@ export function LiveStageCanvas({
       buildVoxelInstances(
         voxelGeo,
         lanternMat,
-        [{ x: -12.9, y: 5.3, z: -14.7, sx: 0.45, sy: 0.45, sz: 0.45 }],
+        [{ x: -15.9, y: 6.6, z: -11.2, sx: 0.45, sy: 0.45, sz: 0.45 }],
         false,
         false,
       ),
