@@ -402,7 +402,11 @@ export function LiveStageCanvas({
             gz === 2 &&
             (((gy === 2 || gy === 3) && (gx === -4 || gx === -3)) ||
               ((gy === 4 || gy === 5) && (gx === -2 || gx === -1)));
-          const isUpperTimber = gz === 2 && gy >= 5 && !isDoor;
+          const isUpperTimber =
+            gz === 2 &&
+            !isDoor &&
+            ((gy === 5 && gx >= -5 && gx <= 2) ||
+              (gy >= 5 && (gx === -5 || gx === -3 || gx === 0 || gx === 2)));
           const isBackWin = gz === -4 && (gx === -3 || gx === 0) && (gy === 4 || gy === 5);
           const isSideWin = gx === -5 && (gz === -1 || gz === 0) && (gy === 4 || gy === 5);
           const isCorner = (gx === -5 || gx === 2) && (gz === -4 || gz === 2);
@@ -423,16 +427,18 @@ export function LiveStageCanvas({
         }
       }
     }
-    // Arched stone door frame, recessed plank door leaf, and hanging warm porch lantern
+    // Warm wooden porch canopy over the side door + arched stone door frame
     pushStone(1.06, 2.02, 0.25, 0.35, 0.36, 1.35);
     scaffSpecs.push({ x: 0.92, y: 1.32, z: 0.25, sx: 0.16, sy: 1.42, sz: 0.78 });
     timberSpecs.push(
       { x: 1.08, y: 1.32, z: -0.16, sx: 0.16, sy: 1.55, sz: 0.14 },
       { x: 1.08, y: 1.32, z: 0.66, sx: 0.16, sy: 1.55, sz: 0.14 },
       { x: 1.08, y: 2.02, z: 0.25, sx: 0.16, sy: 0.14, sz: 0.98 },
+      { x: 1.48, y: 2.22, z: 0.25, sx: 1.25, sy: 0.22, sz: 1.65 },
       { x: 1.38, y: 1.72, z: 0.92, sx: 0.42, sy: 0.1, sz: 0.1 },
       { x: 1.52, y: 1.56, z: 0.92, sx: 0.08, sy: 0.28, sz: 0.08 },
     );
+    roofDarkSpecs.push({ x: 1.48, y: 2.38, z: 0.25, sx: 1.35, sy: 0.28, sz: 1.78 });
     lanternSpecs.push({ x: 1.52, y: 1.34, z: 0.92, sx: 0.24, sy: 0.28, sz: 0.24 });
     timberSpecs.push(
       { x: -0.75, y: 2.15, z: 1.12, sx: 3.4, sy: 0.14, sz: 0.18 },
@@ -470,7 +476,11 @@ export function LiveStageCanvas({
         );
       }
     }
-    // Right-side roof dormer, crane pulley & left-back stone chimney with rising smoke puffs
+    // Right-side gabled roof dormer with glowing purple window + left-back stone chimney
+    pushStone(1.05, 4.45, -0.35, 0.95, 1.05, 1.25);
+    pushFramedWindow(1.38, 4.45, -0.35, 1, 0, true);
+    pushRoof(1.12, 5.05, -0.35, 1.35, 0.48, 1.65);
+    pushRoof(1.12, 5.32, -0.35, 0.85, 0.35, 0.95);
     pushStone(-1.45, 5.35, -1.2, 0.55, 1.15, 0.55);
     stoneLightSpecs.push({ x: -1.45, y: 5.85, z: -1.2, sx: 0.72, sy: 0.16, sz: 0.72 });
     // House-high hoist: two full ladders, thick posts, four platforms, barrels, and a beam.
@@ -691,6 +701,8 @@ export function LiveStageCanvas({
     type LimbActor = {
       group: THREE.Group;
       base: THREE.Vector3;
+      waypoints: THREE.Vector3[];
+      wpIdx: number;
       phase: number;
       hopUntil: number;
       leftLeg: THREE.Object3D;
@@ -702,7 +714,16 @@ export function LiveStageCanvas({
     const skinMat = new THREE.MeshStandardMaterial({ color: 0xf6cba8, roughness: 0.7 });
     const hairMat = new THREE.MeshStandardMaterial({ color: 0x3b2820, roughness: 0.84 });
     const legMat = new THREE.MeshStandardMaterial({ color: 0x3a332c, roughness: 0.86 });
-    const addVillager = (x: number, y: number, z: number, shirt: number, hat: number, rotY: number, phase: number) => {
+    const addVillager = (
+      x: number,
+      y: number,
+      z: number,
+      shirt: number,
+      hat: number,
+      rotY: number,
+      phase: number,
+      waypoints: THREE.Vector3[],
+    ) => {
       const g = new THREE.Group();
       const cloth = new THREE.MeshStandardMaterial({ color: shirt, roughness: 0.66 });
       const hatMat = new THREE.MeshStandardMaterial({ color: hat, roughness: 0.7 });
@@ -749,6 +770,8 @@ export function LiveStageCanvas({
       villagers.push({
         group: g,
         base: new THREE.Vector3(x, y, z),
+        waypoints,
+        wpIdx: 0,
         phase,
         hopUntil: 0,
         leftLeg,
@@ -757,10 +780,26 @@ export function LiveStageCanvas({
         rightArm,
       });
     };
-    addVillager(-0.6, 0.08, 4.9, 0xc47a4a, 0x6b3e22, 0.25, 0.2);
-    addVillager(4.0, 0.08, 5.5, 0x4e9a52, 0x8d8276, -0.45, 1.4);
-    addVillager(-3.3, 0.08, 3.5, 0xd9d0c4, 0x5a4032, 0.65, 2.6);
-    addVillager(5.8, 0.08, 2.2, 0xc4894a, 0xf5b942, -1.15, 3.8);
+    addVillager(-0.6, 0.08, 4.9, 0xc47a4a, 0x6b3e22, 0.25, 0.2, [
+      new THREE.Vector3(-0.6, 0.08, 4.9),
+      new THREE.Vector3(1.5, 0.08, 3.6),
+      new THREE.Vector3(-1.8, 0.08, 4.6),
+    ]);
+    addVillager(4.0, 0.08, 5.5, 0x4e9a52, 0x8d8276, -0.45, 1.4, [
+      new THREE.Vector3(4.0, 0.08, 5.5),
+      new THREE.Vector3(2.4, 0.08, 4.8),
+      new THREE.Vector3(4.8, 0.08, 3.8),
+    ]);
+    addVillager(-3.3, 0.08, 3.5, 0xd9d0c4, 0x5a4032, 0.65, 2.6, [
+      new THREE.Vector3(-3.3, 0.08, 3.5),
+      new THREE.Vector3(-3.6, 0.08, 5.4),
+      new THREE.Vector3(-1.6, 0.08, 4.0),
+    ]);
+    addVillager(5.8, 0.08, 2.2, 0xc4894a, 0xf5b942, -1.15, 3.8, [
+      new THREE.Vector3(5.8, 0.08, 2.2),
+      new THREE.Vector3(3.4, 0.08, 2.4),
+      new THREE.Vector3(5.2, 0.08, 4.0),
+    ]);
 
     // Upgrade villagers with the 1:1 Aria Voxel Engineer GLB model (with articulated joints & tools)
     const toolRoles: Array<"hammer" | "wrench" | "tablet" | "hammer"> = ["hammer", "wrench", "tablet", "hammer"];
@@ -1192,28 +1231,105 @@ export function LiveStageCanvas({
         spark(0xf5b942, { x: fox.position.x, y: 1.1, z: fox.position.z }, 16);
       }
 
-      for (const v of villagers) {
+      const collectingTargets = [
+        new THREE.Vector3(-1.8, 0.08, 5.0),
+        new THREE.Vector3(0.2, 0.08, 5.2),
+        new THREE.Vector3(-3.2, 0.08, 4.4),
+        new THREE.Vector3(2.2, 0.08, 4.8),
+      ];
+      const votingTargets = [
+        new THREE.Vector3(-1.4, 0.08, 4.0),
+        new THREE.Vector3(1.2, 0.08, 4.1),
+        new THREE.Vector3(-0.8, 0.08, 5.2),
+        new THREE.Vector3(1.0, 0.08, 5.1),
+      ];
+      const planningTargets = [
+        new THREE.Vector3(3.5, 0.08, 4.1),
+        new THREE.Vector3(4.9, 0.08, 4.3),
+        new THREE.Vector3(3.6, 0.08, 5.4),
+        new THREE.Vector3(4.9, 0.08, 5.4),
+      ];
+      const executingTargets = [
+        new THREE.Vector3(3.1, 0.08, 1.9),
+        new THREE.Vector3(4.2, 0.08, 5.5),
+        new THREE.Vector3(1.9, 0.08, 3.3),
+        new THREE.Vector3(5.6, 0.08, 1.8),
+      ];
+      const doneTargets = [
+        new THREE.Vector3(-1.6, 0.08, 4.8),
+        new THREE.Vector3(-0.2, 0.08, 5.1),
+        new THREE.Vector3(1.2, 0.08, 4.9),
+        new THREE.Vector3(2.6, 0.08, 4.6),
+      ];
+
+      villagers.forEach((v, idx) => {
         const hopping = nowMs < v.hopUntil;
         const hop = hopping ? Math.sin(((v.hopUntil - nowMs) / 720) * Math.PI) * 0.42 : 0;
-        const step = Math.sin(t * 2.4 + v.phase);
-        v.group.position.x = v.base.x + Math.sin(t * 0.32 + v.phase) * 0.28;
-        v.group.position.z = v.base.z + Math.cos(t * 0.26 + v.phase) * 0.18;
+        let goal: THREE.Vector3;
+        let facePoint: THREE.Vector3 | null = null;
+        if (phase === "collecting") {
+          goal = collectingTargets[idx % collectingTargets.length]!;
+          facePoint = new THREE.Vector3(goal.x, 0, goal.z + 3);
+        } else if (phase === "voting") {
+          goal = votingTargets[idx % votingTargets.length]!;
+          facePoint = new THREE.Vector3(0, 0, 4.6);
+        } else if (phase === "planning" || phase === "awaiting_approval") {
+          goal = planningTargets[idx % planningTargets.length]!;
+          facePoint = new THREE.Vector3(4.2, 0, 4.8);
+        } else if (phase === "executing") {
+          goal = executingTargets[idx % executingTargets.length]!;
+          facePoint = idx === 1 ? new THREE.Vector3(4.2, 0, 4.8) : new THREE.Vector3(4.5, 0, 0.8);
+        } else if (phase === "done") {
+          goal = doneTargets[idx % doneTargets.length]!;
+          facePoint = new THREE.Vector3(goal.x, 0, goal.z + 3);
+        } else {
+          goal = v.waypoints[v.wpIdx % v.waypoints.length]!;
+          if (Math.hypot(goal.x - v.group.position.x, goal.z - v.group.position.z) < 0.16) {
+            v.wpIdx = (v.wpIdx + 1) % v.waypoints.length;
+            goal = v.waypoints[v.wpIdx]!;
+          }
+        }
+
+        const dx = goal.x - v.group.position.x;
+        const dz = goal.z - v.group.position.z;
+        const dist = Math.hypot(dx, dz);
+        const moving = dist > 0.12;
+        if (moving) {
+          const speed = phase === "done" || phase === "executing" ? 0.045 : 0.022;
+          const stepDist = Math.min(dist, speed);
+          v.group.position.x += (dx / dist) * stepDist;
+          v.group.position.z += (dz / dist) * stepDist;
+          const targetRot = Math.atan2(dx, dz);
+          v.group.rotation.y += Math.sin(targetRot - v.group.rotation.y) * 0.14;
+        } else if (facePoint) {
+          const targetRot = Math.atan2(facePoint.x - v.group.position.x, facePoint.z - v.group.position.z);
+          v.group.rotation.y += Math.sin(targetRot - v.group.rotation.y) * 0.14;
+        }
+
+        const walkSpeed = moving ? 6.5 : 2.2;
+        const step = Math.sin(t * walkSpeed + v.phase);
         v.group.position.y = v.base.y + hop;
-        v.leftLeg.rotation.x = hopping ? -0.5 : step * 0.45;
-        v.rightLeg.rotation.x = hopping ? 0.5 : -step * 0.45;
-        const phase = stateRef.current.round?.phase ?? "idle";
+        v.leftLeg.rotation.x = hopping ? -0.5 : moving ? step * 0.55 : step * 0.12;
+        v.rightLeg.rotation.x = hopping ? 0.5 : moving ? -step * 0.55 : -step * 0.12;
+
         if (phase === "done") {
-          v.group.position.y = v.base.y + Math.abs(Math.sin(t * 5 + v.phase)) * 0.34;
+          v.group.position.y = v.base.y + Math.abs(Math.sin(t * 5 + v.phase)) * 0.36;
           v.leftArm.rotation.x = -2.35;
           v.rightArm.rotation.x = -2.35;
-        } else if (phase === "executing") {
+        } else if (phase === "executing" && !moving) {
           v.leftArm.rotation.x = step * 0.25;
           v.rightArm.rotation.x = -0.85 - Math.abs(Math.sin(t * 7 + v.phase)) * 0.95;
+          if (frame % 26 === idx * 6) {
+            spark(0xf5b942, { x: v.group.position.x, y: 1.0, z: v.group.position.z }, 5);
+          }
+        } else if (phase === "collecting" && !moving) {
+          v.leftArm.rotation.x = -1.35 + Math.sin(t * 4 + v.phase) * 0.35;
+          v.rightArm.rotation.x = -0.3;
         } else {
-          v.leftArm.rotation.x = hopping ? -0.8 : step * 0.3;
-          v.rightArm.rotation.x = hopping ? -0.8 : -step * 0.3;
+          v.leftArm.rotation.x = hopping ? -0.8 : moving ? step * 0.45 : step * 0.12;
+          v.rightArm.rotation.x = hopping ? -0.8 : moving ? -step * 0.45 : -step * 0.12;
         }
-      }
+      });
 
       const foxWalk = Math.sin(t * 0.45);
       fox.position.x = foxBase.x + foxWalk * 1.15;
@@ -1240,8 +1356,12 @@ export function LiveStageCanvas({
         wingR.rotation.z = -Math.sin(t * 4) * 0.15;
       }
 
-      for (const m of milestoneTowers) m.group.visible = false;
-      blueprintCube.visible = false;
+      for (const m of milestoneTowers) m.group.visible = phase === "done";
+      blueprintCube.visible = phase === "planning" || phase === "awaiting_approval" || phase === "executing";
+      if (blueprintCube.visible) {
+        blueprintCube.rotation.y += phase === "executing" ? 0.045 : 0.018;
+        blueprintCube.position.y = 6.2 + Math.sin(t * 2.6) * 0.22;
+      }
       islandGroup.position.y = 0;
       porchLight.intensity = 1.55 + Math.sin(t * 2.2) * 0.08;
 
