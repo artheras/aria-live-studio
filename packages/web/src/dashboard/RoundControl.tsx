@@ -656,7 +656,7 @@ export function RoundControl({ round, settings, me, api, clockOffset, onConnectA
             </span>
           ))}
           {phase !== "idle" && (
-            <>
+            <div className="round-title__meta">
               <button
                 type="button"
                 className={`sfx-toggle ${sfx ? "is-on" : ""}`}
@@ -670,8 +670,10 @@ export function RoundControl({ round, settings, me, api, clockOffset, onConnectA
               >
                 SFX {sfx ? "ON" : "OFF"}
               </button>
-              <span className={`phase-tag phase-tag--${phase}`}>{phase === "awaiting_approval" && task?.status === "approved" ? "Ready to build" : PHASE_LABEL[phase]}</span>
-            </>
+              <span className={`phase-tag phase-tag--${phase}`}>
+                {phase === "awaiting_approval" && task?.status === "approved" ? "Ready to build" : PHASE_LABEL[phase]}
+              </span>
+            </div>
           )}
         </div>
         {body}

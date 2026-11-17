@@ -47,10 +47,10 @@ export function winnerIdea(round: Round | null): Idea | null {
 }
 
 export const STEPS = [
-  { key: "collect", label: "Collect ideas" },
+  { key: "collect", label: "Ideas" },
   { key: "vote", label: "Vote" },
   { key: "plan", label: "Plan" },
-  { key: "approve", label: "Approve" },
+  { key: "approve", label: "Review" },
   { key: "build", label: "Build" },
   { key: "done", label: "Done" },
 ] as const;

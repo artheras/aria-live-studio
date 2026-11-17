@@ -119,6 +119,14 @@ export function Header({
     <header className="topbar topbar--studio">
       <Logo />
       <div className="topbar__right">
+        <div className="topbar__pills" aria-label="Service status">
+          <span className={`chip ${connection.state === "connected" ? "chip--good" : "chip--muted"}`}>
+            {connection.isLive ? "Live" : connection.state === "connected" ? "Chat ready" : "Chat offline"}
+          </span>
+          <span className={`chip ${me.executor.ok || agentOnline ? "chip--good" : "chip--muted"}`}>
+            {agentOnline && agentStatus ? agentStatus.name : me.executor.ok ? me.executor.kind : "Agent idle"}
+          </span>
+        </div>
         {live !== "open" && (
           <span className="chip chip--warn" role="status">
             Server {live === "connecting" ? "connecting…" : "reconnecting…"}

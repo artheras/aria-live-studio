@@ -66,6 +66,18 @@ function IdeaList({ round, api }: { round: Round; api: AriaApi }) {
         <p className="muted">
           Chat types <code>!idea your idea</code> to submit.
         </p>
+        {typeof api.demoSimulate === "function" && (
+          <div className="actions" style={{ justifyContent: "center", marginTop: 10 }}>
+            <Btn
+              size="sm"
+              variant="secondary"
+              disabled={isPending("demo:idea")}
+              onClick={() => run("demo:idea", () => api.demoSimulate("idea"))}
+            >
+              + Simulate !idea
+            </Btn>
+          </div>
+        )}
       </div>
     );
   }
@@ -391,10 +403,17 @@ export function IdeasPanel({
           <BroadcastMonitor api={api} />
         ) : activeView === "build" && previewUrl ? (
           <BroadcastMonitor api={api} livePreviewUrl={previewUrl} />
-        ) : showBallot ? (
-          <Ballot round={round} />
         ) : (
-          <IdeaList round={round!} api={api} />
+          <div className="ideas-split">
+            {state && (
+              <div className="monitor-bezel monitor-bezel--workshop monitor-bezel--compact">
+                <div className="idle-preview__stage monitor-stage--compact">
+                  <LiveStageCanvas state={state} ecoMode={ecoMode} />
+                </div>
+              </div>
+            )}
+            {showBallot ? <Ballot round={round!} /> : <IdeaList round={round!} api={api} />}
+          </div>
         )}
       </div>
     </section>

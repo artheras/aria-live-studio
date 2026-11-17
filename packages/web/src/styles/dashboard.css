@@ -2232,6 +2232,46 @@ input[type="checkbox"] {
 .grid--workshop .panel--help .panel__head {
   padding: 4px 0;
 }
+.grid--workshop .round-title {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.round-title__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+.sfx-toggle,
+.phase-tag {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.grid--workshop .stepper {
+  padding: 12px 10px;
+  gap: 4px;
+}
+.grid--workshop .stepper__step {
+  font-size: 10.5px;
+}
+.topbar__pills {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.ideas-split {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.monitor-bezel--compact {
+  border-radius: 12px;
+}
+.monitor-stage--compact {
+  height: 230px;
+  position: relative;
+}
 .grid--workshop .round-title h2 {
   color: #cbb5ff;
   font-size: 24px;
