@@ -1371,7 +1371,13 @@ async function setupShots() {
       if (!["executor-running", "executor-done", "idle-after"].includes(name)) await save(ovPage, `overlay-${name}`);
     },
     async agentDrawer() {
-      await dash.getByRole("button", { name: "Connect agent" }).click();
+      await dash.locator(".user-pill").click();
+      const menuItem = dash.getByRole("menuitem", { name: /Connect coding agent/i });
+      if (await menuItem.count()) {
+        await menuItem.click();
+      } else {
+        await dash.getByRole("button", { name: /Connect coding agent/i }).click();
+      }
       await dash.locator(".snippet").first().waitFor();
       await save(dash, "dashboard-connect-agent");
       await dash.keyboard.press("Escape");
