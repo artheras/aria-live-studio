@@ -140,12 +140,12 @@ export function LiveStageCanvas({
     const scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0x22173b, 0.0055);
 
-    // Classic isometric pitch matching voxel-workshop.jpg (frames deep cliff cone, roots, and castle spire)
+    // Classic isometric pitch framing the spacious 33x33 floating island, deep cliff cone, and castle
     const camera = new THREE.PerspectiveCamera(36, width / height, 0.1, 160);
     if (compact) {
-      camera.position.set(16.2, 8.2, 16.6);
+      camera.position.set(18.6, 9.6, 19.0);
     } else {
-      camera.position.set(15.4, 7.6, 15.8);
+      camera.position.set(17.8, 9.2, 18.2);
     }
 
     const composer = new EffectComposer(renderer);
@@ -159,10 +159,10 @@ export function LiveStageCanvas({
     controls.dampingFactor = 0.06;
     controls.autoRotate = true;
     controls.autoRotateSpeed = 0.12;
-    controls.minDistance = 7.0;
-    controls.maxDistance = 26;
+    controls.minDistance = 8.0;
+    controls.maxDistance = 30;
     controls.maxPolarAngle = Math.PI * 0.49;
-    controls.target.set(0.45, compact ? 0.65 : 0.45, -0.35);
+    controls.target.set(0.35, compact ? 0.65 : 0.45, -0.25);
 
     // Twilight sky dome mapped to the isometric camera view (dir.y spans -0.60 at bottom to +0.05 at top)
     const skyGeo = new THREE.SphereGeometry(76, 24, 16);
@@ -314,16 +314,16 @@ export function LiveStageCanvas({
       }
     };
 
-    // 1. High-density 24x24 Floating Cliff Island (stepped stone cliff, dirt, 2-tier mossy grass)
-    for (let gx = -11; gx <= 11; gx++) {
-      for (let gz = -11; gz <= 11; gz++) {
+    // 1. Spacious 33x33 Floating Cliff Island (over 2x ground area: plaza, grove, workshop yard)
+    for (let gx = -16; gx <= 16; gx++) {
+      for (let gz = -16; gz <= 16; gz++) {
         const x = gx * u;
         const z = gz * u;
         const dist = Math.abs(gx) + Math.abs(gz);
         const maxC = Math.max(Math.abs(gx), Math.abs(gz));
-        if (maxC > 11 || dist > 16) continue;
+        if (maxC > 16 || dist > 23) continue;
 
-        const onUpperTerrace = gx >= -5 && gx <= 6 && gz >= -6 && gz <= 2;
+        const onUpperTerrace = gx >= -6 && gx <= 7 && gz >= -7 && gz <= 2;
         if (onUpperTerrace) {
           pushStone(x, 0.5, z);
           pushStone(x, 0.0, z);
@@ -332,48 +332,51 @@ export function LiveStageCanvas({
           else grassSpecs.push({ x, y: 0.0, z });
         }
 
-        // Deep craggy inverted-cone cliff underside matching voxel-workshop.jpg
-        if (dist <= 16) dirtSpecs.push({ x, y: -0.5, z });
-        if (dist <= 16 && (maxC <= 10 || (gx + gz) % 2 === 0)) pushStone(x, -1.0, z);
-        if (dist <= 15 && maxC <= 10) pushStone(x, -1.5, z);
-        if (dist <= 14 && maxC <= 9) stoneDarkSpecs.push({ x, y: -2.0, z });
-        if (dist <= 13 && maxC <= 8) pushStone(x, -2.5, z);
-        if (dist <= 11 && maxC <= 7) stoneDarkSpecs.push({ x, y: -3.0, z });
-        if (dist <= 9 && maxC <= 6) stoneDarkSpecs.push({ x, y: -3.5, z });
-        if (dist <= 7 && maxC <= 5) stoneDarkSpecs.push({ x, y: -4.0, z });
-        if (dist <= 5 && maxC <= 4) stoneDarkSpecs.push({ x, y: -4.5, z });
-        if (dist <= 4 && maxC <= 3) stoneDarkSpecs.push({ x, y: -5.0, z });
-        if (dist <= 3) stoneDarkSpecs.push({ x, y: -5.5, z });
-        if (dist <= 2) stoneDarkSpecs.push({ x, y: -6.0, z });
-        if (dist <= 1) stoneDarkSpecs.push({ x, y: -6.5, z });
+        // Deep craggy inverted-cone cliff underside matching the wider 33x33 island
+        if (dist <= 23) dirtSpecs.push({ x, y: -0.5, z });
+        if (dist <= 23 && (maxC <= 15 || (gx + gz) % 2 === 0)) pushStone(x, -1.0, z);
+        if (dist <= 21 && maxC <= 14) pushStone(x, -1.5, z);
+        if (dist <= 19 && maxC <= 13) stoneDarkSpecs.push({ x, y: -2.0, z });
+        if (dist <= 17 && maxC <= 11) pushStone(x, -2.5, z);
+        if (dist <= 15 && maxC <= 10) stoneDarkSpecs.push({ x, y: -3.0, z });
+        if (dist <= 13 && maxC <= 9) stoneDarkSpecs.push({ x, y: -3.5, z });
+        if (dist <= 10 && maxC <= 7) stoneDarkSpecs.push({ x, y: -4.0, z });
+        if (dist <= 8 && maxC <= 6) stoneDarkSpecs.push({ x, y: -4.5, z });
+        if (dist <= 6 && maxC <= 4) stoneDarkSpecs.push({ x, y: -5.0, z });
+        if (dist <= 4 && maxC <= 3) stoneDarkSpecs.push({ x, y: -5.5, z });
+        if (dist <= 3) stoneDarkSpecs.push({ x, y: -6.0, z });
+        if (dist <= 2) stoneDarkSpecs.push({ x, y: -6.5, z });
+        if (dist <= 1) stoneDarkSpecs.push({ x, y: -7.0, z });
       }
     }
     // Irregular corner rock stalactites, hanging moss lips & branched wooden cliff roots
     for (const [rx, rz] of [
-      [-4.0, 2.5],
-      [4.0, 2.0],
-      [2.5, -4.0],
-      [-3.5, -3.5],
-      [0.0, 4.5],
-      [-2.0, 4.2],
-      [3.2, 3.4],
+      [-6.2, 3.5],
+      [6.2, 3.0],
+      [3.5, -6.2],
+      [-5.2, -5.2],
+      [0.0, 6.8],
+      [-3.2, 6.2],
+      [4.8, 5.0],
+      [-6.8, -1.0],
+      [6.8, -1.5],
       [0.2, 0.2],
     ] as const) {
-      stoneDarkSpecs.push({ x: rx, y: -2.5, z: rz, sx: 1.4, sy: 2.8, sz: 1.4 });
-      mossSpecs.push({ x: rx, y: -0.45, z: rz, sx: 1.0, sy: 1.4, sz: 1.0 });
+      stoneDarkSpecs.push({ x: rx, y: -2.5, z: rz, sx: 1.5, sy: 3.0, sz: 1.5 });
+      mossSpecs.push({ x: rx, y: -0.45, z: rz, sx: 1.1, sy: 1.4, sz: 1.1 });
     }
-    // Branched primary + secondary roots dangling below the floating island
+    // Branched primary + secondary roots dangling below the wider floating island
     for (const [vx, vz, len] of [
-      [-4.4, 2.8, 5],
-      [-3.6, 3.8, 6],
-      [-2.2, 4.6, 5],
-      [-0.8, 4.9, 4],
-      [1.2, 4.7, 6],
-      [2.8, 4.1, 5],
-      [4.2, 2.8, 6],
-      [4.8, 1.2, 4],
-      [-4.8, 0.8, 5],
-      [0.4, 3.4, 6],
+      [-6.2, 3.8, 5],
+      [-5.0, 5.2, 6],
+      [-3.2, 6.4, 5],
+      [-1.0, 7.0, 4],
+      [1.6, 6.8, 6],
+      [3.8, 5.8, 5],
+      [5.8, 4.0, 6],
+      [6.8, 1.6, 4],
+      [-6.8, 1.2, 5],
+      [0.4, 5.0, 6],
     ] as const) {
       for (let k = 0; k < len; k++) {
         timberSpecs.push({
@@ -625,7 +628,18 @@ export function LiveStageCanvas({
       { x: -4.0, y: 1.0, z: 2.6, sx: 0.78, sy: 2.8, sz: 0.78 },
       { x: 4.1, y: 1.0, z: 2.6, sx: 0.78, sy: 2.8, sz: 0.78 },
       { x: -2.2, y: 0.95, z: -4.0, sx: 0.72, sy: 2.4, sz: 0.72 },
+      { x: -6.0, y: 1.05, z: -0.4, sx: 0.82, sy: 3.0, sz: 0.82 },
+      { x: -5.8, y: 0.95, z: 3.6, sx: 0.76, sy: 2.6, sz: 0.76 },
+      { x: 5.9, y: 1.0, z: 3.3, sx: 0.78, sy: 2.8, sz: 0.78 },
+      { x: 6.4, y: 1.05, z: -1.6, sx: 0.78, sy: 2.8, sz: 0.78 },
     ];
+    // Outdoor workshop workbench & stool on the expanded right lawn
+    scaffSpecs.push(
+      { x: 4.8, y: 0.72, z: 4.2, sx: 2.1, sy: 0.35, sz: 1.1 },
+      { x: 4.35, y: 0.45, z: 4.2, sx: 0.32, sy: 0.8, sz: 0.85 },
+      { x: 5.25, y: 0.45, z: 4.2, sx: 0.32, sy: 0.8, sz: 0.85 },
+      { x: 4.8, y: 0.4, z: 5.0, sx: 0.6, sy: 0.5, sz: 0.6 },
+    );
     const addFineTree = (cx: number, baseY: number, cz: number, tiers: number) => {
       for (let t = 0; t < tiers; t++) {
         const r = tiers - t;
@@ -653,14 +667,21 @@ export function LiveStageCanvas({
     addFineTree(4.3, 1.6, 2.4, 4);
     addFineTree(5.1, 1.5, -0.4, 4);
     addFineTree(-2.3, 1.6, -4.1, 4);
+    addFineTree(-6.0, 1.65, -0.4, 4);
+    addFineTree(-5.8, 1.45, 3.6, 4);
+    addFineTree(5.9, 1.55, 3.3, 4);
+    addFineTree(6.4, 1.6, -1.6, 4);
 
-    // Shrubs & courtyard stepping stones
+    // Shrubs & expanded courtyard stepping stones
     for (const [sx, sz] of [
       [-3.1, 3.6],
       [-2.4, 4.1],
       [1.8, 3.8],
       [3.2, 0.9],
       [4.2, -0.4],
+      [-4.6, 4.4],
+      [3.4, 5.2],
+      [5.4, 1.4],
     ] as const) {
       mossSpecs.push({ x: sx, y: 0.38, z: sz, sx: 1.05, sy: 0.9, sz: 1.05 });
       pineSpecs.push({ x: sx + 0.22, y: 0.62, z: sz - 0.14, sx: 0.72, sy: 0.72, sz: 0.72 });
@@ -671,6 +692,10 @@ export function LiveStageCanvas({
       [0.6, 3.6],
       [1.6, 3.1],
       [2.5, 2.5],
+      [-1.6, 5.6],
+      [-0.8, 6.2],
+      [0.2, 5.8],
+      [1.2, 5.4],
     ] as const) {
       stoneLightSpecs.push({ x: cx, y: 0.28, z: cz, sx: 1.05, sy: 0.25, sz: 1.05 });
     }
@@ -859,10 +884,10 @@ export function LiveStageCanvas({
         });
       }
     };
-    addVoxelCloud(-7.6, 1.9, 0.6, 1.15);
-    addVoxelCloud(7.6, 2.8, -3.2, 1.2);
-    addVoxelCloud(-6.8, -4.1, 4.2, 1.3);
-    addVoxelCloud(6.6, -3.9, 3.8, 1.25);
+    addVoxelCloud(-9.8, 2.2, 0.8, 1.2);
+    addVoxelCloud(9.8, 3.1, -3.6, 1.25);
+    addVoxelCloud(-8.8, -4.8, 5.2, 1.35);
+    addVoxelCloud(8.6, -4.5, 4.8, 1.3);
     bgIslands.add(buildVoxelInstances(voxelGeo, cloudShadeMat, cloudBotSpecs, false, false));
     bgIslands.add(buildVoxelInstances(voxelGeo, cloudLightMat, cloudTopSpecs, false, false));
 
