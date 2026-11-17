@@ -87,6 +87,7 @@ function DashboardInner({ state, live, me, api, clockOffset = 0, onLogout }: Das
             api={api}
             maxIdeas={state.settings.maxIdeasPerRound}
             onOpenSettings={() => setDrawer("settings")}
+            onOpenAgent={() => setDrawer("agent")}
           />
         </div>
       </main>
@@ -100,7 +101,7 @@ function DashboardInner({ state, live, me, api, clockOffset = 0, onLogout }: Das
         />
       </Drawer>
       <Drawer open={drawer === "agent"} title="Connect a coding agent" onClose={close} wide>
-        <AgentPanel api={api} />
+        <AgentPanel api={api} agentConnected={Boolean(state.agentStatus)} />
       </Drawer>
     </div>
   );

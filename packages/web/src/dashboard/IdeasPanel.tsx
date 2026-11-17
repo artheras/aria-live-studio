@@ -279,12 +279,14 @@ export function IdeasPanel({
   api,
   maxIdeas,
   onOpenSettings,
+  onOpenAgent,
 }: {
   state?: LiveState;
   round: Round | null;
   api: AriaApi;
   maxIdeas: number;
   onOpenSettings?: () => void;
+  onOpenAgent?: () => void;
 }) {
   const phase = round?.phase ?? "idle";
   const showBallot = round && phase !== "idle" && phase !== "collecting" && round.candidates.length > 0;
@@ -294,6 +296,13 @@ export function IdeasPanel({
     previewUrl ? "build" : round && phase !== "idle" ? "stage" : state ? "arena" : "overlay",
   );
   const [focusMode, setFocusMode] = useState(false);
+  const [onboardingDismissed, setOnboardingDismissed] = useState(() => {
+    try {
+      return window.localStorage.getItem("aria_onboarding_dismissed") === "1";
+    } catch {
+      return false;
+    }
+  });
   const [stageMode, setStageMode] = useState<StagePerfMode>(loadStageMode);
   const updateStageMode = (m: StagePerfMode) => {
     setStageMode(m);
@@ -456,6 +465,41 @@ export function IdeasPanel({
                     </Btn>
                   )}
                 </div>
+              </div>
+            )}
+            {!focusMode && state.stats.rounds === 0 && !onboardingDismissed && (
+              <div className="onboarding-strip" aria-label="Quick start checklist">
+                <span className="onboarding-strip__title">Quick Start</span>
+                <span className={`onboarding-step ${state.agentStatus ? "is-done" : ""}`}>
+                  1. {state.agentStatus ? "Agent connected" : "Connect agent"}
+                  {!state.agentStatus && onOpenAgent && (
+                    <button type="button" className="onboarding-link" onClick={onOpenAgent}>
+                      Setup
+                    </button>
+                  )}
+                </span>
+                <span className="onboarding-step">
+                  2. Add OBS Overlay
+                  <button type="button" className="onboarding-link" onClick={() => setView("overlay")}>
+                    Preview
+                  </button>
+                </span>
+                <span className="onboarding-step">
+                  3. Open first round
+                </span>
+                <button
+                  type="button"
+                  className="onboarding-dismiss"
+                  aria-label="Dismiss quick start"
+                  onClick={() => {
+                    setOnboardingDismissed(true);
+                    try {
+                      window.localStorage.setItem("aria_onboarding_dismissed", "1");
+                    } catch { /* ignore */ }
+                  }}
+                >
+                  ×
+                </button>
               </div>
             )}
             {focusMode && (
