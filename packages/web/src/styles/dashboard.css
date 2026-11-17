@@ -2061,6 +2061,30 @@ input[type="checkbox"] {
 .workshop-bubble--3d:active {
   transform: translate(-50%, -100%) scale(0.96);
 }
+.workshop-bubble--flank {
+  position: absolute;
+  transform: none;
+  pointer-events: auto;
+  cursor: pointer;
+  animation: none;
+  z-index: 4;
+  max-width: 255px;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: transform 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease;
+}
+.workshop-bubble--flank .workshop-bubble__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.workshop-bubble--flank:hover {
+  transform: translateY(-2px) scale(1.03);
+  border-color: rgba(167, 139, 250, 0.9);
+}
+.workshop-bubble--flank-0 { left: 16px; top: 18px; }
+.workshop-bubble--flank-1 { right: 16px; top: 18px; }
+.workshop-bubble--flank-2 { left: 16px; top: 64px; }
+.workshop-bubble--flank-3 { right: 16px; top: 64px; }
 .btn:active:not(:disabled),
 .focus-pill:active {
   transform: scale(0.97);

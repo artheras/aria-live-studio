@@ -432,7 +432,7 @@ export function IdeasPanel({
             {state && (
               <div className="monitor-bezel monitor-bezel--workshop monitor-bezel--compact">
                 <div className="idle-preview__stage monitor-stage--compact">
-                  <LiveStageCanvas state={state} ecoMode={ecoMode} />
+                  <LiveStageCanvas state={state} ecoMode={ecoMode} compact />
                 </div>
               </div>
             )}

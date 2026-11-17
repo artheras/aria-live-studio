@@ -73,10 +73,12 @@ export function LiveStageCanvas({
   state,
   transparent = false,
   ecoMode = false,
+  compact = false,
 }: {
   state: LiveState;
   transparent?: boolean;
   ecoMode?: boolean;
+  compact?: boolean;
 }) {
   const mountRef = useRef<HTMLDivElement>(null);
   const stateRef = useRef(state);
@@ -140,7 +142,11 @@ export function LiveStageCanvas({
 
     // Classic 45-deg isometric hero view matching the reference workshop composition
     const camera = new THREE.PerspectiveCamera(35, width / height, 0.1, 160);
-    camera.position.set(12.8, 9.0, 13.0);
+    if (compact) {
+      camera.position.set(14.5, 9.8, 14.8);
+    } else {
+      camera.position.set(12.8, 9.0, 13.0);
+    }
 
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
@@ -156,7 +162,7 @@ export function LiveStageCanvas({
     controls.minDistance = 8.5;
     controls.maxDistance = 26;
     controls.maxPolarAngle = Math.PI * 0.49;
-    controls.target.set(0.25, 2.55, -0.15);
+    controls.target.set(0.25, compact ? 2.75 : 2.55, -0.15);
 
     // Twilight sky dome with directional golden-peach sunset glow on upper-right
     const skyGeo = new THREE.SphereGeometry(76, 24, 16);
@@ -920,12 +926,12 @@ export function LiveStageCanvas({
     renderer.domElement.addEventListener("pointermove", onPointerMove);
     renderer.domElement.addEventListener("pointerup", onPointerUp);
 
-    // 3D anchor points placed around the perimeter so they never block the castle silhouette
+    // 3D anchor points placed around the outer sky flanks so they never block the castle silhouette
     const ideaAnchors = [
-      new THREE.Vector3(-4.2, 4.8, 0.5),
-      new THREE.Vector3(4.8, 4.2, 2.2),
-      new THREE.Vector3(-3.2, 2.6, 4.6),
-      new THREE.Vector3(5.6, 6.2, -1.5),
+      new THREE.Vector3(-7.0, 5.2, 1.5),
+      new THREE.Vector3(6.5, 5.0, -3.5),
+      new THREE.Vector3(-5.5, 2.0, 5.5),
+      new THREE.Vector3(7.2, 2.4, 2.5),
     ];
     const builderAnchors = [
       new THREE.Vector3(-2.5, 1.5, 3.2),
@@ -1134,14 +1140,28 @@ export function LiveStageCanvas({
       {!webglReady && <img className="workshop-scene__art" src="/art/voxel-workshop.jpg" alt="Voxel Workshop Stage" />}
 
       {ideas.map((idea, idx) => {
+        const anchorCoords = [
+          { x: -7.0, y: 5.2, z: 1.5 },
+          { x: 6.5, y: 5.0, z: -3.5 },
+          { x: -5.5, y: 2.0, z: 5.5 },
+          { x: 7.2, y: 2.4, z: 2.5 },
+        ];
+        if (compact) {
+          return (
+            <button
+              key={idea.id}
+              type="button"
+              className={`workshop-bubble workshop-bubble--flank workshop-bubble--flank-${idx} ${idea.boosts ? "is-boosted" : ""}`}
+              onClick={() => burstFnRef.current?.(idea.boosts ? 0xf5b942 : 0x9146ff, anchorCoords[idx % anchorCoords.length])}
+            >
+              <span className="workshop-bubble__user">@{idea.author.displayName || idea.author.login}</span>
+              <span className="workshop-bubble__text">{truncate(idea.text, 22)}</span>
+              {idea.boosts ? <span className="workshop-bubble__boost">+{idea.boosts}</span> : null}
+            </button>
+          );
+        }
         const pos = projectedIdeas[idea.id];
         if (!pos?.visible) return null;
-        const anchorCoords = [
-          { x: -4.2, y: 4.8, z: 0.5 },
-          { x: 4.8, y: 4.2, z: 2.2 },
-          { x: -3.2, y: 2.6, z: 4.6 },
-          { x: 5.6, y: 6.2, z: -1.5 },
-        ];
         return (
           <button
             key={idea.id}
