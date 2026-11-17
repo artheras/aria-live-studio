@@ -1,11 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
-import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
-import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
-import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
-import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import type { LiveState } from "@aria-live/shared";
 import { truncate } from "../lib/time";
 
@@ -24,13 +21,6 @@ interface BurstCube {
   vy: number;
   vz: number;
   life: number;
-}
-
-interface ProjectedLabel {
-  id: string;
-  x: number;
-  y: number;
-  visible: boolean;
 }
 
 function buildVoxelInstances(
@@ -87,8 +77,6 @@ export function LiveStageCanvas({
   ecoModeRef.current = ecoMode;
 
   const [webglReady, setWebglReady] = useState(true);
-  const [projectedIdeas, setProjectedIdeas] = useState<Record<string, ProjectedLabel>>({});
-  const [projectedBuilders, setProjectedBuilders] = useState<Record<string, ProjectedLabel>>({});
 
   const prevPhaseRef = useRef(state.round?.phase ?? "idle");
   const lastCelebrationIdRef = useRef<string | null>(null);
@@ -96,22 +84,13 @@ export function LiveStageCanvas({
   const petUntilRef = useRef<number>(0);
 
   useEffect(() => {
-    const phase = state.round?.phase ?? "idle";
-    if (phase !== prevPhaseRef.current) {
-      if (phase === "collecting") burstFnRef.current?.(0x9146ff);
-      if (phase === "voting") burstFnRef.current?.(0xf5b942);
-      if (phase === "done") burstFnRef.current?.(0x30d88b);
-      prevPhaseRef.current = phase;
-    }
+    prevPhaseRef.current = state.round?.phase ?? "idle";
   }, [state.round?.phase]);
 
   useEffect(() => {
     const latest = state.celebrations?.at(-1);
     if (!latest || latest.id === lastCelebrationIdRef.current) return;
     lastCelebrationIdRef.current = latest.id;
-    const hex = latest.kind === "bits" || latest.kind === "channel_points" ? 0xf5b942 : 0xb589ff;
-    burstFnRef.current?.(hex);
-    petUntilRef.current = Date.now() + 15_000;
   }, [state.celebrations]);
 
   useEffect(() => {
@@ -134,35 +113,24 @@ export function LiveStageCanvas({
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.12;
+    renderer.toneMappingExposure = 1;
     container.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x22173b, 0.0055);
+    scene.fog = new THREE.Fog(0x6e5a86, 48, 110);
 
-    // Classic isometric pitch framing the spacious 33x33 floating island, deep cliff cone, and castle
-    const camera = new THREE.PerspectiveCamera(36, width / height, 0.1, 160);
-    if (compact) {
-      camera.position.set(18.6, 9.6, 19.0);
-    } else {
-      camera.position.set(17.8, 9.2, 18.2);
-    }
-
-    const composer = new EffectComposer(renderer);
-    composer.addPass(new RenderPass(scene, camera));
-    // Gentle bloom so windows glow richly without blowing out the front porch
-    composer.addPass(new UnrealBloomPass(new THREE.Vector2(width, height), 0.34, 0.46, 0.82));
-    composer.addPass(new OutputPass());
+    // Closer three-quarter view so the door, yard, and crane fill the frame.
+    const camera = new THREE.PerspectiveCamera(34, width / height, 0.1, 180);
+    camera.position.set(compact ? 7.6 : 6.2, compact ? 4.4 : 3.9, compact ? 8.0 : 7.0);
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
-    controls.dampingFactor = 0.06;
-    controls.autoRotate = true;
-    controls.autoRotateSpeed = 0.12;
-    controls.minDistance = 8.0;
-    controls.maxDistance = 30;
-    controls.maxPolarAngle = Math.PI * 0.49;
-    controls.target.set(0.35, compact ? 0.65 : 0.45, -0.25);
+    controls.dampingFactor = 0.08;
+    controls.autoRotate = false;
+    controls.minDistance = 4.5;
+    controls.maxDistance = 32;
+    controls.maxPolarAngle = Math.PI * 0.46;
+    controls.target.set(0.9, 1.7, 0.55);
 
     // Twilight sky dome mapped to the isometric camera view (dir.y spans -0.60 at bottom to +0.05 at top)
     const skyGeo = new THREE.SphereGeometry(76, 24, 16);
@@ -192,7 +160,7 @@ export function LiveStageCanvas({
           float h = dir.y;
           vec3 col = mix(horizonColor, midColor, smoothstep(-0.56, -0.22, h));
           col = mix(col, topColor, smoothstep(-0.26, 0.04, h));
-          float sunGlow = pow(max(dot(dir, normalize(vec3(0.55, -0.36, -0.75))), 0.0), 3.0);
+          float sunGlow = pow(max(dot(dir, normalize(vec3(0.45, 0.2, 0.78))), 0.0), 3.0);
           col = mix(col, vec3(0.99, 0.78, 0.52), sunGlow * 0.62);
           gl_FragColor = vec4(col, 1.0);
         }
@@ -203,36 +171,27 @@ export function LiveStageCanvas({
     }
 
     // Balanced 3-point twilight lighting so shadow-side stone bricks stay legible & richly textured
-    scene.add(new THREE.HemisphereLight(0xe4d2ff, 0x45355c, 1.48));
+    scene.add(new THREE.HemisphereLight(0xfff0dc, 0x6d8b62, 0.78));
 
-    const sun = new THREE.DirectionalLight(0xffd2a4, 2.15);
-    sun.position.set(16, 18, 12);
+    const sun = new THREE.DirectionalLight(0xffd7a8, 2.7);
+    sun.position.set(8, 12, 14);
+    const fill = new THREE.DirectionalLight(0xfff4e6, 0.62);
+    fill.position.set(-6, 7, 8);
+    scene.add(fill);
     sun.castShadow = true;
     sun.shadow.mapSize.set(1024, 1024);
     sun.shadow.camera.near = 2;
     sun.shadow.camera.far = 48;
-    sun.shadow.camera.left = -13;
-    sun.shadow.camera.right = 13;
-    sun.shadow.camera.top = 13;
-    sun.shadow.camera.bottom = -13;
+    sun.shadow.camera.left = -18;
+    sun.shadow.camera.right = 18;
+    sun.shadow.camera.top = 18;
+    sun.shadow.camera.bottom = -18;
     sun.shadow.bias = -0.0005;
     scene.add(sun);
 
-    const frontFill = new THREE.DirectionalLight(0xb898ff, 0.92);
-    frontFill.position.set(-14, 10, 12);
-    scene.add(frontFill);
-
-    const crystalLight = new THREE.PointLight(0x9d5cff, 4.2, 13);
-    crystalLight.position.set(0.3, 3.6, 3.0);
-    scene.add(crystalLight);
-
-    const porchLight = new THREE.PointLight(0xffb44c, 3.6, 7.5);
-    porchLight.position.set(-0.75, 1.55, 2.35);
+    const porchLight = new THREE.PointLight(0xffb44c, 1.6, 4.5);
+    porchLight.position.set(1.55, 1.18, 0.85);
     scene.add(porchLight);
-
-    const underGlow = new THREE.PointLight(0x8b4dff, 3.8, 13);
-    underGlow.position.set(0, -3.5, 0);
-    scene.add(underGlow);
 
     const islandGroup = new THREE.Group();
     scene.add(islandGroup);
@@ -241,28 +200,28 @@ export function LiveStageCanvas({
     const u = 0.5;
     const voxelGeo = new RoundedBoxGeometry(0.472, 0.472, 0.472, 2, 0.042);
 
-    const stoneLightMat = new THREE.MeshStandardMaterial({ color: 0x9e94ad, roughness: 0.84 });
-    const stoneMidMat = new THREE.MeshStandardMaterial({ color: 0x7e748d, roughness: 0.86 });
-    const stoneDarkMat = new THREE.MeshStandardMaterial({ color: 0x5c536a, roughness: 0.9 });
+    const stoneLightMat = new THREE.MeshStandardMaterial({ color: 0xd9d0c4, roughness: 0.82 });
+    const stoneMidMat = new THREE.MeshStandardMaterial({ color: 0xb7ab9c, roughness: 0.84 });
+    const stoneDarkMat = new THREE.MeshStandardMaterial({ color: 0x8d8276, roughness: 0.88 });
     const dirtMat = new THREE.MeshStandardMaterial({ color: 0x6b5040, roughness: 0.92 });
-    const grassMat = new THREE.MeshStandardMaterial({ color: 0x5ba158, roughness: 0.78 });
-    const mossMat = new THREE.MeshStandardMaterial({ color: 0x78bd63, roughness: 0.76 });
-    const pineMat = new THREE.MeshStandardMaterial({ color: 0x397644, roughness: 0.8 });
-    const woodMat = new THREE.MeshStandardMaterial({ color: 0xb67b48, roughness: 0.76 });
-    const darkWoodMat = new THREE.MeshStandardMaterial({ color: 0x5e381e, roughness: 0.86 });
-    const roofMat = new THREE.MeshStandardMaterial({ color: 0x352e46, roughness: 0.72 });
-    const roofLightMat = new THREE.MeshStandardMaterial({ color: 0x4f4663, roughness: 0.7 });
+    const grassMat = new THREE.MeshStandardMaterial({ color: 0x7ec86a, roughness: 0.78 });
+    const mossMat = new THREE.MeshStandardMaterial({ color: 0x4e9a52, roughness: 0.76 });
+    const pineMat = new THREE.MeshStandardMaterial({ color: 0x2f7a45, roughness: 0.8 });
+    const woodMat = new THREE.MeshStandardMaterial({ color: 0xc4894a, roughness: 0.74 });
+    const darkWoodMat = new THREE.MeshStandardMaterial({ color: 0x6b3e22, roughness: 0.84 });
+    const roofMat = new THREE.MeshStandardMaterial({ color: 0x5a4032, roughness: 0.78 });
+    const roofLightMat = new THREE.MeshStandardMaterial({ color: 0x6e5240, roughness: 0.74 });
     const crystalMat = new THREE.MeshStandardMaterial({
       color: 0xf0dbff,
-      emissive: 0xa855f7,
-      emissiveIntensity: 1.75,
-      roughness: 0.18,
+      emissive: 0x9b6dff,
+      emissiveIntensity: 0.55,
+      roughness: 0.28,
     });
     const lanternMat = new THREE.MeshStandardMaterial({
       color: 0xffe49e,
       emissive: 0xffa028,
-      emissiveIntensity: 1.65,
-      roughness: 0.18,
+      emissiveIntensity: 0.85,
+      roughness: 0.28,
     });
 
     const stoneLightSpecs: VoxelSpec[] = [];
@@ -314,14 +273,14 @@ export function LiveStageCanvas({
       }
     };
 
-    // 1. Spacious 33x33 Floating Cliff Island (over 2x ground area: plaza, grove, workshop yard)
-    for (let gx = -16; gx <= 16; gx++) {
-      for (let gz = -16; gz <= 16; gz++) {
+    // 1. Wider floating cliff, about 41 across, with the cottage still near the middle.
+    for (let gx = -20; gx <= 20; gx++) {
+      for (let gz = -20; gz <= 20; gz++) {
         const x = gx * u;
         const z = gz * u;
         const dist = Math.abs(gx) + Math.abs(gz);
         const maxC = Math.max(Math.abs(gx), Math.abs(gz));
-        if (maxC > 16 || dist > 23) continue;
+        if (maxC > 20 || dist > 29) continue;
 
         const onUpperTerrace = gx >= -6 && gx <= 7 && gz >= -7 && gz <= 2;
         if (onUpperTerrace) {
@@ -333,8 +292,8 @@ export function LiveStageCanvas({
         }
 
         // Deep craggy inverted-cone cliff underside matching the wider 33x33 island
-        if (dist <= 23) dirtSpecs.push({ x, y: -0.5, z });
-        if (dist <= 23 && (maxC <= 15 || (gx + gz) % 2 === 0)) pushStone(x, -1.0, z);
+        if (dist <= 29) dirtSpecs.push({ x, y: -0.5, z });
+        if (dist <= 27 && (maxC <= 19 || (gx + gz) % 2 === 0)) pushStone(x, -1.0, z);
         if (dist <= 21 && maxC <= 14) pushStone(x, -1.5, z);
         if (dist <= 19 && maxC <= 13) stoneDarkSpecs.push({ x, y: -2.0, z });
         if (dist <= 17 && maxC <= 11) pushStone(x, -2.5, z);
@@ -377,6 +336,14 @@ export function LiveStageCanvas({
       [6.8, 1.6, 4],
       [-6.8, 1.2, 5],
       [0.4, 5.0, 6],
+      [-7.6, -2.2, 6],
+      [7.4, -3.0, 6],
+      [-4.6, -5.4, 5],
+      [2.4, -6.2, 5],
+      [-8.0, 4.8, 5],
+      [7.8, 5.4, 5],
+      [0.2, -7.2, 4],
+      [-2.4, 7.6, 5],
     ] as const) {
       for (let k = 0; k < len; k++) {
         timberSpecs.push({
@@ -401,17 +368,24 @@ export function LiveStageCanvas({
       mossSpecs.push({ x: vx, y: -0.95, z: vz, sx: 0.55, sy: 1.1, sz: 0.55 });
     }
 
-    // 2. Grand 7-Step Front Stone Staircase + Cheek Parapet Walls
-    for (let s = 0; s < 7; s++) {
-      const sy = 0.12 + s * 0.12;
-      const sz = 4.4 - s * 0.42;
-      for (let wx = -3; wx <= -1; wx++) {
-        pushStone(wx * u, sy, sz, 1, 0.75, 0.95);
-      }
-      pushStone(-2.0, sy + 0.25, sz, 0.72, 1.15, 0.95);
-      pushStone(0.0, sy + 0.25, sz, 0.72, 1.15, 0.95);
+    // L-shaped stair leaving the side door, with a turn toward the yard.
+    for (let s = 0; s < 3; s++) {
+      pushStone(1.4, 0.08 + s * 0.14, 2.15 - s * 0.24, 1.15, 0.5, 0.85);
     }
-    stoneLightSpecs.push({ x: -2.0, y: 0.45, z: 4.75 }, { x: 0.0, y: 0.45, z: 4.75 });
+    pushStone(1.45, 0.5, 1.42, 1.35, 0.45, 1.05);
+    for (let s = 0; s < 3; s++) {
+      pushStone(1.42, 0.62 + s * 0.14, 1.05 - s * 0.26, 1.05, 0.5, 0.8);
+    }
+    timberSpecs.push(
+      { x: 1.82, y: 0.55, z: 2.15, sx: 0.12, sy: 0.85, sz: 0.12 },
+      { x: 1.82, y: 0.85, z: 1.42, sx: 0.12, sy: 1.15, sz: 0.12 },
+      { x: 1.82, y: 1.15, z: 0.55, sx: 0.12, sy: 1.05, sz: 0.12 },
+      { x: 1.82, y: 0.95, z: 1.78, sx: 0.1, sy: 0.1, sz: 1.5 },
+      { x: 1.82, y: 1.35, z: 0.98, sx: 0.1, sy: 0.1, sz: 1.15 },
+      { x: 1.12, y: 0.7, z: 2.15, sx: 0.1, sy: 0.7, sz: 0.1 },
+      { x: 1.12, y: 1.05, z: 0.55, sx: 0.1, sy: 0.85, sz: 0.1 },
+      { x: 1.12, y: 1.15, z: 1.35, sx: 0.08, sy: 0.08, sz: 2.4 },
+    );
 
     // 3. Main Two-Story Gabled Manor Hall (fine 0.5u stone masonry, dark wood door, arched purple windows)
     for (let gy = 2; gy <= 7; gy++) {
@@ -422,22 +396,25 @@ export function LiveStageCanvas({
           if (!isOuter) continue;
           const x = gx * u;
           const z = gz * u;
-          const isDoor = gz === 2 && (gx === -2 || gx === -1) && (gy === 2 || gy === 3);
-          const isFrontWin = gz === 2 && (gx === 0 || gx === 1) && (gy === 4 || gy === 5);
+          const isDoor = gx === 2 && (gz === 0 || gz === 1) && (gy === 2 || gy === 3);
+          const isFrontWin =
+            gz === 2 &&
+            (((gy === 2 || gy === 3) && (gx === -4 || gx === -3)) ||
+              ((gy === 4 || gy === 5) && (gx === -2 || gx === -1)));
+          const isUpperTimber = gz === 2 && gy >= 5 && !isDoor;
           const isBackWin = gz === -4 && (gx === -3 || gx === 0) && (gy === 4 || gy === 5);
           const isSideWin = gx === -5 && (gz === -1 || gz === 0) && (gy === 4 || gy === 5);
           const isCorner = (gx === -5 || gx === 2) && (gz === -4 || gz === 2);
 
           if (isDoor) {
-            // Recessed dark wooden double doors instead of blinding solid glow
-            timberSpecs.push({ x, y, z: z - 0.12, sx: 0.95, sy: 0.95, sz: 0.55 });
+            timberSpecs.push({ x: x - 0.1, y, z, sx: 0.42, sy: 0.95, sz: 0.95 });
           } else if (isFrontWin) {
-            pushFramedWindow(x, y, z, 0, 1, gy === 4);
+            pushFramedWindow(x, y, z, 0, 1, gy === 2 || gy === 4);
           } else if (isBackWin) {
             pushFramedWindow(x, y, z, 0, -1, gy === 4);
           } else if (isSideWin) {
             pushFramedWindow(x, y, z, -1, 0, gy === 4);
-          } else if (isCorner) {
+          } else if (isCorner || isUpperTimber) {
             timberSpecs.push({ x, y, z });
           } else {
             pushStone(x, y, z);
@@ -445,16 +422,21 @@ export function LiveStageCanvas({
         }
       }
     }
-    // Warm porch canopy + 3 slender timber columns + twin hanging amber lanterns
+    // Side door leaf and the small lantern beside it.
+    scaffSpecs.push({ x: 0.92, y: 1.22, z: 0.25, sx: 0.16, sy: 1.35, sz: 0.72 });
     timberSpecs.push(
-      { x: -1.55, y: 1.35, z: 1.55, sx: 0.42, sy: 2.2, sz: 0.42 },
-      { x: -0.75, y: 1.35, z: 1.55, sx: 0.36, sy: 2.2, sz: 0.36 },
-      { x: 0.05, y: 1.35, z: 1.55, sx: 0.42, sy: 2.2, sz: 0.42 },
-      { x: -0.75, y: 2.05, z: 1.4, sx: 3.8, sy: 0.5, sz: 1.8 },
+      { x: 1.08, y: 1.22, z: -0.12, sx: 0.14, sy: 1.55, sz: 0.12 },
+      { x: 1.08, y: 1.22, z: 0.62, sx: 0.14, sy: 1.55, sz: 0.12 },
+      { x: 1.08, y: 1.9, z: 0.25, sx: 0.14, sy: 0.12, sz: 0.9 },
+      { x: 1.38, y: 0.72, z: 0.82, sx: 0.1, sy: 0.55, sz: 0.1 },
+      { x: 1.38, y: 1.12, z: 0.82, sx: 0.28, sy: 0.08, sz: 0.28 },
     );
-    lanternSpecs.push(
-      { x: -1.55, y: 1.65, z: 1.82, sx: 0.45, sy: 0.55, sz: 0.45 },
-      { x: 0.05, y: 1.65, z: 1.82, sx: 0.45, sy: 0.55, sz: 0.45 },
+    lanternSpecs.push({ x: 1.38, y: 0.96, z: 0.82, sx: 0.2, sy: 0.24, sz: 0.2 });
+    timberSpecs.push(
+      { x: -0.75, y: 2.15, z: 1.12, sx: 3.4, sy: 0.14, sz: 0.18 },
+      { x: -0.75, y: 2.85, z: 1.12, sx: 3.4, sy: 0.14, sz: 0.18 },
+      { x: -1.7, y: 2.5, z: 1.12, sx: 0.14, sy: 0.9, sz: 0.16 },
+      { x: 0.25, y: 2.5, z: 1.12, sx: 0.14, sy: 0.9, sz: 0.16 },
     );
 
     // 5-Tier Stepped Slate Pitched Roof (symmetric around gx = -1.5) + Stone Gable Wall + Arched Purple Gable Window
@@ -487,158 +469,60 @@ export function LiveStageCanvas({
       }
     }
     // Right-side roof dormer, crane pulley & left-back stone chimney with rising smoke puffs
-    pushStone(-1.6, 5.2, -1.6, 1.2, 2.6, 1.2);
-    stoneLightSpecs.push(
-      { x: -1.6, y: 6.1, z: -1.6, sx: 1.45, sy: 0.45, sz: 1.45 },
-      { x: -1.55, y: 6.65, z: -1.55, sx: 0.55, sy: 0.55, sz: 0.55 },
-      { x: -1.4, y: 7.2, z: -1.45, sx: 0.72, sy: 0.72, sz: 0.72 },
-      { x: -1.2, y: 7.85, z: -1.3, sx: 0.88, sy: 0.82, sz: 0.88 },
-    );
-    windowSpecs.push({ x: 1.35, y: 4.5, z: -0.25, sx: 0.7, sy: 1.0, sz: 0.9 });
-    pushRoof(1.25, 5.05, -0.25, 1.2, 0.6, 1.6);
-    // Wooden crane beam & pulley block on top of right scaffolding + front wishing well + flowerbed
-    scaffSpecs.push(
-      { x: 4.55, y: 6.2, z: -0.5, sx: 0.34, sy: 3.4, sz: 0.34 },
-      { x: 4.55, y: 7.0, z: 0.25, sx: 0.34, sy: 0.34, sz: 3.6 },
-      { x: 4.55, y: 6.3, z: 0.95, sx: 0.16, sy: 2.4, sz: 0.16 },
-      { x: 4.55, y: 5.55, z: 0.95, sx: 0.75, sy: 0.85, sz: 0.75 },
-      // Wishing well roof & posts (front-left garden)
-      { x: -3.55, y: 1.15, z: 1.45, sx: 0.22, sy: 2.1, sz: 0.22 },
-      { x: -2.85, y: 1.15, z: 1.45, sx: 0.22, sy: 2.1, sz: 0.22 },
-      { x: -3.2, y: 1.75, z: 1.45, sx: 1.9, sy: 0.45, sz: 1.5 },
-      // Window flowerbox planter
-      { x: 0.35, y: 0.78, z: 1.48, sx: 2.4, sy: 0.55, sz: 0.75 },
-    );
-    stoneLightSpecs.push(
-      { x: -3.2, y: 0.52, z: 1.45, sx: 1.55, sy: 0.95, sz: 1.55 },
-    );
-
-    // 4. Right-Wing Gallery (connecting Main Hall & Watchtower)
-    for (let gy = 2; gy <= 5; gy++) {
-      const y = gy * u;
-      for (let gx = 3; gx <= 6; gx++) {
-        for (let gz = -2; gz <= 1; gz++) {
-          const isFrontWingWin = (gy === 3 || gy === 4) && gz === 1 && gx === 4;
-          const isSideWingWin = (gy === 3 || gy === 4) && gx === 6 && gz === 0;
-          if (isFrontWingWin) pushFramedWindow(gx * u, y, gz * u, 0, 1, gy === 3);
-          else if (isSideWingWin) pushFramedWindow(gx * u, y, gz * u, 1, 0, gy === 3);
-          else pushStone(gx * u, y, gz * u);
-        }
+    pushStone(-1.45, 5.35, -1.2, 0.55, 1.15, 0.55);
+    stoneLightSpecs.push({ x: -1.45, y: 5.85, z: -1.2, sx: 0.72, sy: 0.16, sz: 0.72 });
+    // House-high hoist: two full ladders, thick posts, four platforms, barrels, and a beam.
+    const ladder = (x: number, z: number) => {
+      timberSpecs.push(
+        { x: x - 0.28, y: 2.55, z, sx: 0.38, sy: 11.2, sz: 0.38 },
+        { x: x + 0.28, y: 2.55, z, sx: 0.38, sy: 11.2, sz: 0.38 },
+      );
+      for (let r = 0; r < 11; r++) {
+        timberSpecs.push({ x, y: 0.35 + r * 0.46, z, sx: 1.55, sy: 0.18, sz: 0.2 });
       }
-    }
-    for (let gx = 3; gx <= 6; gx++) {
-      if (gx % 2 === 1) pushStone(gx * u, 3.0, 0.5, 0.85, 0.85, 0.85);
-    }
-
-    // 5. Back-Right Workshop Turret + Battlements + Stepped Slate Pyramid + Guild Flag
-    for (let gy = 2; gy <= 9; gy++) {
-      const y = gy * u;
-      for (let gx = 3; gx <= 7; gx++) {
-        for (let gz = -7; gz <= -3; gz++) {
-          const isOuter = gx === 3 || gx === 7 || gz === -7 || gz === -3;
-          if (!isOuter) continue;
-          const x = gx * u;
-          const z = gz * u;
-          const isWin =
-            (gy === 7 || gy === 8) &&
-            ((gz === -3 && gx === 5) || (gx === 3 && gz === -5) || (gz === -7 && gx === 5) || (gx === 7 && gz === -5));
-          if (isWin) {
-            const nx = gx === 3 ? -1 : gx === 7 ? 1 : 0;
-            const nz = gz === -3 ? 1 : gz === -7 ? -1 : 0;
-            pushFramedWindow(x, y, z, nx, nz, gy === 7);
-          } else {
-            pushStone(x, y, z);
-          }
-        }
-      }
-    }
-    // Turret corbelled battlements & 3-tier slate pyramid cap
-    for (let gx = 2; gx <= 8; gx++) {
-      for (let gz = -8; gz <= -2; gz++) {
-        const isEdge = gx === 2 || gx === 8 || gz === -8 || gz === -2;
-        if (!isEdge) continue;
-        if ((gx + gz) % 2 === 0) pushStone(gx * u, 5.0, gz * u);
-        pushStone(gx * u, 4.6, gz * u);
-      }
-    }
-    for (let tier = 0; tier < 3; tier++) {
-      const y = 5.45 + tier * 0.45;
-      const minG = 3 + tier;
-      const maxG = 7 - tier;
-      for (let gx = minG; gx <= maxG; gx++) {
-        for (let gz = -7 + tier; gz <= -3 - tier; gz++) {
-          pushRoof(gx * u, y, gz * u);
-        }
-      }
-    }
-
-    const bannerGroup = new THREE.Group();
-    bannerGroup.position.set(2.5, 6.8, -2.5);
-    const pole = new THREE.Mesh(voxelGeo, darkWoodMat);
-    pole.scale.set(0.22, 1.8, 0.22);
-    pole.position.y = 0.35;
-    const flagMat = new THREE.MeshStandardMaterial({
-      color: 0x9146ff,
-      emissive: 0x5b21b6,
-      emissiveIntensity: 0.55,
-      roughness: 0.55,
-    });
-    const flagCloth = new THREE.Mesh(voxelGeo, flagMat);
-    flagCloth.scale.set(1.5, 0.85, 0.16);
-    flagCloth.position.set(0.4, 0.55, 0);
-    bannerGroup.add(pole, flagCloth);
-    islandGroup.add(bannerGroup);
-
-    // 6. Intricate Multi-Tier Wooden Scaffolding (right watchtower + left manor)
-    scaffSpecs.push(
-      { x: 4.15, y: 3.3, z: -3.4, sx: 0.32, sy: 12.2, sz: 0.32 },
-      { x: 4.15, y: 3.3, z: -1.2, sx: 0.32, sy: 12.2, sz: 0.32 },
-      { x: 4.15, y: 2.2, z: 0.35, sx: 0.32, sy: 7.4, sz: 0.32 },
-      { x: 4.95, y: 3.3, z: -3.4, sx: 0.32, sy: 12.2, sz: 0.32 },
-      { x: 4.95, y: 3.3, z: -1.2, sx: 0.32, sy: 12.2, sz: 0.32 },
-      { x: 4.95, y: 2.2, z: 0.35, sx: 0.32, sy: 7.4, sz: 0.32 },
-      { x: 4.55, y: 2.1, z: -1.5, sx: 2.1, sy: 0.28, sz: 7.8 },
-      { x: 4.55, y: 3.8, z: -2.3, sx: 2.1, sy: 0.28, sz: 4.8 },
-      { x: 4.55, y: 5.4, z: -2.3, sx: 2.1, sy: 0.28, sz: 4.8 },
-      { x: 4.95, y: 2.95, z: -2.3, sx: 0.22, sy: 0.22, sz: 4.6 },
-      { x: 4.95, y: 4.6, z: -2.3, sx: 0.22, sy: 0.22, sz: 4.6 },
-      // Left scaffolding
-      { x: -3.15, y: 1.9, z: -0.9, sx: 0.28, sy: 6.2, sz: 0.28 },
-      { x: -3.15, y: 1.9, z: 0.9, sx: 0.28, sy: 6.2, sz: 0.28 },
-      { x: -2.8, y: 2.0, z: 0.0, sx: 1.7, sy: 0.26, sz: 3.9 },
-      { x: -2.8, y: 3.2, z: 0.0, sx: 1.7, sy: 0.26, sz: 3.9 },
-      // Courtyard crates & wooden bench
-      { x: 2.1, y: 0.72, z: 1.6, sx: 0.95, sy: 0.95, sz: 0.95 },
-      { x: 2.7, y: 0.68, z: 1.5, sx: 0.78, sy: 0.85, sz: 0.78 },
-      { x: 1.1, y: 0.62, z: 2.6, sx: 1.7, sy: 0.42, sz: 0.72 },
-    );
-    for (let r = 0; r < 7; r++) {
-      scaffSpecs.push({ x: 4.98, y: 1.1 + r * 0.65, z: -2.3, sx: 0.2, sy: 0.2, sz: 1.4 });
-    }
-    lanternSpecs.push(
-      { x: 4.95, y: 3.45, z: -1.2, sx: 0.45, sy: 0.55, sz: 0.45 },
-      { x: 0.65, y: 0.78, z: 3.45, sx: 0.4, sy: 0.5, sz: 0.4 },
-      { x: -2.35, y: 1.85, z: 1.15, sx: 0.4, sy: 0.5, sz: 0.4 },
-      { x: -1.4, y: 1.45, z: -2.35, sx: 0.42, sy: 0.52, sz: 0.42 },
+    };
+    ladder(2.55, 1.05);
+    ladder(3.95, 1.05);
+    timberSpecs.push(
+      { x: 2.55, y: 2.55, z: -0.15, sx: 0.42, sy: 11.2, sz: 0.42 },
+      { x: 3.95, y: 2.55, z: -0.15, sx: 0.42, sy: 11.2, sz: 0.42 },
+      { x: 3.25, y: 1.25, z: 0.45, sx: 5.4, sy: 0.38, sz: 3.6 },
+      { x: 3.25, y: 2.45, z: 0.45, sx: 5.4, sy: 0.38, sz: 3.6 },
+      { x: 3.25, y: 3.65, z: 0.45, sx: 5.4, sy: 0.38, sz: 3.6 },
+      { x: 3.25, y: 4.75, z: 0.45, sx: 5.4, sy: 0.42, sz: 3.6 },
+      { x: 2.7, y: 1.62, z: 0.35, sx: 1.15, sy: 1.15, sz: 1.15 },
+      { x: 3.75, y: 1.58, z: 0.7, sx: 1.05, sy: 1.05, sz: 1.05 },
+      { x: 3.15, y: 2.82, z: 0.25, sx: 1.15, sy: 1.15, sz: 1.15 },
+      { x: 3.7, y: 4.05, z: 0.3, sx: 1.1, sy: 1.1, sz: 1.1 },
+      { x: 2.65, y: 5.15, z: 0.2, sx: 1.05, sy: 1.05, sz: 1.05 },
+      { x: 3.25, y: 5.15, z: 1.55, sx: 0.42, sy: 0.42, sz: 5.2 },
+      { x: 3.25, y: 3.55, z: 2.45, sx: 0.22, sy: 3.4, sz: 0.22 },
+      { x: 3.25, y: 2.65, z: 2.45, sx: 0.85, sy: 0.7, sz: 0.85 },
+      { x: 2.45, y: 0.38, z: 1.85, sx: 1.2, sy: 1.15, sz: 1.2 },
+      { x: 3.35, y: 0.34, z: 1.95, sx: 1.1, sy: 1.05, sz: 1.1 },
+      { x: 4.15, y: 0.3, z: 1.7, sx: 1.05, sy: 1.0, sz: 1.05 },
     );
 
     // 7. Fine-Detail Clustered Sub-Voxel Pine Trees, Shrubs, Cobblestones & Flowers
     const trunkSpecs: VoxelSpec[] = [
-      { x: -4.2, y: 1.15, z: -1.6, sx: 0.85, sy: 3.4, sz: 0.85 },
-      { x: -4.0, y: 1.0, z: 2.6, sx: 0.78, sy: 2.8, sz: 0.78 },
-      { x: 4.1, y: 1.0, z: 2.6, sx: 0.78, sy: 2.8, sz: 0.78 },
-      { x: -2.2, y: 0.95, z: -4.0, sx: 0.72, sy: 2.4, sz: 0.72 },
-      { x: -6.0, y: 1.05, z: -0.4, sx: 0.82, sy: 3.0, sz: 0.82 },
-      { x: -5.8, y: 0.95, z: 3.6, sx: 0.76, sy: 2.6, sz: 0.76 },
-      { x: 5.9, y: 1.0, z: 3.3, sx: 0.78, sy: 2.8, sz: 0.78 },
-      { x: 6.4, y: 1.05, z: -1.6, sx: 0.78, sy: 2.8, sz: 0.78 },
+      { x: -4.3, y: 0.8, z: 0.15, sx: 0.42, sy: 2.1, sz: 0.42 },
+      { x: -3.7, y: 0.7, z: 1.7, sx: 0.38, sy: 1.8, sz: 0.38 },
+      { x: -4.7, y: 0.65, z: 2.5, sx: 0.36, sy: 1.6, sz: 0.36 },
+      { x: 5.55, y: 0.7, z: 1.7, sx: 0.38, sy: 1.8, sz: 0.38 },
+      { x: 5.9, y: 0.62, z: -0.2, sx: 0.34, sy: 1.5, sz: 0.34 },
     ];
-    // Outdoor workshop workbench & stool on the expanded right lawn
+    // Table in front of the crane, bench to the left of the path.
     scaffSpecs.push(
-      { x: 4.8, y: 0.72, z: 4.2, sx: 2.1, sy: 0.35, sz: 1.1 },
-      { x: 4.35, y: 0.45, z: 4.2, sx: 0.32, sy: 0.8, sz: 0.85 },
-      { x: 5.25, y: 0.45, z: 4.2, sx: 0.32, sy: 0.8, sz: 0.85 },
-      { x: 4.8, y: 0.4, z: 5.0, sx: 0.6, sy: 0.5, sz: 0.6 },
+      { x: 1.75, y: 0.62, z: 3.05, sx: 1.35, sy: 0.12, sz: 0.85 },
+      { x: 1.25, y: 0.32, z: 2.78, sx: 0.12, sy: 0.48, sz: 0.12 },
+      { x: 2.25, y: 0.32, z: 2.78, sx: 0.12, sy: 0.48, sz: 0.12 },
+      { x: 1.25, y: 0.32, z: 3.32, sx: 0.12, sy: 0.48, sz: 0.12 },
+      { x: 2.25, y: 0.32, z: 3.32, sx: 0.12, sy: 0.48, sz: 0.12 },
+      { x: 1.5, y: 0.76, z: 2.95, sx: 0.28, sy: 0.14, sz: 0.22 },
+      { x: -1.85, y: 0.4, z: 2.95, sx: 1.2, sy: 0.12, sz: 0.42 },
+      { x: -2.3, y: 0.22, z: 2.95, sx: 0.12, sy: 0.28, sz: 0.34 },
+      { x: -1.4, y: 0.22, z: 2.95, sx: 0.12, sy: 0.28, sz: 0.34 },
+      { x: -1.85, y: 0.62, z: 2.78, sx: 1.2, sy: 0.32, sz: 0.1 },
     );
     const addFineTree = (cx: number, baseY: number, cz: number, tiers: number) => {
       for (let t = 0; t < tiers; t++) {
@@ -652,56 +536,72 @@ export function LiveStageCanvas({
               x: cx + dx * 0.36,
               y: y + ((dx * dz) % 2) * 0.06,
               z: cz + dz * 0.36,
-              sx: 0.82,
-              sy: 0.84,
-              sz: 0.82,
+              sx: 0.62,
+              sy: 0.7,
+              sz: 0.62,
             });
           }
         }
       }
       pineSpecs.push({ x: cx, y: baseY + tiers * 0.44, z: cz, sx: 0.75, sy: 0.85, sz: 0.75 });
     };
-    addFineTree(-4.35, 1.8, -1.5, 5);
-    addFineTree(-4.2, 1.5, 1.1, 5);
-    addFineTree(-3.8, 1.4, 2.9, 4);
-    addFineTree(4.3, 1.6, 2.4, 4);
-    addFineTree(5.1, 1.5, -0.4, 4);
-    addFineTree(-2.3, 1.6, -4.1, 4);
-    addFineTree(-6.0, 1.65, -0.4, 4);
-    addFineTree(-5.8, 1.45, 3.6, 4);
-    addFineTree(5.9, 1.55, 3.3, 4);
-    addFineTree(6.4, 1.6, -1.6, 4);
+    addFineTree(-4.3, 1.45, 0.15, 4);
+    addFineTree(-3.7, 1.3, 1.7, 3);
+    addFineTree(-4.7, 1.2, 2.5, 3);
+    addFineTree(5.55, 1.3, 1.7, 3);
+    addFineTree(5.9, 1.15, -0.2, 3);
 
-    // Shrubs & expanded courtyard stepping stones
+    // Rounded bushes, each made of a few small leaves rather than one cube.
+    const addBush = (cx: number, cz: number, s = 1) => {
+      const puffs: VoxelSpec[] = [
+        { x: cx, y: 0.32 * s, z: cz, sx: 0.55 * s, sy: 0.42 * s, sz: 0.5 * s },
+        { x: cx - 0.22 * s, y: 0.28 * s, z: cz + 0.12 * s, sx: 0.38 * s, sy: 0.32 * s, sz: 0.36 * s },
+        { x: cx + 0.2 * s, y: 0.36 * s, z: cz - 0.08 * s, sx: 0.36 * s, sy: 0.34 * s, sz: 0.34 * s },
+        { x: cx + 0.05 * s, y: 0.48 * s, z: cz + 0.02 * s, sx: 0.32 * s, sy: 0.26 * s, sz: 0.3 * s },
+      ];
+      for (const p of puffs) mossSpecs.push(p);
+    };
     for (const [sx, sz] of [
-      [-3.1, 3.6],
-      [-2.4, 4.1],
-      [1.8, 3.8],
-      [3.2, 0.9],
-      [4.2, -0.4],
-      [-4.6, 4.4],
-      [3.4, 5.2],
-      [5.4, 1.4],
+      [-2.55, 2.15],
+      [0.55, 2.35],
+      [-3.3, 3.1],
+      [2.7, 2.15],
     ] as const) {
-      mossSpecs.push({ x: sx, y: 0.38, z: sz, sx: 1.05, sy: 0.9, sz: 1.05 });
-      pineSpecs.push({ x: sx + 0.22, y: 0.62, z: sz - 0.14, sx: 0.72, sy: 0.72, sz: 0.72 });
+      addBush(sx, sz, 0.85);
     }
     for (const [cx, cz] of [
-      [-1.0, 4.9],
-      [-0.4, 4.6],
-      [0.6, 3.6],
-      [1.6, 3.1],
-      [2.5, 2.5],
-      [-1.6, 5.6],
-      [-0.8, 6.2],
-      [0.2, 5.8],
-      [1.2, 5.4],
+      [-0.75, 1.7],
+      [-0.75, 2.15],
+      [-0.75, 2.6],
+      [-0.75, 3.05],
     ] as const) {
-      stoneLightSpecs.push({ x: cx, y: 0.28, z: cz, sx: 1.05, sy: 0.25, sz: 1.05 });
+      stoneLightSpecs.push({ x: cx, y: 0.16, z: cz, sx: 0.55, sy: 0.12, sz: 0.42 });
     }
+    scaffSpecs.push(
+      { x: -2.35, y: 0.2, z: 2.25, sx: 1.35, sy: 0.16, sz: 0.6 },
+      { x: 0.55, y: 0.2, z: 2.4, sx: 1.2, sy: 0.16, sz: 0.55 },
+    );
 
     const blossomPinkMat = new THREE.MeshStandardMaterial({ color: 0xe672a5, roughness: 0.62 });
     const blossomGoldMat = new THREE.MeshStandardMaterial({ color: 0xffd166, roughness: 0.58 });
+    const blossomWhiteMat = new THREE.MeshStandardMaterial({ color: 0xf7f1ea, roughness: 0.6 });
+    const smokeMat = new THREE.MeshStandardMaterial({
+      color: 0xf3eee8,
+      roughness: 0.95,
+      transparent: true,
+      opacity: 0.7,
+    });
+
+    for (const [x, z] of [
+      [-2.6, 2.15],
+      [-2.15, 2.35],
+      [-2.4, 2.05],
+      [0.35, 2.3],
+      [0.7, 2.5],
+      [0.5, 2.15],
+    ] as const) {
+      mossSpecs.push({ x, y: 0.22, z, sx: 0.28, sy: 0.16, sz: 0.28 });
+    }
 
     islandGroup.add(buildVoxelInstances(voxelGeo, grassMat, grassSpecs));
     islandGroup.add(buildVoxelInstances(voxelGeo, mossMat, mossSpecs));
@@ -716,70 +616,154 @@ export function LiveStageCanvas({
     islandGroup.add(buildVoxelInstances(voxelGeo, pineMat, pineSpecs));
     islandGroup.add(
       buildVoxelInstances(voxelGeo, blossomPinkMat, [
-        { x: -2.9, y: 0.38, z: 3.2, sx: 0.45, sy: 0.48, sz: 0.45 },
-        { x: 0.9, y: 0.38, z: 3.9, sx: 0.45, sy: 0.48, sz: 0.45 },
-        { x: 3.3, y: 0.38, z: 1.9, sx: 0.45, sy: 0.48, sz: 0.45 },
+        { x: -2.6, y: 0.38, z: 2.15, sx: 0.22, sy: 0.2, sz: 0.22 },
+        { x: -2.15, y: 0.4, z: 2.35, sx: 0.2, sy: 0.18, sz: 0.2 },
+        { x: 0.35, y: 0.38, z: 2.3, sx: 0.2, sy: 0.18, sz: 0.2 },
+        { x: -1.85, y: 1.15, z: 1.22, sx: 0.14, sy: 0.14, sz: 0.14 },
       ]),
     );
     islandGroup.add(
       buildVoxelInstances(voxelGeo, blossomGoldMat, [
-        { x: -2.4, y: 0.38, z: 3.5, sx: 0.45, sy: 0.48, sz: 0.45 },
-        { x: 2.3, y: 0.38, z: 3.3, sx: 0.45, sy: 0.48, sz: 0.45 },
+        { x: -2.4, y: 0.4, z: 2.05, sx: 0.18, sy: 0.16, sz: 0.18 },
+        { x: 0.7, y: 0.4, z: 2.5, sx: 0.18, sy: 0.16, sz: 0.18 },
+        { x: 0.5, y: 0.38, z: 2.15, sx: 0.16, sy: 0.16, sz: 0.16 },
       ]),
     );
+    islandGroup.add(
+      buildVoxelInstances(voxelGeo, blossomWhiteMat, [
+        { x: -2.5, y: 0.4, z: 2.28, sx: 0.16, sy: 0.16, sz: 0.16 },
+        { x: 0.55, y: 0.4, z: 2.42, sx: 0.16, sy: 0.16, sz: 0.16 },
+      ]),
+    );
+    islandGroup.add(
+      buildVoxelInstances(
+        voxelGeo,
+        smokeMat,
+        [
+          { x: -1.4, y: 6.15, z: -1.15, sx: 0.42, sy: 0.36, sz: 0.42 },
+          { x: -1.25, y: 6.55, z: -1.0, sx: 0.55, sy: 0.4, sz: 0.55 },
+          { x: -1.05, y: 6.95, z: -0.8, sx: 0.68, sy: 0.42, sz: 0.68 },
+        ],
+        false,
+        false,
+      ),
+    );
+    lanternSpecs.push({ x: 1.5, y: 0.9, z: 2.95, sx: 0.12, sy: 0.16, sz: 0.12 });
     islandGroup.add(buildVoxelInstances(voxelGeo, crystalMat, windowSpecs, false, false));
     islandGroup.add(buildVoxelInstances(voxelGeo, lanternMat, lanternSpecs, false, false));
-    // Glowing violet crystal courtyard lanterns along the front path (matching 2D artwork)
-    const violetPostSpecs: VoxelSpec[] = [
-      { x: -1.45, y: 0.42, z: 4.55, sx: 0.32, sy: 0.55, sz: 0.32 },
-      { x: 0.35, y: 0.42, z: 4.95, sx: 0.32, sy: 0.55, sz: 0.32 },
-      { x: 2.15, y: 0.42, z: 3.45, sx: 0.32, sy: 0.55, sz: 0.32 },
-      { x: 3.45, y: 0.42, z: 2.15, sx: 0.32, sy: 0.55, sz: 0.32 },
-    ];
-    const violetOrbSpecs: VoxelSpec[] = violetPostSpecs.map((p) => ({
-      x: p.x,
-      y: p.y + 0.34,
-      z: p.z,
-      sx: 0.44,
-      sy: 0.44,
-      sz: 0.44,
-    }));
-    islandGroup.add(buildVoxelInstances(voxelGeo, stoneDarkMat, violetPostSpecs));
-    islandGroup.add(buildVoxelInstances(voxelGeo, crystalMat, violetOrbSpecs, false, false));
 
-    // 8. 4 Animated Voxel Co-Builder Characters on the courtyard & lawn
-    const voxelBuilders: { group: THREE.Group; baseY: number; phase: number; hopUntil: number }[] = [];
+    // 8. Villagers on the garden path. Clicking one makes that person hop.
+    type LimbActor = {
+      group: THREE.Group;
+      base: THREE.Vector3;
+      phase: number;
+      hopUntil: number;
+      leftLeg: THREE.Object3D;
+      rightLeg: THREE.Object3D;
+      leftArm: THREE.Object3D;
+      rightArm: THREE.Object3D;
+    };
+    const villagers: LimbActor[] = [];
     const skinMat = new THREE.MeshStandardMaterial({ color: 0xf6cba8, roughness: 0.7 });
     const hairMat = new THREE.MeshStandardMaterial({ color: 0x3b2820, roughness: 0.84 });
-    const legMat = new THREE.MeshStandardMaterial({ color: 0x2f3348, roughness: 0.86 });
-    const addVoxelBuilder = (x: number, y: number, z: number, shirtColor: number, rotY: number, phase: number) => {
+    const legMat = new THREE.MeshStandardMaterial({ color: 0x3a332c, roughness: 0.86 });
+    const addVillager = (x: number, y: number, z: number, shirt: number, hat: number, rotY: number, phase: number) => {
       const g = new THREE.Group();
-      const shirtMat = new THREE.MeshStandardMaterial({ color: shirtColor, roughness: 0.66 });
+      const cloth = new THREE.MeshStandardMaterial({ color: shirt, roughness: 0.66 });
+      const hatMat = new THREE.MeshStandardMaterial({ color: hat, roughness: 0.7 });
       const head = new THREE.Mesh(voxelGeo, skinMat);
-      head.scale.set(0.68, 0.68, 0.68);
-      head.position.y = 0.72;
+      head.scale.set(0.62, 0.58, 0.58);
+      head.position.y = 1.18;
       const hair = new THREE.Mesh(voxelGeo, hairMat);
-      hair.scale.set(0.72, 0.25, 0.72);
-      hair.position.y = 0.86;
-      const body = new THREE.Mesh(voxelGeo, shirtMat);
-      body.scale.set(0.64, 0.72, 0.44);
-      body.position.y = 0.38;
+      hair.scale.set(0.66, 0.22, 0.62);
+      hair.position.y = 1.38;
+      const cap = new THREE.Mesh(voxelGeo, hatMat);
+      cap.scale.set(0.78, 0.16, 0.78);
+      cap.position.y = 1.48;
+      const body = new THREE.Mesh(voxelGeo, cloth);
+      body.scale.set(0.72, 0.62, 0.42);
+      body.position.y = 0.78;
       const leftLeg = new THREE.Mesh(voxelGeo, legMat);
-      leftLeg.scale.set(0.26, 0.48, 0.28);
-      leftLeg.position.set(-0.07, 0.11, 0);
+      leftLeg.scale.set(0.24, 0.46, 0.26);
+      leftLeg.position.set(-0.14, 0.28, 0);
       const rightLeg = new THREE.Mesh(voxelGeo, legMat);
-      rightLeg.scale.set(0.26, 0.48, 0.28);
-      rightLeg.position.set(0.07, 0.11, 0);
-      g.add(head, hair, body, leftLeg, rightLeg);
+      rightLeg.scale.set(0.24, 0.46, 0.26);
+      rightLeg.position.set(0.14, 0.28, 0);
+      const leftArm = new THREE.Mesh(voxelGeo, cloth);
+      leftArm.scale.set(0.18, 0.46, 0.2);
+      leftArm.position.set(-0.42, 0.78, 0);
+      const rightArm = new THREE.Mesh(voxelGeo, cloth);
+      rightArm.scale.set(0.18, 0.46, 0.2);
+      rightArm.position.set(0.42, 0.78, 0);
+      const eyeMat = new THREE.MeshStandardMaterial({ color: 0x2a2420, roughness: 0.45 });
+      const eyeL = new THREE.Mesh(voxelGeo, eyeMat);
+      eyeL.scale.set(0.1, 0.1, 0.08);
+      eyeL.position.set(-0.14, 1.2, 0.28);
+      const eyeR = eyeL.clone();
+      eyeR.position.x = 0.14;
+      const shoeL = new THREE.Mesh(voxelGeo, legMat);
+      shoeL.scale.set(0.28, 0.1, 0.34);
+      shoeL.position.set(-0.14, 0.08, 0.04);
+      const shoeR = shoeL.clone();
+      shoeR.position.x = 0.14;
+      g.add(head, hair, cap, body, leftLeg, rightLeg, leftArm, rightArm, eyeL, eyeR, shoeL, shoeR);
       g.position.set(x, y, z);
       g.rotation.y = rotY;
+      g.scale.setScalar(1.22);
       islandGroup.add(g);
-      voxelBuilders.push({ group: g, baseY: y, phase, hopUntil: 0 });
+      villagers.push({
+        group: g,
+        base: new THREE.Vector3(x, y, z),
+        phase,
+        hopUntil: 0,
+        leftLeg,
+        rightLeg,
+        leftArm,
+        rightArm,
+      });
     };
-    addVoxelBuilder(-2.55, 0.24, 3.25, 0xd96b98, 0.45, 0.0);
-    addVoxelBuilder(-0.15, 0.24, 4.15, 0x9146ff, -0.35, 1.4);
-    addVoxelBuilder(2.15, 0.24, 2.75, 0x4ca6ff, -0.8, 2.8);
-    addVoxelBuilder(3.15, 0.24, 1.45, 0xf5b942, -1.1, 4.2);
+    addVillager(-1.15, 0.08, 2.55, 0xc47a4a, 0x6b3e22, 0.4, 0.2);
+    addVillager(-0.2, 0.08, 3.15, 0x4e9a52, 0x8d8276, 0.1, 1.4);
+    addVillager(0.45, 0.08, 2.85, 0xd9d0c4, 0x5a4032, -0.4, 2.6);
+    addVillager(4.6, 0.08, 2.7, 0xc4894a, 0xf5b942, -1.6, 3.8);
+
+    // Upgrade villagers with the 1:1 Aria Voxel Engineer GLB model (with articulated joints & tools)
+    const toolRoles: Array<"hammer" | "wrench" | "tablet" | "hammer"> = ["hammer", "wrench", "tablet", "hammer"];
+    let disposed = false;
+    new GLTFLoader().load(
+      "/models/aria-engineer.glb",
+      (gltf) => {
+        if (disposed) return;
+        villagers.forEach((v, idx) => {
+          const clone = gltf.scene.clone(true);
+          clone.traverse((obj) => {
+            if ((obj as THREE.Mesh).isMesh) {
+              obj.castShadow = true;
+              obj.receiveShadow = true;
+            }
+          });
+          const role = toolRoles[idx % toolRoles.length];
+          const hammer = clone.getObjectByName("ToolHammer");
+          const wrench = clone.getObjectByName("ToolWrench");
+          const tablet = clone.getObjectByName("ToolTablet");
+          if (hammer) hammer.visible = role === "hammer";
+          if (wrench) wrench.visible = role === "wrench";
+          if (tablet) tablet.visible = role === "tablet";
+
+          v.group.clear();
+          v.group.add(clone);
+          v.group.scale.setScalar(0.95);
+          v.leftLeg = clone.getObjectByName("LegL") ?? v.leftLeg;
+          v.rightLeg = clone.getObjectByName("LegR") ?? v.rightLeg;
+          v.leftArm = clone.getObjectByName("ArmL") ?? v.leftArm;
+          v.rightArm = clone.getObjectByName("ArmR") ?? v.rightArm;
+        });
+      },
+      undefined,
+      () => {
+        // Keep procedural fallback if GLB fails to load
+      },
+    );
 
     // 8b. Round Milestone Memorial Obelisks (1 unlocked per completed round, up to 5)
     const milestoneTowers: { group: THREE.Group; baseY: number; idx: number }[] = [];
@@ -823,22 +807,79 @@ export function LiveStageCanvas({
     blueprintCube.visible = false;
     islandGroup.add(blueprintCube);
 
-    // 8d. Channel-Points / Raid Summoned Voxel Fox Pet (visible for 15s on celebrations)
-    const petGroup = new THREE.Group();
-    const petFurMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.65 });
-    const petTipMat = new THREE.MeshStandardMaterial({ color: 0xfff7ed, roughness: 0.6 });
-    const petBody = new THREE.Mesh(voxelGeo, petFurMat);
-    petBody.scale.set(0.72, 0.48, 0.95);
-    petBody.position.y = 0.24;
-    const petHead = new THREE.Mesh(voxelGeo, petFurMat);
-    petHead.scale.set(0.58, 0.52, 0.58);
-    petHead.position.set(0, 0.48, 0.35);
-    const petTail = new THREE.Mesh(voxelGeo, petTipMat);
-    petTail.scale.set(0.28, 0.28, 0.56);
-    petTail.position.set(0, 0.34, -0.45);
-    petGroup.add(petBody, petHead, petTail);
-    petGroup.visible = false;
-    islandGroup.add(petGroup);
+    // Fox on the lawn, a hen by the flower beds, and a bird on the roof.
+    const furMat = new THREE.MeshStandardMaterial({ color: 0xe8893a, roughness: 0.62 });
+    const creamMat = new THREE.MeshStandardMaterial({ color: 0xfff4e4, roughness: 0.58 });
+    const fox = new THREE.Group();
+    const foxBody = new THREE.Mesh(voxelGeo, furMat);
+    foxBody.scale.set(0.78, 0.42, 1.05);
+    foxBody.position.y = 0.32;
+    const foxChest = new THREE.Mesh(voxelGeo, creamMat);
+    foxChest.scale.set(0.4, 0.28, 0.36);
+    foxChest.position.set(0, 0.28, 0.28);
+    const foxHead = new THREE.Mesh(voxelGeo, furMat);
+    foxHead.scale.set(0.48, 0.42, 0.48);
+    foxHead.position.set(0, 0.52, 0.52);
+    const foxEarL = new THREE.Mesh(voxelGeo, furMat);
+    foxEarL.scale.set(0.14, 0.28, 0.14);
+    foxEarL.position.set(-0.14, 0.74, 0.5);
+    const foxEarR = foxEarL.clone();
+    foxEarR.position.x = 0.14;
+    const foxTail = new THREE.Mesh(voxelGeo, furMat);
+    foxTail.scale.set(0.22, 0.22, 0.62);
+    foxTail.position.set(0, 0.42, -0.62);
+    const foxTip = new THREE.Mesh(voxelGeo, creamMat);
+    foxTip.scale.set(0.18, 0.18, 0.22);
+    foxTip.position.set(0, 0.48, -0.88);
+    const foxLeg = (lx: number, lz: number) => {
+      const leg = new THREE.Mesh(voxelGeo, furMat);
+      leg.scale.set(0.14, 0.28, 0.16);
+      leg.position.set(lx, 0.12, lz);
+      return leg;
+    };
+    fox.add(foxBody, foxChest, foxHead, foxEarL, foxEarR, foxTail, foxTip, foxLeg(-0.22, 0.28), foxLeg(0.22, 0.28), foxLeg(-0.22, -0.22), foxLeg(0.22, -0.22));
+    const foxBase = new THREE.Vector3(-3.15, 0.08, 2.7);
+    fox.position.copy(foxBase);
+    fox.scale.setScalar(1.15);
+    islandGroup.add(fox);
+    let foxHopUntil = 0;
+
+    const hen = new THREE.Group();
+    const henBody = new THREE.Mesh(voxelGeo, creamMat);
+    henBody.scale.set(0.55, 0.4, 0.7);
+    henBody.position.y = 0.28;
+    const henHead = new THREE.Mesh(voxelGeo, creamMat);
+    henHead.scale.set(0.32, 0.3, 0.32);
+    henHead.position.set(0, 0.52, 0.28);
+    const combMat = new THREE.MeshStandardMaterial({ color: 0xd4534a, roughness: 0.6 });
+    const comb = new THREE.Mesh(voxelGeo, combMat);
+    comb.scale.set(0.16, 0.16, 0.22);
+    comb.position.set(0, 0.68, 0.28);
+    const beak = new THREE.Mesh(voxelGeo, new THREE.MeshStandardMaterial({ color: 0xf5b942, roughness: 0.5 }));
+    beak.scale.set(0.12, 0.1, 0.16);
+    beak.position.set(0, 0.48, 0.46);
+    hen.add(henBody, henHead, comb, beak);
+    const henBase = new THREE.Vector3(0.15, 0.08, 2.85);
+    hen.scale.setScalar(1.25);
+    hen.position.copy(henBase);
+    islandGroup.add(hen);
+    let henHopUntil = 0;
+
+    const bird = new THREE.Group();
+    const birdMat = new THREE.MeshStandardMaterial({ color: 0x6e8fbf, roughness: 0.55 });
+    const birdBody = new THREE.Mesh(voxelGeo, birdMat);
+    birdBody.scale.set(0.28, 0.22, 0.42);
+    const wingL = new THREE.Mesh(voxelGeo, birdMat);
+    wingL.scale.set(0.34, 0.08, 0.22);
+    wingL.position.set(-0.22, 0.04, 0);
+    const wingR = wingL.clone();
+    wingR.position.x = 0.22;
+    bird.add(birdBody, wingL, wingR);
+    const birdBase = new THREE.Vector3(0.85, 4.55, 1.15);
+    bird.scale.setScalar(1.7);
+    bird.position.copy(birdBase);
+    islandGroup.add(bird);
+    let birdFlyUntil = 0;
 
     // 9. Cohesive Stepped 3D Voxel Cloud Clusters + Distant Upper-Left Mini-Island
     const bgIslands = new THREE.Group();
@@ -888,6 +929,8 @@ export function LiveStageCanvas({
     addVoxelCloud(9.8, 3.1, -3.6, 1.25);
     addVoxelCloud(-8.8, -4.8, 5.2, 1.35);
     addVoxelCloud(8.6, -4.5, 4.8, 1.3);
+    addVoxelCloud(-3.6, 6.8, -9.2, 0.95);
+    addVoxelCloud(5.2, -6.4, 8.6, 1.05);
     bgIslands.add(buildVoxelInstances(voxelGeo, cloudShadeMat, cloudBotSpecs, false, false));
     bgIslands.add(buildVoxelInstances(voxelGeo, cloudLightMat, cloudTopSpecs, false, false));
 
@@ -938,6 +981,27 @@ export function LiveStageCanvas({
         false,
       ),
     );
+    bgIslands.add(
+      buildVoxelInstances(
+        voxelGeo,
+        farStoneMat,
+        [
+          { x: 12.4, y: -3.4, z: 9.2, sx: 3.2, sy: 1.4, sz: 2.6 },
+          { x: 12.4, y: -4.2, z: 9.2, sx: 2.1, sy: 1.2, sz: 1.8 },
+        ],
+        false,
+        false,
+      ),
+    );
+    bgIslands.add(
+      buildVoxelInstances(
+        voxelGeo,
+        farGrassMat,
+        [{ x: 12.4, y: -2.7, z: 9.2, sx: 2.8, sy: 0.55, sz: 2.2 }],
+        false,
+        false,
+      ),
+    );
     scene.add(bgIslands);
 
     // Dual-color floating violet + warm gold fireflies + dense under-island violet glow motes
@@ -952,9 +1016,7 @@ export function LiveStageCanvas({
       g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
       return new THREE.Points(g, new THREE.PointsMaterial({ color, size, transparent: true, opacity: 0.88 }));
     };
-    scene.add(makeMotes(0xd8bfff, 56));
-    scene.add(makeMotes(0xb87cff, 84, -5.8, -1.6, 0.22));
-    scene.add(makeMotes(0xffcb77, 32));
+    scene.add(makeMotes(0xffe7c2, 28, 1.2, 6.2, 0.12));
     // Warm low-altitude porch & staircase fireflies
     const porchMotePos = new Float32Array(18 * 3);
     for (let i = 0; i < 18; i++) {
@@ -966,40 +1028,36 @@ export function LiveStageCanvas({
     porchMoteGeo.setAttribute("position", new THREE.BufferAttribute(porchMotePos, 3));
     scene.add(new THREE.Points(porchMoteGeo, new THREE.PointsMaterial({ color: 0xffd280, size: 0.14, transparent: true, opacity: 0.9 })));
 
-    // 3D Firework particle cubes (supports exact 3D hit origin + ground bounce)
     const bursts: BurstCube[] = [];
-    const burstGeo = new THREE.BoxGeometry(0.22, 0.22, 0.22);
-    burstFnRef.current = (colorHex: number, origin = { x: 0.5, y: 5.5, z: -1 }) => {
-      const mat = new THREE.MeshStandardMaterial({ color: colorHex, emissive: colorHex, emissiveIntensity: 1.9 });
-      for (let i = 0; i < 20; i++) {
+    const burstGeo = new THREE.BoxGeometry(0.12, 0.12, 0.12);
+    const burstMats = new Map<number, THREE.MeshStandardMaterial>();
+    const spark = (colorHex: number, origin: { x: number; y: number; z: number }, count = 10) => {
+      let mat = burstMats.get(colorHex);
+      if (!mat) {
+        mat = new THREE.MeshStandardMaterial({ color: colorHex, emissive: colorHex, emissiveIntensity: 0.85, roughness: 0.4 });
+        burstMats.set(colorHex, mat);
+      }
+      for (let i = 0; i < count; i++) {
         const mesh = new THREE.Mesh(burstGeo, mat);
         mesh.position.set(origin.x, origin.y, origin.z);
         scene.add(mesh);
-        const ang = (i / 20) * Math.PI * 2 + Math.random() * 0.3;
-        const spd = 0.055 + Math.random() * 0.085;
+        const ang = (i / count) * Math.PI * 2 + Math.random() * 0.4;
+        const spd = 0.03 + Math.random() * 0.045;
         bursts.push({
           mesh,
           vx: Math.cos(ang) * spd,
-          vy: 0.065 + Math.random() * 0.09,
+          vy: 0.04 + Math.random() * 0.05,
           vz: Math.sin(ang) * spd,
-          life: 52,
+          life: 28,
         });
       }
     };
+    burstFnRef.current = (colorHex, origin = { x: -0.75, y: 1.6, z: 2.1 }) => spark(colorHex, origin, 12);
 
-    // Raycaster for 3D click-to-burst & interactive character hops
     const raycaster = new THREE.Raycaster();
     const pointerNdc = new THREE.Vector2();
     let downX = 0;
     let downY = 0;
-    let petHopUntil = 0;
-
-    const toNdc = (e: PointerEvent) => {
-      const rect = renderer.domElement.getBoundingClientRect();
-      pointerNdc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-      pointerNdc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-    };
-
     const isChildOf = (obj: THREE.Object3D, root: THREE.Object3D) => {
       let cur: THREE.Object3D | null = obj;
       while (cur) {
@@ -1008,59 +1066,55 @@ export function LiveStageCanvas({
       }
       return false;
     };
-
     const onPointerDown = (e: PointerEvent) => {
       downX = e.clientX;
       downY = e.clientY;
     };
-
     const onPointerMove = (e: PointerEvent) => {
-      toNdc(e);
+      const rect = renderer.domElement.getBoundingClientRect();
+      pointerNdc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      pointerNdc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
       raycaster.setFromCamera(pointerNdc, camera);
-      const charRoots = [...voxelBuilders.map((v) => v.group), ...(petGroup.visible ? [petGroup] : [])];
-      const hits = raycaster.intersectObjects(charRoots, true);
+      const hits = raycaster.intersectObjects([fox, hen, bird, ...villagers.map((v) => v.group)], true);
       renderer.domElement.style.cursor = hits.length > 0 ? "pointer" : "grab";
     };
-
     const onPointerUp = (e: PointerEvent) => {
-      if (Math.hypot(e.clientX - downX, e.clientY - downY) > 5) return;
-      toNdc(e);
+      if (Math.hypot(e.clientX - downX, e.clientY - downY) > 6) return;
+      const rect = renderer.domElement.getBoundingClientRect();
+      pointerNdc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      pointerNdc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
       raycaster.setFromCamera(pointerNdc, camera);
       const hits = raycaster.intersectObjects(islandGroup.children, true);
       const hit = hits[0];
       if (!hit) return;
-
-      const nowMs = Date.now();
-      const hitBuilder = voxelBuilders.find((vb) => isChildOf(hit.object, vb.group));
-      if (hitBuilder) {
-        hitBuilder.hopUntil = nowMs + 900;
-        burstFnRef.current?.(0xf5b942, hit.point);
+      const nowMs = performance.now();
+      const at = { x: hit.point.x, y: hit.point.y, z: hit.point.z };
+      const person = villagers.find((v) => isChildOf(hit.object, v.group));
+      if (person) {
+        person.hopUntil = nowMs + 720;
+        spark(0xffb44c, at, 8);
         return;
       }
-      if (petGroup.visible && isChildOf(hit.object, petGroup)) {
-        petHopUntil = nowMs + 1000;
-        burstFnRef.current?.(0xffa62b, hit.point);
+      if (isChildOf(hit.object, fox)) {
+        foxHopUntil = nowMs + 860;
+        spark(0xe8893a, at, 10);
         return;
       }
-      burstFnRef.current?.(0x9146ff, hit.point);
+      if (isChildOf(hit.object, hen)) {
+        henHopUntil = nowMs + 640;
+        spark(0xfff4e4, at, 8);
+        return;
+      }
+      if (isChildOf(hit.object, bird)) {
+        birdFlyUntil = nowMs + 1400;
+        spark(0xd7e4f5, at, 8);
+        return;
+      }
+      spark(0xffe49e, at, 12);
     };
-
     renderer.domElement.addEventListener("pointerdown", onPointerDown);
     renderer.domElement.addEventListener("pointermove", onPointerMove);
     renderer.domElement.addEventListener("pointerup", onPointerUp);
-
-    // 3D anchor points placed around the outer sky flanks so they never block the castle silhouette
-    const ideaAnchors = [
-      new THREE.Vector3(-7.0, 5.2, 1.5),
-      new THREE.Vector3(6.5, 5.0, -3.5),
-      new THREE.Vector3(-5.5, 2.0, 5.5),
-      new THREE.Vector3(7.2, 2.4, 2.5),
-    ];
-    const builderAnchors = [
-      new THREE.Vector3(-2.5, 1.5, 3.2),
-      new THREE.Vector3(2.2, 1.5, 2.8),
-      new THREE.Vector3(3.2, 1.5, 1.5),
-    ];
 
     const ro =
       typeof ResizeObserver !== "undefined"
@@ -1070,91 +1124,91 @@ export function LiveStageCanvas({
             camera.aspect = w / h;
             camera.updateProjectionMatrix();
             renderer.setSize(w, h);
-            composer.setSize(w, h);
           })
         : null;
     ro?.observe(container);
 
     let raf = 0;
     let frame = 0;
-    const vec = new THREE.Vector3();
-    const targetTop = new THREE.Color();
-    const targetMid = new THREE.Color();
-    const targetHorizon = new THREE.Color();
-    const targetCrystal = new THREE.Color();
+    let seenPhase = stateRef.current.round?.phase ?? "idle";
+    let seenCelebration = stateRef.current.celebrations?.at(-1)?.id ?? null;
+    const targetFlag = new THREE.Color();
 
     const animate = () => {
       frame += 1;
       const t = frame * 0.016;
-      const phase = stateRef.current.round?.phase ?? "idle";
-      const isCollecting = phase === "collecting";
-      const isVoting = phase === "voting";
-      const isBuilding = phase === "executing" || phase === "planning";
+      const nowMs = performance.now();
 
-      // Dynamic theme & modifier palette morphing
       const pal = resolveThemePalette(stateRef.current.round?.prompt, stateRef.current.round?.modifiers);
-      targetTop.setHex(pal.top);
-      targetMid.setHex(pal.mid);
-      targetHorizon.setHex(pal.horizon);
-      targetCrystal.setHex(pal.crystal);
-      skyMat.uniforms.topColor!.value.lerp(targetTop, 0.04);
-      skyMat.uniforms.midColor!.value.lerp(targetMid, 0.04);
-      skyMat.uniforms.horizonColor!.value.lerp(targetHorizon, 0.04);
-      crystalMat.emissive.lerp(targetCrystal, 0.05);
-      crystalLight.color.lerp(targetCrystal, 0.05);
-      underGlow.color.lerp(targetCrystal, 0.05);
+      targetFlag.setHex(pal.crystal);
+      crystalMat.emissive.lerp(targetFlag, 0.05);
 
-      const completedRounds = stateRef.current.stats?.rounds ?? 0;
-      for (const m of milestoneTowers) {
-        m.group.visible = completedRounds > m.idx;
-        if (m.group.visible) {
-          m.group.position.y = m.baseY + Math.sin(t * 2.0 + m.idx * 1.1) * 0.08;
-          m.group.rotation.y = t * 0.6 + m.idx;
+      const phase = stateRef.current.round?.phase ?? "idle";
+      if (phase !== seenPhase) {
+        seenPhase = phase;
+        spark(0xffb44c, { x: -0.75, y: 1.7, z: 2.2 }, 14);
+        for (const v of villagers) v.hopUntil = nowMs + 520;
+      }
+      const celebration = stateRef.current.celebrations?.at(-1);
+      if (celebration && celebration.id !== seenCelebration) {
+        seenCelebration = celebration.id;
+        foxHopUntil = nowMs + 1100;
+        birdFlyUntil = nowMs + 1400;
+        spark(0xf5b942, { x: fox.position.x, y: 1.1, z: fox.position.z }, 16);
+      }
+
+      for (const v of villagers) {
+        const hopping = nowMs < v.hopUntil;
+        const hop = hopping ? Math.sin(((v.hopUntil - nowMs) / 720) * Math.PI) * 0.42 : 0;
+        const step = Math.sin(t * 2.4 + v.phase);
+        v.group.position.x = v.base.x + Math.sin(t * 0.32 + v.phase) * 0.28;
+        v.group.position.z = v.base.z + Math.cos(t * 0.26 + v.phase) * 0.18;
+        v.group.position.y = v.base.y + hop;
+        v.leftLeg.rotation.x = hopping ? -0.5 : step * 0.45;
+        v.rightLeg.rotation.x = hopping ? 0.5 : -step * 0.45;
+        const phase = stateRef.current.round?.phase ?? "idle";
+        if (phase === "done") {
+          v.group.position.y = v.base.y + Math.abs(Math.sin(t * 5 + v.phase)) * 0.34;
+          v.leftArm.rotation.x = -2.35;
+          v.rightArm.rotation.x = -2.35;
+        } else if (phase === "executing") {
+          v.leftArm.rotation.x = step * 0.25;
+          v.rightArm.rotation.x = -0.85 - Math.abs(Math.sin(t * 7 + v.phase)) * 0.95;
+        } else {
+          v.leftArm.rotation.x = hopping ? -0.8 : step * 0.3;
+          v.rightArm.rotation.x = hopping ? -0.8 : -step * 0.3;
         }
       }
 
-      islandGroup.position.y = Math.sin(t * 1.0) * 0.1;
-      bgIslands.position.y = Math.sin(t * 0.6) * 0.16;
-      bannerGroup.rotation.y = Math.sin(t * 2.6) * 0.22;
-      crystalLight.intensity = isVoting
-        ? 6.2 + Math.sin(t * 4.0) * 0.9
-        : isCollecting
-          ? 5.6 + Math.sin(t * 4.5) * 0.8
-          : 4.6 + Math.sin(t * 3.0) * 0.6;
-      porchLight.intensity = (isBuilding ? 4.4 : 3.6) + Math.sin(t * (isBuilding ? 7.5 : 5.2)) * 0.3;
-      underGlow.intensity = isVoting ? 5.2 + Math.sin(t * 3.2) * 0.8 : 3.8;
+      const foxWalk = Math.sin(t * 0.45);
+      fox.position.x = foxBase.x + foxWalk * 1.15;
+      fox.position.z = foxBase.z + Math.cos(t * 0.45) * 0.55;
+      fox.rotation.y = Math.atan2(Math.cos(t * 0.45) * 1.15, -Math.sin(t * 0.45) * 0.55);
+      fox.position.y = foxBase.y + (nowMs < foxHopUntil ? Math.sin(((foxHopUntil - nowMs) / 860) * Math.PI) * 0.38 : 0);
+      foxTail.rotation.y = Math.sin(t * 5) * 0.45;
 
-      if (isBuilding && frame % 140 === 0) {
-        burstFnRef.current?.(0xffb44c);
-      }
-      blueprintCube.visible = isBuilding;
-      if (isBuilding) {
-        blueprintCube.position.y = 5.95 + Math.abs(Math.sin(t * 2.8)) * 0.65;
-        blueprintCube.rotation.y = t * 1.4;
-      }
+      hen.position.x = henBase.x + Math.sin(t * 0.7) * 0.35;
+      hen.position.z = henBase.z + Math.cos(t * 0.55) * 0.2;
+      hen.position.y = henBase.y + (nowMs < henHopUntil ? Math.sin(((henHopUntil - nowMs) / 640) * Math.PI) * 0.28 : 0);
+      henHead.rotation.x = Math.sin(t * 3.2) > 0.65 ? 0.45 : 0;
 
-      const nowMs = Date.now();
-      const petActive = nowMs < petUntilRef.current;
-      petGroup.visible = petActive;
-      if (petActive) {
-        const ang = t * 1.5;
-        const extraHop = nowMs < petHopUntil ? Math.sin(((petHopUntil - nowMs) / 1000) * Math.PI) * 0.65 : 0;
-        petGroup.position.set(
-          Math.cos(ang) * 1.9,
-          0.24 + Math.abs(Math.sin(t * 6.0)) * 0.22 + extraHop,
-          2.8 + Math.sin(ang) * 1.1,
-        );
-        petGroup.rotation.y = -ang + (nowMs < petHopUntil ? 0.25 : 0);
+      if (nowMs < birdFlyUntil) {
+        const k = 1 - (birdFlyUntil - nowMs) / 1400;
+        bird.position.x = birdBase.x + Math.sin(k * Math.PI * 2) * 1.1;
+        bird.position.z = birdBase.z + Math.cos(k * Math.PI * 2) * 0.6;
+        bird.position.y = birdBase.y + Math.sin(k * Math.PI) * 1.5;
+        wingL.rotation.z = Math.sin(t * 18) * 0.7;
+        wingR.rotation.z = -Math.sin(t * 18) * 0.7;
+      } else {
+        bird.position.copy(birdBase);
+        wingL.rotation.z = Math.sin(t * 4) * 0.15;
+        wingR.rotation.z = -Math.sin(t * 4) * 0.15;
       }
 
-      const bounceSpeed = isCollecting || isBuilding ? 3.8 : 2.4;
-      for (const vb of voxelBuilders) {
-        const hopping = nowMs < vb.hopUntil;
-        const hopBoost = hopping ? Math.sin(((vb.hopUntil - nowMs) / 900) * Math.PI) * 0.55 : 0;
-        vb.group.position.y =
-          vb.baseY + Math.abs(Math.sin(t * bounceSpeed + vb.phase)) * (isBuilding ? 0.12 : 0.07) + hopBoost;
-        vb.group.rotation.y += hopping ? 0.18 : Math.sin(t * 1.1 + vb.phase) * 0.004;
-      }
+      for (const m of milestoneTowers) m.group.visible = false;
+      blueprintCube.visible = false;
+      islandGroup.position.y = 0;
+      porchLight.intensity = 1.55 + Math.sin(t * 2.2) * 0.08;
 
       for (let i = bursts.length - 1; i >= 0; i--) {
         const b = bursts[i]!;
@@ -1171,7 +1225,7 @@ export function LiveStageCanvas({
         b.mesh.rotation.x += 0.1;
         b.mesh.rotation.y += 0.12;
         b.life -= 1;
-        b.mesh.scale.setScalar(Math.max(0.01, b.life / 52));
+        b.mesh.scale.setScalar(Math.max(0.01, b.life / 28));
         if (b.life <= 0) {
           scene.remove(b.mesh);
           bursts.splice(i, 1);
@@ -1184,49 +1238,7 @@ export function LiveStageCanvas({
         renderer.shadowMap.enabled = !eco;
         renderer.shadowMap.needsUpdate = true;
       }
-      if (eco) {
-        renderer.render(scene, camera);
-      } else {
-        composer.render();
-      }
-
-      if (frame % 2 === 0) {
-        const curIdeas = (stateRef.current.round?.ideas.filter((i) => !i.hidden) ?? []).slice(-4);
-        if (curIdeas.length > 0) {
-          const nextIdeas: Record<string, ProjectedLabel> = {};
-          for (let idx = 0; idx < curIdeas.length; idx++) {
-            const id = curIdeas[idx]!.id;
-            vec.copy(ideaAnchors[idx % ideaAnchors.length]!);
-            vec.y += islandGroup.position.y;
-            vec.project(camera);
-            nextIdeas[id] = {
-              id,
-              x: (vec.x * 0.5 + 0.5) * 100,
-              y: (-vec.y * 0.5 + 0.5) * 100,
-              visible: vec.z < 1,
-            };
-          }
-          setProjectedIdeas(nextIdeas);
-        } else {
-          setProjectedIdeas({});
-        }
-        const curBuilders = (stateRef.current.coBuilders ?? []).slice(0, 3);
-        if (curBuilders.length > 0) {
-          const nextBuilders: Record<string, ProjectedLabel> = {};
-          curBuilders.forEach((b, idx) => {
-            vec.copy(builderAnchors[idx % builderAnchors.length]!);
-            vec.y += islandGroup.position.y;
-            vec.project(camera);
-            nextBuilders[b.login] = {
-              id: b.login,
-              x: (vec.x * 0.5 + 0.5) * 100,
-              y: (-vec.y * 0.5 + 0.5) * 100,
-              visible: vec.z < 1,
-            };
-          });
-          setProjectedBuilders(nextBuilders);
-        }
-      }
+      renderer.render(scene, camera);
 
       raf = requestAnimationFrame(animate);
     };
@@ -1234,13 +1246,13 @@ export function LiveStageCanvas({
     raf = requestAnimationFrame(animate);
 
     return () => {
+      disposed = true;
       cancelAnimationFrame(raf);
       ro?.disconnect();
       renderer.domElement.removeEventListener("pointerdown", onPointerDown);
       renderer.domElement.removeEventListener("pointermove", onPointerMove);
       renderer.domElement.removeEventListener("pointerup", onPointerUp);
       controls.dispose();
-      composer.dispose();
       renderer.dispose();
       if (renderer.domElement.parentNode === container) {
         container.removeChild(renderer.domElement);
@@ -1252,69 +1264,27 @@ export function LiveStageCanvas({
   const ideas = (state.round?.ideas.filter((i) => !i.hidden) ?? []).slice(-4);
 
   return (
-    <div
-      className="workshop-scene workshop-scene--3d"
-      ref={mountRef}
-      onDoubleClick={() => burstFnRef.current?.(0x9146ff)}
-      title="Drag to orbit 360° · Scroll to zoom · Double-click for voxel burst"
-    >
+    <div className="workshop-scene workshop-scene--3d" ref={mountRef}>
       {!webglReady && <img className="workshop-scene__art" src="/art/voxel-workshop.jpg" alt="Voxel Workshop Stage" />}
 
-      {ideas.map((idea, idx) => {
-        const anchorCoords = [
-          { x: -7.0, y: 5.2, z: 1.5 },
-          { x: 6.5, y: 5.0, z: -3.5 },
-          { x: -5.5, y: 2.0, z: 5.5 },
-          { x: 7.2, y: 2.4, z: 2.5 },
-        ];
-        if (compact) {
-          return (
-            <button
-              key={idea.id}
-              type="button"
-              className={`workshop-bubble workshop-bubble--flank workshop-bubble--flank-${idx} ${idea.boosts ? "is-boosted" : ""}`}
-              onClick={() => burstFnRef.current?.(idea.boosts ? 0xf5b942 : 0x9146ff, anchorCoords[idx % anchorCoords.length])}
-            >
-              <span className="workshop-bubble__user">@{idea.author.displayName || idea.author.login}</span>
-              <span className="workshop-bubble__text">{truncate(idea.text, 22)}</span>
-              {idea.boosts ? <span className="workshop-bubble__boost">+{idea.boosts}</span> : null}
-            </button>
-          );
-        }
-        const pos = projectedIdeas[idea.id];
-        if (!pos?.visible) return null;
-        return (
-          <button
-            key={idea.id}
-            type="button"
-            className={`workshop-bubble workshop-bubble--3d ${idea.boosts ? "is-boosted" : ""}`}
-            style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
-            onClick={() => burstFnRef.current?.(idea.boosts ? 0xf5b942 : 0x9146ff, anchorCoords[idx % anchorCoords.length])}
-          >
-            <span className="workshop-bubble__user">@{idea.author.displayName || idea.author.login}</span>
-            <span className="workshop-bubble__text">{truncate(idea.text, 24)}</span>
-            {idea.boosts ? <span className="workshop-bubble__boost">+{idea.boosts}</span> : null}
-          </button>
-        );
-      })}
+      {ideas.map((idea, idx) => (
+        <div
+          key={idea.id}
+          className={`workshop-bubble workshop-bubble--flank workshop-bubble--flank-${idx} ${idea.boosts ? "is-boosted" : ""}`}
+        >
+          <span className="workshop-bubble__user">@{idea.author.displayName || idea.author.login}</span>
+          <span className="workshop-bubble__text">{truncate(idea.text, 22)}</span>
+          {idea.boosts ? <span className="workshop-bubble__boost">+{idea.boosts}</span> : null}
+        </div>
+      ))}
 
-      {(state.coBuilders ?? []).slice(0, 3).map((b) => {
-        const pos = projectedBuilders[b.login];
-        if (!pos?.visible) return null;
-        return (
-          <div
-            key={b.login}
-            className="workshop-builder-pin"
-            style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
-          >
-            <span className="workshop-builder-pin__dot" aria-hidden="true" />
-            <span>@{b.displayName || b.login}</span>
-            <span className="workshop-builder-pin__count">{b.shipped}</span>
-          </div>
-        );
-      })}
-
-      {!transparent && <span className="workshop-orbit-hint">360° Interactive · Drag to rotate · Scroll to zoom</span>}
+      {(state.coBuilders ?? []).slice(0, 3).map((b, idx) => (
+        <div key={b.login} className="workshop-builder-pin" style={{ bottom: 12 + idx * 22 }}>
+          <span className="workshop-builder-pin__dot" aria-hidden="true" />
+          <span>@{b.displayName || b.login}</span>
+          <span className="workshop-builder-pin__count">{b.shipped}</span>
+        </div>
+      ))}
     </div>
   );
 }
