@@ -26,6 +26,27 @@ The one thing it proves: **viewers propose → the community decides → Aria
 organises the work → the streamer approves → an agent builds it → viewers see the
 result.**
 
+## Studio & stream features
+
+- **Interactive 3D Voxel Workshop Stage**: A Three.js 3D voxel castle that reacts
+  to each round phase with milestone obelisks, a voxel pet, raycaster click
+  sparks, an **Eco 3D** mode for lower GPU usage, and an optional OBS 3D stage
+  corner (`?mode=stage` on the overlay URL).
+- **6-Step Round Workflow & Moderation**: Live stepper (`Ideas → Vote → Plan →
+  Approve → Build → Done`), **Activity Feed** category filters (`All`, `Ideas`,
+  `Votes`, `Builds`), per-viewer mute control to curb spam, **SFX** audio toggle,
+  and one-click session recap export in **History**.
+- **Isolated Git Worktree Diff, Merge & Revert**: Inspect the coding agent's
+  branch diff, merge winning changes, or revert a round directly from the
+  dashboard (`GET /api/round/diff`, `POST /api/round/merge`,
+  `POST /api/round/revert`).
+- **Channel Points, Bits & Stream Events**: Supports Channel Points custom
+  reward redemptions to boost ideas, Bits cheers, subscriptions, raids, and
+  stream-online celebrations on the overlay.
+- **Twitch Extension Panel**: Includes an extension UI (`/api/ext/state`,
+  `/api/ext/idea`, `/api/ext/vote`) so viewers can submit ideas and vote with a
+  click instead of typing chat commands.
+
 ## Why it is safe to put on stream
 
 - **Viewers can only suggest and vote.** Chat text never reaches a shell. A task
@@ -438,6 +459,9 @@ Helix for everything it writes. At login it asks for:
 | `user:write:chat` | short, rate-limited replies in chat (and the clip link), sent as you |
 | `channel:manage:broadcast` | set the stream title while a task is built, and add stream markers |
 | `clips:edit` | clip the last ~30 s when a build succeeds |
+| `channel:read:redemptions` | listen to Channel Points redemptions (`channel.channel_points_custom_reward_redemption.add`) for idea boosts and celebrations |
+| `bits:read` | listen to Bits cheers (`channel.cheer`) for celebrations |
+| `channel:read:subscriptions` | listen to subscriptions (`channel.subscribe`) for celebrations |
 
 What it does with them (each one can be switched off under **Settings → Twitch**):
 
@@ -559,15 +583,8 @@ npm run typecheck
 
 ## Roadmap
 
-- **Twitch Extension panel**: click-to-vote on a panel or overlay extension
-  instead of typing `!vote`, starting as a Hosted Test, then Twitch review.
-- **Channel Points boosts** (Affiliate and Partner channels): redeem points to
-  +1 an idea or add weight to a vote, through EventSub
-  `channel.channel_points_custom_reward_redemption.add`.
 - **Dedicated bot account**: replies from a separate bot user with
   `user:bot` / `channel:bot`, so chat replies are not sent as the streamer.
-- **Stream events on the overlay**: raids, follows and subs celebrated on the
-  overlay; open a round automatically on `stream.online`.
 - **More channels through a channel-agnostic Live Collaboration Runtime**: the
   round engine already knows nothing about Twitch; adapters for YouTube Live and
   Bilibili chat, Feishu and Slack for team rounds, and research reviews where a
