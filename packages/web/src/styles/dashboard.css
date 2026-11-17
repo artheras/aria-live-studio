@@ -2364,7 +2364,7 @@ input[type="checkbox"] {
 }
 .monitor-stage--compact {
   width: 100%;
-  height: 260px;
+  height: 290px;
   aspect-ratio: auto;
   position: relative;
 }
