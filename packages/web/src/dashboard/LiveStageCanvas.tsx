@@ -57,15 +57,15 @@ function buildVoxelInstances(
 function resolveThemePalette(prompt?: string | null, modifiers?: string[]) {
   const text = `${prompt ?? ""} ${(modifiers ?? []).join(" ")}`.toLowerCase();
   if (/boss|fight|combat|dragon|danger/.test(text)) {
-    return { top: 0x2c1124, mid: 0x762547, horizon: 0xf29472, crystal: 0xff4d6d };
+    return { top: 0x1a0b18, mid: 0x5c1d3b, horizon: 0xf28b66, crystal: 0xff4d6d };
   }
   if (/retro|pixel|cyber|neon|sci-fi/.test(text)) {
-    return { top: 0x102238, mid: 0x2a4e7c, horizon: 0x8cdbd8, crystal: 0x2dd4bf };
+    return { top: 0x0c192c, mid: 0x22426b, horizon: 0x7fd4d0, crystal: 0x2dd4bf };
   }
   if (/library|enchanted|magic|arcane|float/.test(text)) {
-    return { top: 0x1f143d, mid: 0x623b96, horizon: 0xf0ba80, crystal: 0xb589ff };
+    return { top: 0x140d2b, mid: 0x4c2c7a, horizon: 0xf0ab70, crystal: 0xb589ff };
   }
-  return { top: 0x281d45, mid: 0x6d4c8f, horizon: 0xe6ad8a, crystal: 0x9146ff };
+  return { top: 0x16112e, mid: 0x4b3175, horizon: 0xf29f6d, crystal: 0xa855f7 };
 }
 
 /** Interactive 3D voxel workshop island powered by Three.js with OrbitControls & 3D-projected idea bubbles. */
@@ -138,14 +138,14 @@ export function LiveStageCanvas({
     container.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x3a2a54, 0.011);
+    scene.fog = new THREE.FogExp2(0x22173b, 0.0055);
 
-    // Classic 45-deg isometric hero view — larger hero framing matching the 2D voxel artwork
+    // Classic isometric pitch matching voxel-workshop.jpg (centered optically with headroom & root room)
     const camera = new THREE.PerspectiveCamera(36, width / height, 0.1, 160);
     if (compact) {
-      camera.position.set(13.2, 9.0, 13.4);
+      camera.position.set(15.6, 8.0, 16.0);
     } else {
-      camera.position.set(11.4, 8.2, 11.6);
+      camera.position.set(14.6, 7.5, 15.0);
     }
 
     const composer = new EffectComposer(renderer);
@@ -162,17 +162,17 @@ export function LiveStageCanvas({
     controls.minDistance = 7.0;
     controls.maxDistance = 26;
     controls.maxPolarAngle = Math.PI * 0.49;
-    controls.target.set(0.2, compact ? 2.65 : 2.45, -0.15);
+    controls.target.set(0.55, compact ? 1.05 : 0.95, -0.45);
 
-    // Twilight sky dome with directional golden-peach sunset glow on upper-right
+    // Twilight sky dome mapped to the isometric camera view (dir.y spans -0.60 at bottom to +0.05 at top)
     const skyGeo = new THREE.SphereGeometry(76, 24, 16);
     const skyMat = new THREE.ShaderMaterial({
       side: THREE.BackSide,
       depthWrite: false,
       uniforms: {
-        topColor: { value: new THREE.Color(0x281d45) },
-        midColor: { value: new THREE.Color(0x6d4c8f) },
-        horizonColor: { value: new THREE.Color(0xe6ad8a) },
+        topColor: { value: new THREE.Color(0x16112e) },
+        midColor: { value: new THREE.Color(0x4b3175) },
+        horizonColor: { value: new THREE.Color(0xf29f6d) },
       },
       vertexShader: `
         varying vec3 vWorldPosition;
@@ -190,10 +190,10 @@ export function LiveStageCanvas({
         void main() {
           vec3 dir = normalize(vWorldPosition);
           float h = dir.y;
-          vec3 col = mix(horizonColor, midColor, smoothstep(-0.2, 0.25, h));
-          col = mix(col, topColor, smoothstep(0.22, 0.78, h));
-          float sunGlow = pow(max(dot(dir, normalize(vec3(0.68, 0.2, -0.7))), 0.0), 3.2);
-          col = mix(col, vec3(0.99, 0.82, 0.62), sunGlow * 0.55);
+          vec3 col = mix(horizonColor, midColor, smoothstep(-0.56, -0.22, h));
+          col = mix(col, topColor, smoothstep(-0.26, 0.04, h));
+          float sunGlow = pow(max(dot(dir, normalize(vec3(0.55, -0.36, -0.75))), 0.0), 3.0);
+          col = mix(col, vec3(0.99, 0.78, 0.52), sunGlow * 0.62);
           gl_FragColor = vec4(col, 1.0);
         }
       `,
@@ -332,25 +332,55 @@ export function LiveStageCanvas({
           else grassSpecs.push({ x, y: 0.0, z });
         }
 
-        // Craggy cliff depth layers
-        if (dist <= 15) dirtSpecs.push({ x, y: -0.5, z });
-        if (dist <= 13 || (maxC === 10 && (gx * gz) % 2 === 0)) pushStone(x, -1.0, z);
-        if (dist <= 11 || (gx % 3 === 0 && gz % 2 === 0 && dist <= 13)) stoneDarkSpecs.push({ x, y: -1.5, z });
-        if (dist <= 9) stoneDarkSpecs.push({ x, y: -2.0, z });
-        if (dist <= 6) stoneDarkSpecs.push({ x, y: -2.5, z });
-        if (dist <= 3) stoneDarkSpecs.push({ x, y: -3.0, z });
+        // Deep craggy cliff underside matching voxel-workshop.jpg (steep outer walls + deep tapered cone)
+        if (dist <= 16) dirtSpecs.push({ x, y: -0.5, z });
+        if (dist <= 16 && (maxC <= 10 || (gx + gz) % 2 === 0)) pushStone(x, -1.0, z);
+        if (dist <= 15 && maxC <= 10) pushStone(x, -1.5, z);
+        if (dist <= 14 && maxC <= 9) stoneDarkSpecs.push({ x, y: -2.0, z });
+        if (dist <= 12 && maxC <= 8) pushStone(x, -2.5, z);
+        if (dist <= 10 && maxC <= 7) stoneDarkSpecs.push({ x, y: -3.0, z });
+        if (dist <= 8 && maxC <= 5) stoneDarkSpecs.push({ x, y: -3.5, z });
+        if (dist <= 5) stoneDarkSpecs.push({ x, y: -4.0, z });
+        if (dist <= 3) stoneDarkSpecs.push({ x, y: -4.5, z });
+        if (dist <= 1) stoneDarkSpecs.push({ x, y: -5.0, z });
       }
     }
-    // Irregular corner rock stalactites & hanging moss lips
+    // Irregular corner rock stalactites, hanging moss lips & dangling wooden cliff roots
     for (const [rx, rz] of [
       [-4.0, 2.5],
       [4.0, 2.0],
       [2.5, -4.0],
       [-3.5, -3.5],
       [0.0, 4.5],
+      [-2.0, 4.2],
+      [3.2, 3.4],
     ] as const) {
-      stoneDarkSpecs.push({ x: rx, y: -2.0, z: rz, sx: 1.2, sy: 1.6, sz: 1.2 });
-      mossSpecs.push({ x: rx, y: -0.35, z: rz, sx: 0.9, sy: 1.1, sz: 0.9 });
+      stoneDarkSpecs.push({ x: rx, y: -2.2, z: rz, sx: 1.3, sy: 2.2, sz: 1.3 });
+      mossSpecs.push({ x: rx, y: -0.35, z: rz, sx: 0.95, sy: 1.2, sz: 0.95 });
+    }
+    // Hanging roots dangling below the floating island (signature detail from 2D reference)
+    for (const [vx, vz, len] of [
+      [-4.4, 2.8, 4],
+      [-3.6, 3.8, 5],
+      [-2.2, 4.6, 4],
+      [-0.8, 4.9, 3],
+      [1.2, 4.7, 5],
+      [2.8, 4.1, 4],
+      [4.2, 2.8, 5],
+      [4.8, 1.2, 3],
+      [-4.8, 0.8, 4],
+      [0.4, 3.4, 5],
+    ] as const) {
+      for (let k = 0; k < len; k++) {
+        timberSpecs.push({
+          x: vx + (k % 2) * 0.08,
+          y: -1.6 - k * 0.46,
+          z: vz,
+          sx: 0.24,
+          sy: 0.98,
+          sz: 0.24,
+        });
+      }
     }
 
     // 2. Grand 7-Step Front Stone Staircase + Cheek Parapet Walls
@@ -438,11 +468,32 @@ export function LiveStageCanvas({
         );
       }
     }
-    // Right-side roof dormer & left-back stone chimney
+    // Right-side roof dormer, crane pulley & left-back stone chimney with rising smoke puffs
     pushStone(-1.6, 5.2, -1.6, 1.2, 2.6, 1.2);
-    stoneLightSpecs.push({ x: -1.6, y: 6.1, z: -1.6, sx: 1.45, sy: 0.45, sz: 1.45 });
+    stoneLightSpecs.push(
+      { x: -1.6, y: 6.1, z: -1.6, sx: 1.45, sy: 0.45, sz: 1.45 },
+      { x: -1.55, y: 6.65, z: -1.55, sx: 0.55, sy: 0.55, sz: 0.55 },
+      { x: -1.4, y: 7.2, z: -1.45, sx: 0.72, sy: 0.72, sz: 0.72 },
+      { x: -1.2, y: 7.85, z: -1.3, sx: 0.88, sy: 0.82, sz: 0.88 },
+    );
     windowSpecs.push({ x: 1.35, y: 4.5, z: -0.25, sx: 0.7, sy: 1.0, sz: 0.9 });
     pushRoof(1.25, 5.05, -0.25, 1.2, 0.6, 1.6);
+    // Wooden crane beam & pulley block on top of right scaffolding + front wishing well + flowerbed
+    scaffSpecs.push(
+      { x: 4.55, y: 6.2, z: -0.5, sx: 0.34, sy: 3.4, sz: 0.34 },
+      { x: 4.55, y: 7.0, z: 0.25, sx: 0.34, sy: 0.34, sz: 3.6 },
+      { x: 4.55, y: 6.3, z: 0.95, sx: 0.16, sy: 2.4, sz: 0.16 },
+      { x: 4.55, y: 5.55, z: 0.95, sx: 0.75, sy: 0.85, sz: 0.75 },
+      // Wishing well roof & posts (front-left garden)
+      { x: -3.55, y: 1.15, z: 1.45, sx: 0.22, sy: 2.1, sz: 0.22 },
+      { x: -2.85, y: 1.15, z: 1.45, sx: 0.22, sy: 2.1, sz: 0.22 },
+      { x: -3.2, y: 1.75, z: 1.45, sx: 1.9, sy: 0.45, sz: 1.5 },
+      // Window flowerbox planter
+      { x: 0.35, y: 0.78, z: 1.48, sx: 2.4, sy: 0.55, sz: 0.75 },
+    );
+    stoneLightSpecs.push(
+      { x: -3.2, y: 0.52, z: 1.45, sx: 1.55, sy: 0.95, sz: 1.55 },
+    );
 
     // 4. Right-Wing Gallery (connecting Main Hall & Watchtower)
     for (let gy = 2; gy <= 5; gy++) {
@@ -461,8 +512,8 @@ export function LiveStageCanvas({
       if (gx % 2 === 1) pushStone(gx * u, 3.0, 0.5, 0.85, 0.85, 0.85);
     }
 
-    // 5. Tall Square Watchtower (back-right) + Quoins + Battlements + Stepped Slate Pyramid + Guild Flag
-    for (let gy = 2; gy <= 13; gy++) {
+    // 5. Back-Right Workshop Turret + Battlements + Stepped Slate Pyramid + Guild Flag
+    for (let gy = 2; gy <= 9; gy++) {
       const y = gy * u;
       for (let gx = 3; gx <= 7; gx++) {
         for (let gz = -7; gz <= -3; gz++) {
@@ -471,29 +522,29 @@ export function LiveStageCanvas({
           const x = gx * u;
           const z = gz * u;
           const isWin =
-            (gy === 10 || gy === 11) &&
+            (gy === 7 || gy === 8) &&
             ((gz === -3 && gx === 5) || (gx === 3 && gz === -5) || (gz === -7 && gx === 5) || (gx === 7 && gz === -5));
           if (isWin) {
             const nx = gx === 3 ? -1 : gx === 7 ? 1 : 0;
             const nz = gz === -3 ? 1 : gz === -7 ? -1 : 0;
-            pushFramedWindow(x, y, z, nx, nz, gy === 10);
+            pushFramedWindow(x, y, z, nx, nz, gy === 7);
           } else {
             pushStone(x, y, z);
           }
         }
       }
     }
-    // Watchtower corbelled battlements & 4-tier slate pyramid cap
+    // Turret corbelled battlements & 3-tier slate pyramid cap
     for (let gx = 2; gx <= 8; gx++) {
       for (let gz = -8; gz <= -2; gz++) {
         const isEdge = gx === 2 || gx === 8 || gz === -8 || gz === -2;
         if (!isEdge) continue;
-        if ((gx + gz) % 2 === 0) pushStone(gx * u, 7.0, gz * u);
-        pushStone(gx * u, 6.6, gz * u);
+        if ((gx + gz) % 2 === 0) pushStone(gx * u, 5.0, gz * u);
+        pushStone(gx * u, 4.6, gz * u);
       }
     }
     for (let tier = 0; tier < 3; tier++) {
-      const y = 7.45 + tier * 0.45;
+      const y = 5.45 + tier * 0.45;
       const minG = 3 + tier;
       const maxG = 7 - tier;
       for (let gx = minG; gx <= maxG; gx++) {
@@ -504,7 +555,7 @@ export function LiveStageCanvas({
     }
 
     const bannerGroup = new THREE.Group();
-    bannerGroup.position.set(2.5, 8.9, -2.5);
+    bannerGroup.position.set(2.5, 6.8, -2.5);
     const pole = new THREE.Mesh(voxelGeo, darkWoodMat);
     pole.scale.set(0.22, 1.8, 0.22);
     pole.position.y = 0.35;
@@ -581,10 +632,12 @@ export function LiveStageCanvas({
       }
       pineSpecs.push({ x: cx, y: baseY + tiers * 0.44, z: cz, sx: 0.75, sy: 0.85, sz: 0.75 });
     };
-    addFineTree(-4.2, 2.0, -1.6, 4);
-    addFineTree(-4.0, 1.7, 2.6, 3);
-    addFineTree(4.1, 1.7, 2.6, 3);
-    addFineTree(-2.2, 1.6, -4.0, 3);
+    addFineTree(-4.35, 1.8, -1.5, 5);
+    addFineTree(-4.2, 1.5, 1.1, 5);
+    addFineTree(-3.8, 1.4, 2.9, 4);
+    addFineTree(4.3, 1.6, 2.4, 4);
+    addFineTree(5.1, 1.5, -0.4, 4);
+    addFineTree(-2.3, 1.6, -4.1, 4);
 
     // Shrubs & courtyard stepping stones
     for (const [sx, sz] of [
@@ -747,91 +800,45 @@ export function LiveStageCanvas({
     petGroup.visible = false;
     islandGroup.add(petGroup);
 
-    // 9. Distant Waterfall Cliff Peaks + Soft Feathered Volumetric Cloud Sprites (zero hard bubble seams)
+    // 9. Cohesive Stepped 3D Voxel Cloud Clusters + Distant Floating Mini-Island (matching voxel-workshop.jpg)
     const bgIslands = new THREE.Group();
-    const makeCloudTexture = (innerHex: string, outerHex: string) => {
-      const c = document.createElement("canvas");
-      c.width = 128;
-      c.height = 128;
-      const ctx = c.getContext("2d");
-      if (ctx) {
-        const g = ctx.createRadialGradient(64, 64, 6, 64, 64, 62);
-        g.addColorStop(0, innerHex);
-        g.addColorStop(0.5, outerHex);
-        g.addColorStop(1, "rgba(0,0,0,0)");
-        ctx.fillStyle = g;
-        ctx.fillRect(0, 0, 128, 128);
+    const cloudLightMat = new THREE.MeshStandardMaterial({ color: 0xf7ece8, roughness: 0.72 });
+    const cloudShadeMat = new THREE.MeshStandardMaterial({ color: 0xbba8d4, roughness: 0.78 });
+    const cloudTopSpecs: VoxelSpec[] = [];
+    const cloudBotSpecs: VoxelSpec[] = [];
+    const addVoxelCloud = (cx: number, cy: number, cz: number, scale = 1) => {
+      const puffs = [
+        [0, 0.25, 0, 2.8, 1.35, 2.1],
+        [-0.75, 0.1, 0.15, 2.2, 1.1, 1.8],
+        [0.8, 0.08, -0.1, 2.2, 1.1, 1.8],
+        [-0.3, 0.52, -0.05, 1.9, 1.1, 1.6],
+        [0.35, 0.45, 0.1, 1.75, 1.0, 1.5],
+      ] as const;
+      for (const [dx, dy, dz, sx, sy, sz] of puffs) {
+        cloudTopSpecs.push({
+          x: cx + dx * scale,
+          y: cy + dy * scale,
+          z: cz + dz * scale,
+          sx: sx * scale,
+          sy: sy * scale,
+          sz: sz * scale,
+        });
+        cloudBotSpecs.push({
+          x: cx + dx * scale,
+          y: cy + (dy - 0.28) * scale,
+          z: cz + dz * scale,
+          sx: sx * 0.98 * scale,
+          sy: sy * 0.62 * scale,
+          sz: sz * 0.98 * scale,
+        });
       }
-      return new THREE.CanvasTexture(c);
     };
-    const coolCloudTex = makeCloudTexture("rgba(220, 202, 248, 0.42)", "rgba(145, 110, 195, 0.14)");
-    const warmCloudTex = makeCloudTexture("rgba(255, 224, 196, 0.44)", "rgba(232, 173, 132, 0.15)");
-    const addCloudBank = (tex: THREE.CanvasTexture, cx: number, cy: number, cz: number, count: number) => {
-      const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false });
-      for (let i = 0; i < count; i++) {
-        const sp = new THREE.Sprite(mat);
-        sp.position.set(cx + (i - count / 2) * 2.4, cy + Math.sin(i * 1.1) * 0.9, cz + Math.cos(i * 0.85) * 1.6);
-        const s = 6.5 + (i % 3) * 2.4;
-        sp.scale.set(s * 1.45, s * 0.85, 1);
-        bgIslands.add(sp);
-      }
-    };
-    addCloudBank(coolCloudTex, -15, 1.8, -15, 7);
-    addCloudBank(coolCloudTex, -11, -3.0, -7, 6);
-    addCloudBank(coolCloudTex, -10, -4.4, 5, 5);
-    addCloudBank(warmCloudTex, 15, 2.4, -14, 7);
-    addCloudBank(warmCloudTex, 11, -2.5, -6, 6);
-    addCloudBank(warmCloudTex, 10, -3.8, 6, 5);
-
-    const waterfallMat = new THREE.MeshStandardMaterial({
-      color: 0xdff4ff,
-      emissive: 0x7fd4ff,
-      emissiveIntensity: 0.45,
-      roughness: 0.25,
-      transparent: true,
-      opacity: 0.85,
-    });
-    bgIslands.add(
-      buildVoxelInstances(
-        voxelGeo,
-        grassMat,
-        [
-          { x: -17, y: 2.5, z: -20, sx: 9.0, sy: 1.3, sz: 8.5 },
-          { x: -18.5, y: 4.1, z: -20.5, sx: 5.2, sy: 1.2, sz: 5.0 },
-          { x: -19.2, y: 5.3, z: -21.0, sx: 2.8, sy: 1.1, sz: 2.8 },
-          { x: 18, y: 1.6, z: -21, sx: 8.4, sy: 1.3, sz: 8.0 },
-          { x: 19.5, y: 3.1, z: -21.5, sx: 4.6, sy: 1.2, sz: 4.4 },
-        ],
-        false,
-        false,
-      ),
-    );
-    bgIslands.add(
-      buildVoxelInstances(
-        voxelGeo,
-        stoneDarkMat,
-        [
-          { x: -17, y: 0.4, z: -20, sx: 7.4, sy: 6.2, sz: 7.0 },
-          { x: -18.5, y: 3.0, z: -20.5, sx: 4.4, sy: 3.8, sz: 4.2 },
-          { x: 18, y: -0.4, z: -21, sx: 6.8, sy: 6.2, sz: 6.4 },
-          { x: 19.5, y: 2.1, z: -21.5, sx: 3.8, sy: 3.2, sz: 3.8 },
-        ],
-        false,
-        false,
-      ),
-    );
-    bgIslands.add(
-      buildVoxelInstances(
-        voxelGeo,
-        waterfallMat,
-        [
-          { x: -17.2, y: 0.5, z: -17.8, sx: 1.3, sy: 7.8, sz: 0.9 },
-          { x: 17.6, y: 0.0, z: -18.8, sx: 1.4, sy: 8.0, sz: 0.95 },
-        ],
-        false,
-        false,
-      ),
-    );
+    addVoxelCloud(-7.6, 1.9, 0.6, 1.1);
+    addVoxelCloud(7.6, 2.8, -3.2, 1.15);
+    addVoxelCloud(-6.8, -4.1, 4.2, 1.25);
+    addVoxelCloud(6.6, -3.9, 3.8, 1.2);
+    bgIslands.add(buildVoxelInstances(voxelGeo, cloudShadeMat, cloudBotSpecs, false, false));
+    bgIslands.add(buildVoxelInstances(voxelGeo, cloudLightMat, cloudTopSpecs, false, false));
     scene.add(bgIslands);
 
     // Dual-color floating violet + warm gold fireflies + dense under-island violet glow motes
@@ -1040,8 +1047,6 @@ export function LiveStageCanvas({
         );
         petGroup.rotation.y = -ang + (nowMs < petHopUntil ? 0.25 : 0);
       }
-
-      waterfallMat.emissiveIntensity = 0.45 + Math.sin(t * 4.2) * 0.2;
 
       const bounceSpeed = isCollecting || isBuilding ? 3.8 : 2.4;
       for (const vb of voxelBuilders) {
