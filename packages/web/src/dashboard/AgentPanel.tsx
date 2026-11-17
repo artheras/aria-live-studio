@@ -12,7 +12,7 @@ import {
 import { Btn, Spinner, useActions } from "./actions";
 import { copyText } from "./Drawer";
 
-export function AgentPanel({ api }: { api: AriaApi }) {
+export function AgentPanel({ api, agentConnected = false }: { api: AriaApi; agentConnected?: boolean }) {
   const { toast } = useActions();
   const [conn, setConn] = useState<AgentConnection | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -61,6 +61,35 @@ export function AgentPanel({ api }: { api: AriaApi }) {
             Remote (URL)
           </Btn>
         )}
+      </div>
+      <div className="agent-panel__meta">
+        <span className={`pill pill--${agentConnected ? "good" : "warn"}`}>
+          {agentConnected ? "Agent connected" : "Waiting for agent poll"}
+        </span>
+        <Btn
+          size="sm"
+          variant="secondary"
+          onClick={async () => {
+            const cmd = conn.mcpCommand ?? { command: "node", args: ["plugin/mcp/aria-live-mcp.mjs"] };
+            const mcpJson = JSON.stringify(
+              {
+                mcpServers: {
+                  "aria-live": {
+                    command: cmd.command,
+                    args: cmd.args,
+                    env: { ARIA_LIVE_TOKEN: conn.token, ARIA_LIVE_URL: conn.mcpUrl },
+                  },
+                },
+              },
+              null,
+              2,
+            );
+            const ok = await copyText(mcpJson);
+            toast(ok ? "success" : "error", ok ? "MCP JSON config copied (with token)" : "Copy failed");
+          }}
+        >
+          Copy MCP JSON
+        </Btn>
       </div>
       <div className="agent-panel__meta">
         <span>
