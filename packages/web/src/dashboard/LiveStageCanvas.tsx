@@ -69,10 +69,20 @@ function resolveThemePalette(prompt?: string | null, modifiers?: string[]) {
 }
 
 /** Interactive 3D voxel workshop island powered by Three.js with OrbitControls & 3D-projected idea bubbles. */
-export function LiveStageCanvas({ state, transparent = false }: { state: LiveState; transparent?: boolean }) {
+export function LiveStageCanvas({
+  state,
+  transparent = false,
+  ecoMode = false,
+}: {
+  state: LiveState;
+  transparent?: boolean;
+  ecoMode?: boolean;
+}) {
   const mountRef = useRef<HTMLDivElement>(null);
   const stateRef = useRef(state);
   stateRef.current = state;
+  const ecoModeRef = useRef(ecoMode);
+  ecoModeRef.current = ecoMode;
 
   const [webglReady, setWebglReady] = useState(true);
   const [projectedIdeas, setProjectedIdeas] = useState<Record<string, ProjectedLabel>>({});
@@ -953,7 +963,16 @@ export function LiveStageCanvas({ state, transparent = false }: { state: LiveSta
       }
 
       controls.update();
-      composer.render();
+      const eco = ecoModeRef.current;
+      if (renderer.shadowMap.enabled !== !eco) {
+        renderer.shadowMap.enabled = !eco;
+        renderer.shadowMap.needsUpdate = true;
+      }
+      if (eco) {
+        renderer.render(scene, camera);
+      } else {
+        composer.render();
+      }
 
       if (frame % 2 === 0) {
         const curIdeas = (stateRef.current.round?.ideas.filter((i) => !i.hidden) ?? []).slice(-4);

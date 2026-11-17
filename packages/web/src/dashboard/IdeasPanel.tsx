@@ -228,6 +228,7 @@ export function IdeasPanel({
     previewUrl ? "build" : round && phase !== "idle" ? "stage" : state ? "arena" : "overlay",
   );
   const [focusMode, setFocusMode] = useState(false);
+  const [ecoMode, setEcoMode] = useState(false);
 
   useEffect(() => {
     if (previewUrl) setView("build");
@@ -310,7 +311,7 @@ export function IdeasPanel({
           <div className="monitor-wrap">
             <div className="monitor-bezel monitor-bezel--workshop">
               <div className="idle-preview__stage monitor-stage--workshop">
-                <LiveStageCanvas state={state} />
+                <LiveStageCanvas state={state} ecoMode={ecoMode} />
               </div>
             </div>
             {!focusMode && (
@@ -336,6 +337,18 @@ export function IdeasPanel({
                     }}
                   >
                     Send Idea
+                  </button>
+                  <button
+                    type="button"
+                    className={`focus-pill ${ecoMode ? "is-on" : ""}`}
+                    aria-pressed={ecoMode}
+                    title="Disable bloom & shadows to save GPU during stream"
+                    onClick={() => setEcoMode((e) => !e)}
+                  >
+                    <span>Eco</span>
+                    <span className="focus-pill__track" aria-hidden="true">
+                      <span className="focus-pill__thumb" />
+                    </span>
                   </button>
                   <button
                     type="button"

@@ -276,6 +276,7 @@ export function RoundControl({ round, settings, me, api, clockOffset, onConnectA
   const [editing, setEditing] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   const [note, setNote] = useState("");
+  const [diffText, setDiffText] = useState<string | null>(null);
   const [sfx, setSfx] = useState(() => isSfxEnabled());
   const now = useNow(1000) + clockOffset;
 
@@ -288,6 +289,7 @@ export function RoundControl({ round, settings, me, api, clockOffset, onConnectA
     setEditing(false);
     setRejecting(false);
     setNote("");
+    setDiffText(null);
   }, [phase, taskId]);
 
   const act = (fn: () => Promise<unknown>, success?: string) => run(KEY, fn, { success });
@@ -560,15 +562,43 @@ export function RoundControl({ round, settings, me, api, clockOffset, onConnectA
           </details>
         )}
         {execution?.branch && (
-          <div className="actions">
-            <Btn
-              variant="danger"
-              size="sm"
-              pending={pending}
-              onClick={() => act(() => api.revertRound(), `Reverted branch ${execution.branch}`)}
-            >
-              Revert round ({execution.branch})
-            </Btn>
+          <div className="round-git-box">
+            <div className="actions">
+              <Btn
+                variant="success"
+                size="sm"
+                pending={pending}
+                onClick={() => act(() => api.mergeRound(), `Merged ${execution.branch}`)}
+              >
+                Merge to main
+              </Btn>
+              <Btn
+                variant="secondary"
+                size="sm"
+                disabled={pending}
+                onClick={() => {
+                  if (diffText !== null) {
+                    setDiffText(null);
+                    return;
+                  }
+                  act(async () => {
+                    const res = await api.roundDiff();
+                    setDiffText(res.diff || res.stat || "No changes");
+                  });
+                }}
+              >
+                {diffText !== null ? "Hide diff" : "Inspect diff"}
+              </Btn>
+              <Btn
+                variant="danger"
+                size="sm"
+                pending={pending}
+                onClick={() => act(() => api.revertRound(), `Reverted branch ${execution.branch}`)}
+              >
+                Revert round ({execution.branch})
+              </Btn>
+            </div>
+            {diffText !== null && <pre className="diff-preview">{diffText}</pre>}
           </div>
         )}
         {task && <TaskCard task={task} compact />}

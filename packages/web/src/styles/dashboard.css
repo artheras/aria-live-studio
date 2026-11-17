@@ -1814,6 +1814,27 @@ input[type="checkbox"] {
   margin-top: 8px;
   gap: 6px;
 }
+.round-git-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+.diff-preview {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(9, 10, 16, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #d6d3e6;
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.45;
+  max-height: 220px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
 
 .feed__icon {
   border-radius: 50%;

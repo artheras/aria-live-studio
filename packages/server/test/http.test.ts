@@ -349,4 +349,39 @@ describe("behind a TLS proxy", () => {
     expect(await logoutCookie(h, { "x-forwarded-proto": "http" })).not.toMatch(/Secure/);
     expect(await logoutCookie(h, {})).not.toMatch(/Secure/);
   });
+
+  it("round git endpoints reject missing or invalid branch names cleanly", async () => {
+    h = await startHarness();
+    const res1 = await h.api("POST", "/api/round/revert", {});
+    expect(res1.status).toBe(409);
+    const res2 = await h.api("POST", "/api/round/merge", {});
+    expect(res2.status).toBe(409);
+    const res3 = await h.api("GET", "/api/round/diff");
+    expect(res3.status).toBe(409);
+
+    // Inject an invalid branch name to verify path-traversal / flag-injection guard
+    h.service.openRound("test");
+    const r = h.service.engine.state.round!;
+    r.phase = "done";
+    r.execution = {
+      id: "ex1",
+      taskId: "t1",
+      executor: "aria-code",
+      status: "succeeded",
+      startedAt: Date.now(),
+      endedAt: Date.now(),
+      branch: "../evil-branch",
+      workdir: null,
+      steps: [],
+      changedFiles: [],
+      summary: "ok",
+      error: null,
+    };
+    const badRevert = await h.api("POST", "/api/round/revert", {});
+    expect(badRevert.status).toBe(400);
+    const badMerge = await h.api("POST", "/api/round/merge", {});
+    expect(badMerge.status).toBe(400);
+    const badDiff = await h.api("GET", "/api/round/diff");
+    expect(badDiff.status).toBe(400);
+  });
 });
