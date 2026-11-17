@@ -333,7 +333,12 @@ export function IdeasPanel({
                     className="btn btn--ghost btn--sm"
                     onClick={() => {
                       const input = document.getElementById("round-theme-input") as HTMLInputElement | null;
-                      input?.focus();
+                      if (!input) return;
+                      input.focus();
+                      input.classList.remove("is-focus-pulse");
+                      void input.offsetWidth;
+                      input.classList.add("is-focus-pulse");
+                      setTimeout(() => input.classList.remove("is-focus-pulse"), 1200);
                     }}
                   >
                     Send Idea

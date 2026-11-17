@@ -90,7 +90,7 @@ export function LiveStageCanvas({
 
   const prevPhaseRef = useRef(state.round?.phase ?? "idle");
   const lastCelebrationIdRef = useRef<string | null>(null);
-  const burstFnRef = useRef<((colorHex: number) => void) | null>(null);
+  const burstFnRef = useRef<((colorHex: number, origin?: { x: number; y: number; z: number }) => void) | null>(null);
   const petUntilRef = useRef<number>(0);
 
   useEffect(() => {
@@ -632,7 +632,7 @@ export function LiveStageCanvas({
     islandGroup.add(buildVoxelInstances(voxelGeo, lanternMat, lanternSpecs, false, false));
 
     // 8. 4 Animated Voxel Co-Builder Characters on the courtyard & lawn
-    const voxelBuilders: { group: THREE.Group; baseY: number; phase: number }[] = [];
+    const voxelBuilders: { group: THREE.Group; baseY: number; phase: number; hopUntil: number }[] = [];
     const skinMat = new THREE.MeshStandardMaterial({ color: 0xf6cba8, roughness: 0.7 });
     const hairMat = new THREE.MeshStandardMaterial({ color: 0x3b2820, roughness: 0.84 });
     const legMat = new THREE.MeshStandardMaterial({ color: 0x2f3348, roughness: 0.86 });
@@ -658,7 +658,7 @@ export function LiveStageCanvas({
       g.position.set(x, y, z);
       g.rotation.y = rotY;
       islandGroup.add(g);
-      voxelBuilders.push({ group: g, baseY: y, phase });
+      voxelBuilders.push({ group: g, baseY: y, phase, hopUntil: 0 });
     };
     addVoxelBuilder(-2.55, 0.24, 3.25, 0xd96b98, 0.45, 0.0);
     addVoxelBuilder(-0.15, 0.24, 4.15, 0x9146ff, -0.35, 1.4);
@@ -826,27 +826,99 @@ export function LiveStageCanvas({
     scene.add(makeMotes(0xd8bfff, 56));
     scene.add(makeMotes(0xb87cff, 84, -5.8, -1.6, 0.22));
     scene.add(makeMotes(0xffcb77, 32));
+    // Warm low-altitude porch & staircase fireflies
+    const porchMotePos = new Float32Array(18 * 3);
+    for (let i = 0; i < 18; i++) {
+      porchMotePos[i * 3] = (Math.random() - 0.5) * 5.2;
+      porchMotePos[i * 3 + 1] = 0.4 + Math.random() * 1.6;
+      porchMotePos[i * 3 + 2] = 1.6 + Math.random() * 3.2;
+    }
+    const porchMoteGeo = new THREE.BufferGeometry();
+    porchMoteGeo.setAttribute("position", new THREE.BufferAttribute(porchMotePos, 3));
+    scene.add(new THREE.Points(porchMoteGeo, new THREE.PointsMaterial({ color: 0xffd280, size: 0.14, transparent: true, opacity: 0.9 })));
 
-    // 3D Firework particle cubes
+    // 3D Firework particle cubes (supports exact 3D hit origin + ground bounce)
     const bursts: BurstCube[] = [];
     const burstGeo = new THREE.BoxGeometry(0.22, 0.22, 0.22);
-    burstFnRef.current = (colorHex: number) => {
+    burstFnRef.current = (colorHex: number, origin = { x: 0.5, y: 5.5, z: -1 }) => {
       const mat = new THREE.MeshStandardMaterial({ color: colorHex, emissive: colorHex, emissiveIntensity: 1.9 });
       for (let i = 0; i < 20; i++) {
         const mesh = new THREE.Mesh(burstGeo, mat);
-        mesh.position.set(0.5, 5.5, -1);
+        mesh.position.set(origin.x, origin.y, origin.z);
         scene.add(mesh);
         const ang = (i / 20) * Math.PI * 2 + Math.random() * 0.3;
-        const spd = 0.06 + Math.random() * 0.09;
+        const spd = 0.055 + Math.random() * 0.085;
         bursts.push({
           mesh,
           vx: Math.cos(ang) * spd,
-          vy: 0.07 + Math.random() * 0.09,
+          vy: 0.065 + Math.random() * 0.09,
           vz: Math.sin(ang) * spd,
-          life: 48,
+          life: 52,
         });
       }
     };
+
+    // Raycaster for 3D click-to-burst & interactive character hops
+    const raycaster = new THREE.Raycaster();
+    const pointerNdc = new THREE.Vector2();
+    let downX = 0;
+    let downY = 0;
+    let petHopUntil = 0;
+
+    const toNdc = (e: PointerEvent) => {
+      const rect = renderer.domElement.getBoundingClientRect();
+      pointerNdc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      pointerNdc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    };
+
+    const isChildOf = (obj: THREE.Object3D, root: THREE.Object3D) => {
+      let cur: THREE.Object3D | null = obj;
+      while (cur) {
+        if (cur === root) return true;
+        cur = cur.parent;
+      }
+      return false;
+    };
+
+    const onPointerDown = (e: PointerEvent) => {
+      downX = e.clientX;
+      downY = e.clientY;
+    };
+
+    const onPointerMove = (e: PointerEvent) => {
+      toNdc(e);
+      raycaster.setFromCamera(pointerNdc, camera);
+      const charRoots = [...voxelBuilders.map((v) => v.group), ...(petGroup.visible ? [petGroup] : [])];
+      const hits = raycaster.intersectObjects(charRoots, true);
+      renderer.domElement.style.cursor = hits.length > 0 ? "pointer" : "grab";
+    };
+
+    const onPointerUp = (e: PointerEvent) => {
+      if (Math.hypot(e.clientX - downX, e.clientY - downY) > 5) return;
+      toNdc(e);
+      raycaster.setFromCamera(pointerNdc, camera);
+      const hits = raycaster.intersectObjects(islandGroup.children, true);
+      const hit = hits[0];
+      if (!hit) return;
+
+      const nowMs = Date.now();
+      const hitBuilder = voxelBuilders.find((vb) => isChildOf(hit.object, vb.group));
+      if (hitBuilder) {
+        hitBuilder.hopUntil = nowMs + 900;
+        burstFnRef.current?.(0xf5b942, hit.point);
+        return;
+      }
+      if (petGroup.visible && isChildOf(hit.object, petGroup)) {
+        petHopUntil = nowMs + 1000;
+        burstFnRef.current?.(0xffa62b, hit.point);
+        return;
+      }
+      burstFnRef.current?.(0x9146ff, hit.point);
+    };
+
+    renderer.domElement.addEventListener("pointerdown", onPointerDown);
+    renderer.domElement.addEventListener("pointermove", onPointerMove);
+    renderer.domElement.addEventListener("pointerup", onPointerUp);
 
     // 3D anchor points placed around the perimeter so they never block the castle silhouette
     const ideaAnchors = [
@@ -932,18 +1004,29 @@ export function LiveStageCanvas({
         blueprintCube.rotation.y = t * 1.4;
       }
 
-      const petActive = Date.now() < petUntilRef.current;
+      const nowMs = Date.now();
+      const petActive = nowMs < petUntilRef.current;
       petGroup.visible = petActive;
       if (petActive) {
         const ang = t * 1.5;
-        petGroup.position.set(Math.cos(ang) * 1.9, 0.24 + Math.abs(Math.sin(t * 6.0)) * 0.22, 2.8 + Math.sin(ang) * 1.1);
-        petGroup.rotation.y = -ang;
+        const extraHop = nowMs < petHopUntil ? Math.sin(((petHopUntil - nowMs) / 1000) * Math.PI) * 0.65 : 0;
+        petGroup.position.set(
+          Math.cos(ang) * 1.9,
+          0.24 + Math.abs(Math.sin(t * 6.0)) * 0.22 + extraHop,
+          2.8 + Math.sin(ang) * 1.1,
+        );
+        petGroup.rotation.y = -ang + (nowMs < petHopUntil ? 0.25 : 0);
       }
+
+      waterfallMat.emissiveIntensity = 0.45 + Math.sin(t * 4.2) * 0.2;
 
       const bounceSpeed = isCollecting || isBuilding ? 3.8 : 2.4;
       for (const vb of voxelBuilders) {
-        vb.group.position.y = vb.baseY + Math.abs(Math.sin(t * bounceSpeed + vb.phase)) * (isBuilding ? 0.12 : 0.07);
-        vb.group.rotation.y += Math.sin(t * 1.1 + vb.phase) * 0.004;
+        const hopping = nowMs < vb.hopUntil;
+        const hopBoost = hopping ? Math.sin(((vb.hopUntil - nowMs) / 900) * Math.PI) * 0.55 : 0;
+        vb.group.position.y =
+          vb.baseY + Math.abs(Math.sin(t * bounceSpeed + vb.phase)) * (isBuilding ? 0.12 : 0.07) + hopBoost;
+        vb.group.rotation.y += hopping ? 0.18 : Math.sin(t * 1.1 + vb.phase) * 0.004;
       }
 
       for (let i = bursts.length - 1; i >= 0; i--) {
@@ -952,10 +1035,16 @@ export function LiveStageCanvas({
         b.mesh.position.y += b.vy;
         b.mesh.position.z += b.vz;
         b.vy -= 0.004;
+        if (b.mesh.position.y < 0.35 && b.vy < 0) {
+          b.mesh.position.y = 0.35;
+          b.vy = -b.vy * 0.45;
+          b.vx *= 0.82;
+          b.vz *= 0.82;
+        }
         b.mesh.rotation.x += 0.1;
         b.mesh.rotation.y += 0.12;
         b.life -= 1;
-        b.mesh.scale.setScalar(Math.max(0.01, b.life / 50));
+        b.mesh.scale.setScalar(Math.max(0.01, b.life / 52));
         if (b.life <= 0) {
           scene.remove(b.mesh);
           bursts.splice(i, 1);
@@ -1020,6 +1109,9 @@ export function LiveStageCanvas({
     return () => {
       cancelAnimationFrame(raf);
       ro?.disconnect();
+      renderer.domElement.removeEventListener("pointerdown", onPointerDown);
+      renderer.domElement.removeEventListener("pointermove", onPointerMove);
+      renderer.domElement.removeEventListener("pointerup", onPointerUp);
       controls.dispose();
       composer.dispose();
       renderer.dispose();
@@ -1041,19 +1133,27 @@ export function LiveStageCanvas({
     >
       {!webglReady && <img className="workshop-scene__art" src="/art/voxel-workshop.jpg" alt="Voxel Workshop Stage" />}
 
-      {ideas.map((idea) => {
+      {ideas.map((idea, idx) => {
         const pos = projectedIdeas[idea.id];
         if (!pos?.visible) return null;
+        const anchorCoords = [
+          { x: -4.2, y: 4.8, z: 0.5 },
+          { x: 4.8, y: 4.2, z: 2.2 },
+          { x: -3.2, y: 2.6, z: 4.6 },
+          { x: 5.6, y: 6.2, z: -1.5 },
+        ];
         return (
-          <div
+          <button
             key={idea.id}
+            type="button"
             className={`workshop-bubble workshop-bubble--3d ${idea.boosts ? "is-boosted" : ""}`}
             style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
+            onClick={() => burstFnRef.current?.(idea.boosts ? 0xf5b942 : 0x9146ff, anchorCoords[idx % anchorCoords.length])}
           >
             <span className="workshop-bubble__user">@{idea.author.displayName || idea.author.login}</span>
             <span className="workshop-bubble__text">{truncate(idea.text, 24)}</span>
             {idea.boosts ? <span className="workshop-bubble__boost">+{idea.boosts}</span> : null}
-          </div>
+          </button>
         );
       })}
 
