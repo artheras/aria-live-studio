@@ -368,20 +368,24 @@ export function LiveStageCanvas({
       mossSpecs.push({ x: vx, y: -0.95, z: vz, sx: 0.55, sy: 1.1, sz: 0.55 });
     }
 
-    // Refined stone porch landing + 5-step L-shaped stair + twin timber handrails
+    // Wide, solid stone porch landing + 5-step straight staircase with stepped stone cheek-walls & posts
+    pushStone(1.55, 0.68, 0.25, 1.85, 0.42, 1.45);
+    pushStone(1.55, 0.34, 0.25, 1.85, 0.42, 1.45);
     for (let s = 0; s < 5; s++) {
-      pushStone(1.42, 0.06 + s * 0.14, 2.38 - s * 0.26, 1.24, 0.42, 0.68);
+      const sy = 0.56 - s * 0.12;
+      const sz = 0.92 + s * 0.44;
+      pushStone(1.55, sy, sz, 1.55, 0.36, 0.54);
+      // Stepped stone cheek-walls flanking each tread
+      stoneDarkSpecs.push(
+        { x: 1.02, y: sy + 0.14, z: sz, sx: 0.36, sy: 0.42, sz: 0.56 },
+        { x: 2.08, y: sy + 0.14, z: sz, sx: 0.36, sy: 0.42, sz: 0.56 },
+      );
     }
-    pushStone(1.42, 0.76, 0.92, 1.48, 0.42, 1.25);
-    pushStone(1.12, 0.76, 0.28, 1.15, 0.42, 1.25);
     timberSpecs.push(
-      { x: 1.88, y: 0.48, z: 2.38, sx: 0.12, sy: 0.85, sz: 0.12 },
-      { x: 1.88, y: 0.88, z: 1.62, sx: 0.12, sy: 1.05, sz: 0.12 },
-      { x: 1.88, y: 1.18, z: 0.88, sx: 0.12, sy: 1.0, sz: 0.12 },
-      { x: 1.88, y: 1.05, z: 1.62, sx: 0.1, sy: 0.1, sz: 1.75 },
-      { x: 1.04, y: 0.62, z: 2.38, sx: 0.1, sy: 0.75, sz: 0.1 },
-      { x: 1.04, y: 1.08, z: 0.88, sx: 0.1, sy: 0.9, sz: 0.1 },
-      { x: 1.04, y: 1.08, z: 1.62, sx: 0.09, sy: 0.09, sz: 1.75 },
+      { x: 1.02, y: 0.95, z: 0.92, sx: 0.22, sy: 0.65, sz: 0.22 },
+      { x: 2.08, y: 0.95, z: 0.92, sx: 0.22, sy: 0.65, sz: 0.22 },
+      { x: 1.02, y: 0.48, z: 2.68, sx: 0.22, sy: 0.65, sz: 0.22 },
+      { x: 2.08, y: 0.48, z: 2.68, sx: 0.22, sy: 0.65, sz: 0.22 },
     );
 
     // 3. Main Two-Story Gabled Manor Hall (fine 0.5u stone masonry, dark wood door, arched purple windows)
@@ -479,63 +483,63 @@ export function LiveStageCanvas({
         timberSpecs.push({ x, y: 0.35 + r * 0.46, z, sx: 1.55, sy: 0.18, sz: 0.2 });
       }
     };
-    ladder(2.55, 1.05);
-    ladder(3.95, 1.05);
+    ladder(3.8, 1.05);
+    ladder(5.2, 1.05);
     timberSpecs.push(
-      { x: 2.55, y: 2.55, z: -0.15, sx: 0.42, sy: 11.2, sz: 0.42 },
-      { x: 3.95, y: 2.55, z: -0.15, sx: 0.42, sy: 11.2, sz: 0.42 },
-      { x: 3.25, y: 1.25, z: 0.45, sx: 5.4, sy: 0.38, sz: 3.6 },
+      { x: 3.8, y: 2.55, z: -0.15, sx: 0.42, sy: 11.2, sz: 0.42 },
+      { x: 5.2, y: 2.55, z: -0.15, sx: 0.42, sy: 11.2, sz: 0.42 },
+      { x: 4.5, y: 1.25, z: 0.45, sx: 4.8, sy: 0.38, sz: 3.6 },
     );
     // Multi-tier right scaffolding platforms, cross-rails, barrels, crane arm & pulley block
     scaffSpecs.push(
-      { x: 3.25, y: 2.45, z: 0.45, sx: 5.4, sy: 0.38, sz: 3.6 },
-      { x: 3.25, y: 3.65, z: 0.45, sx: 5.4, sy: 0.38, sz: 3.6 },
-      { x: 3.25, y: 4.75, z: 0.45, sx: 5.4, sy: 0.42, sz: 3.6 },
-      // Safety guardrails & ladder rungs on front face
-      { x: 3.25, y: 5.15, z: 1.35, sx: 5.2, sy: 0.16, sz: 0.16 },
-      { x: 3.25, y: 4.05, z: 1.35, sx: 5.2, sy: 0.16, sz: 0.16 },
-      { x: 3.25, y: 2.85, z: 1.35, sx: 5.2, sy: 0.16, sz: 0.16 },
+      { x: 4.5, y: 2.45, z: 0.45, sx: 4.8, sy: 0.38, sz: 3.6 },
+      { x: 4.5, y: 3.65, z: 0.45, sx: 4.8, sy: 0.38, sz: 3.6 },
+      { x: 4.5, y: 4.75, z: 0.45, sx: 4.8, sy: 0.42, sz: 3.6 },
+      // Safety guardrails on front face
+      { x: 4.5, y: 5.15, z: 1.35, sx: 4.6, sy: 0.16, sz: 0.16 },
+      { x: 4.5, y: 4.05, z: 1.35, sx: 4.6, sy: 0.16, sz: 0.16 },
+      { x: 4.5, y: 2.85, z: 1.35, sx: 4.6, sy: 0.16, sz: 0.16 },
       // Barrels & supply crates on scaffolding platforms
-      { x: 2.7, y: 1.62, z: 0.35, sx: 1.15, sy: 1.15, sz: 1.15 },
-      { x: 3.75, y: 1.58, z: 0.7, sx: 1.05, sy: 1.05, sz: 1.05 },
-      { x: 3.15, y: 2.82, z: 0.25, sx: 1.15, sy: 1.15, sz: 1.15 },
-      { x: 3.7, y: 4.05, z: 0.3, sx: 1.1, sy: 1.1, sz: 1.1 },
-      { x: 2.65, y: 5.15, z: 0.2, sx: 1.15, sy: 1.35, sz: 1.15 },
-      { x: 3.9, y: 5.15, z: 0.1, sx: 1.05, sy: 1.25, sz: 1.05 },
+      { x: 3.95, y: 1.62, z: 0.35, sx: 1.15, sy: 1.15, sz: 1.15 },
+      { x: 5.0, y: 1.58, z: 0.7, sx: 1.05, sy: 1.05, sz: 1.05 },
+      { x: 4.4, y: 2.82, z: 0.25, sx: 1.15, sy: 1.15, sz: 1.15 },
+      { x: 4.95, y: 4.05, z: 0.3, sx: 1.1, sy: 1.1, sz: 1.1 },
+      { x: 3.9, y: 5.15, z: 0.2, sx: 1.15, sy: 1.35, sz: 1.15 },
+      { x: 5.15, y: 5.15, z: 0.1, sx: 1.05, sy: 1.25, sz: 1.05 },
       // Crane boom + suspended pulley hook
-      { x: 3.25, y: 5.55, z: 0.45, sx: 0.38, sy: 1.6, sz: 0.38 },
-      { x: 3.25, y: 6.15, z: 1.65, sx: 0.38, sy: 0.38, sz: 5.4 },
-      { x: 3.25, y: 4.55, z: 2.65, sx: 0.18, sy: 3.2, sz: 0.18 },
-      { x: 3.25, y: 3.45, z: 2.65, sx: 0.92, sy: 0.82, sz: 0.92 },
+      { x: 4.5, y: 5.55, z: 0.45, sx: 0.38, sy: 1.6, sz: 0.38 },
+      { x: 4.5, y: 6.15, z: 1.65, sx: 0.38, sy: 0.38, sz: 5.4 },
+      { x: 4.5, y: 4.55, z: 2.65, sx: 0.18, sy: 3.2, sz: 0.18 },
+      { x: 4.5, y: 3.45, z: 2.65, sx: 0.92, sy: 0.82, sz: 0.92 },
       // Ground-level barrels & crates beside the scaffolding
-      { x: 2.45, y: 0.38, z: 1.85, sx: 1.2, sy: 1.25, sz: 1.2 },
-      { x: 3.35, y: 0.34, z: 1.95, sx: 1.1, sy: 1.15, sz: 1.1 },
-      { x: 4.15, y: 0.3, z: 1.7, sx: 1.05, sy: 1.0, sz: 1.05 },
+      { x: 3.7, y: 0.38, z: 1.85, sx: 1.2, sy: 1.25, sz: 1.2 },
+      { x: 4.6, y: 0.34, z: 1.95, sx: 1.1, sy: 1.15, sz: 1.1 },
+      { x: 5.4, y: 0.3, z: 1.7, sx: 1.05, sy: 1.0, sz: 1.05 },
     );
     for (let r = 0; r < 6; r++) {
-      timberSpecs.push({ x: 2.15, y: 0.55 + r * 0.72, z: 1.35, sx: 0.85, sy: 0.14, sz: 0.14 });
+      timberSpecs.push({ x: 3.4, y: 0.55 + r * 0.72, z: 1.35, sx: 0.85, sy: 0.14, sz: 0.14 });
     }
 
-    // 7. Fine-Detail Clustered Sub-Voxel Pine Trees, Shrubs, Cobblestones & Flowers
+    // 7. Spacious Pine Groves, Workbench, Wishing Well, Plaza Cobblestones & Shrubs
     const trunkSpecs: VoxelSpec[] = [
-      { x: -4.3, y: 0.8, z: 0.15, sx: 0.42, sy: 2.1, sz: 0.42 },
-      { x: -3.7, y: 0.7, z: 1.7, sx: 0.38, sy: 1.8, sz: 0.38 },
-      { x: -4.7, y: 0.65, z: 2.5, sx: 0.36, sy: 1.6, sz: 0.36 },
-      { x: 5.55, y: 0.7, z: 1.7, sx: 0.38, sy: 1.8, sz: 0.38 },
-      { x: 5.9, y: 0.62, z: -0.2, sx: 0.34, sy: 1.5, sz: 0.34 },
+      { x: -5.6, y: 0.8, z: 0.2, sx: 0.42, sy: 2.1, sz: 0.42 },
+      { x: -5.0, y: 0.7, z: 2.2, sx: 0.38, sy: 1.8, sz: 0.38 },
+      { x: -6.2, y: 0.65, z: 3.2, sx: 0.36, sy: 1.6, sz: 0.36 },
+      { x: 6.4, y: 0.7, z: 2.2, sx: 0.38, sy: 1.8, sz: 0.38 },
+      { x: 6.6, y: 0.62, z: -0.4, sx: 0.34, sy: 1.5, sz: 0.34 },
     ];
-    // Table in front of the crane, bench to the left of the path.
+    // Outdoor workbench in right-front yard, wooden bench in left-front garden
     scaffSpecs.push(
-      { x: 1.75, y: 0.62, z: 3.05, sx: 1.35, sy: 0.12, sz: 0.85 },
-      { x: 1.25, y: 0.32, z: 2.78, sx: 0.12, sy: 0.48, sz: 0.12 },
-      { x: 2.25, y: 0.32, z: 2.78, sx: 0.12, sy: 0.48, sz: 0.12 },
-      { x: 1.25, y: 0.32, z: 3.32, sx: 0.12, sy: 0.48, sz: 0.12 },
-      { x: 2.25, y: 0.32, z: 3.32, sx: 0.12, sy: 0.48, sz: 0.12 },
-      { x: 1.5, y: 0.76, z: 2.95, sx: 0.28, sy: 0.14, sz: 0.22 },
-      { x: -1.85, y: 0.4, z: 2.95, sx: 1.2, sy: 0.12, sz: 0.42 },
-      { x: -2.3, y: 0.22, z: 2.95, sx: 0.12, sy: 0.28, sz: 0.34 },
-      { x: -1.4, y: 0.22, z: 2.95, sx: 0.12, sy: 0.28, sz: 0.34 },
-      { x: -1.85, y: 0.62, z: 2.78, sx: 1.2, sy: 0.32, sz: 0.1 },
+      { x: 4.2, y: 0.62, z: 4.8, sx: 1.55, sy: 0.14, sz: 0.92 },
+      { x: 3.6, y: 0.32, z: 4.5, sx: 0.14, sy: 0.48, sz: 0.14 },
+      { x: 4.8, y: 0.32, z: 4.5, sx: 0.14, sy: 0.48, sz: 0.14 },
+      { x: 3.6, y: 0.32, z: 5.1, sx: 0.14, sy: 0.48, sz: 0.14 },
+      { x: 4.8, y: 0.32, z: 5.1, sx: 0.14, sy: 0.48, sz: 0.14 },
+      { x: 3.9, y: 0.76, z: 4.75, sx: 0.3, sy: 0.16, sz: 0.24 },
+      { x: -2.5, y: 0.4, z: 4.6, sx: 1.35, sy: 0.14, sz: 0.48 },
+      { x: -3.0, y: 0.22, z: 4.6, sx: 0.14, sy: 0.28, sz: 0.38 },
+      { x: -2.0, y: 0.22, z: 4.6, sx: 0.14, sy: 0.28, sz: 0.38 },
+      { x: -2.5, y: 0.62, z: 4.4, sx: 1.35, sy: 0.32, sz: 0.12 },
     );
     const addFineTree = (cx: number, baseY: number, cz: number, tiers: number) => {
       for (let t = 0; t < tiers; t++) {
@@ -558,11 +562,11 @@ export function LiveStageCanvas({
       }
       pineSpecs.push({ x: cx, y: baseY + tiers * 0.44, z: cz, sx: 0.75, sy: 0.85, sz: 0.75 });
     };
-    addFineTree(-4.3, 1.45, 0.15, 4);
-    addFineTree(-3.7, 1.3, 1.7, 3);
-    addFineTree(-4.7, 1.2, 2.5, 3);
-    addFineTree(5.55, 1.3, 1.7, 3);
-    addFineTree(5.9, 1.15, -0.2, 3);
+    addFineTree(-5.6, 1.45, 0.2, 4);
+    addFineTree(-5.0, 1.3, 2.2, 3);
+    addFineTree(-6.2, 1.2, 3.2, 3);
+    addFineTree(6.4, 1.3, 2.2, 3);
+    addFineTree(6.6, 1.15, -0.4, 3);
 
     // Rounded bushes, each made of a few small leaves rather than one cube.
     const addBush = (cx: number, cz: number, s = 1) => {
@@ -587,27 +591,27 @@ export function LiveStageCanvas({
       addBush(sx, sz, 0.85);
     }
     for (const [cx, cz] of [
-      [-0.75, 1.7],
-      [-0.75, 2.15],
-      [-0.75, 2.6],
-      [-0.75, 3.05],
-      [-0.65, 3.65],
-      [-0.15, 4.05],
-      [0.55, 3.85],
-      [1.25, 3.35],
-      [1.38, 2.8],
-      [-1.45, 3.85],
-      [-2.15, 3.7],
+      [1.55, 3.2],
+      [1.35, 3.8],
+      [0.65, 4.35],
+      [-0.15, 4.65],
+      [-0.95, 4.45],
+      [-1.75, 4.2],
+      [-2.6, 4.1],
+      [-3.4, 4.25],
+      [0.45, 5.4],
+      [1.35, 5.2],
+      [2.25, 4.95],
     ] as const) {
-      stoneLightSpecs.push({ x: cx, y: 0.16, z: cz, sx: 0.62, sy: 0.14, sz: 0.48 });
+      stoneLightSpecs.push({ x: cx, y: 0.16, z: cz, sx: 0.72, sy: 0.14, sz: 0.54 });
     }
-    // Left-foreground stone wishing well + wooden canopy
-    stoneMidSpecs.push({ x: -3.25, y: 0.36, z: 3.65, sx: 1.35, sy: 0.72, sz: 1.35 });
+    // Left-foreground stone wishing well + wooden canopy (spaciously placed)
+    stoneMidSpecs.push({ x: -4.2, y: 0.36, z: 4.4, sx: 1.35, sy: 0.72, sz: 1.35 });
     timberSpecs.push(
-      { x: -3.55, y: 0.92, z: 3.65, sx: 0.14, sy: 1.05, sz: 0.14 },
-      { x: -2.95, y: 0.92, z: 3.65, sx: 0.14, sy: 1.05, sz: 0.14 },
+      { x: -4.5, y: 0.92, z: 4.4, sx: 0.14, sy: 1.05, sz: 0.14 },
+      { x: -3.9, y: 0.92, z: 4.4, sx: 0.14, sy: 1.05, sz: 0.14 },
     );
-    roofDarkSpecs.push({ x: -3.25, y: 1.38, z: 3.65, sx: 1.6, sy: 0.36, sz: 1.3 });
+    roofDarkSpecs.push({ x: -4.2, y: 1.38, z: 4.4, sx: 1.6, sy: 0.36, sz: 1.3 });
     scaffSpecs.push(
       { x: -2.35, y: 0.2, z: 2.25, sx: 1.35, sy: 0.16, sz: 0.6 },
       { x: 0.55, y: 0.2, z: 2.4, sx: 1.2, sy: 0.16, sz: 0.55 },
@@ -753,10 +757,10 @@ export function LiveStageCanvas({
         rightArm,
       });
     };
-    addVillager(-0.45, 0.08, 3.65, 0xc47a4a, 0x6b3e22, 0.25, 0.2);
-    addVillager(2.85, 0.08, 3.35, 0x4e9a52, 0x8d8276, -0.55, 1.4);
-    addVillager(-2.45, 0.08, 2.75, 0xd9d0c4, 0x5a4032, 0.65, 2.6);
-    addVillager(4.45, 0.08, 1.55, 0xc4894a, 0xf5b942, -1.25, 3.8);
+    addVillager(-0.6, 0.08, 4.9, 0xc47a4a, 0x6b3e22, 0.25, 0.2);
+    addVillager(4.0, 0.08, 5.5, 0x4e9a52, 0x8d8276, -0.45, 1.4);
+    addVillager(-3.3, 0.08, 3.5, 0xd9d0c4, 0x5a4032, 0.65, 2.6);
+    addVillager(5.8, 0.08, 2.2, 0xc4894a, 0xf5b942, -1.15, 3.8);
 
     // Upgrade villagers with the 1:1 Aria Voxel Engineer GLB model (with articulated joints & tools)
     const toolRoles: Array<"hammer" | "wrench" | "tablet" | "hammer"> = ["hammer", "wrench", "tablet", "hammer"];
