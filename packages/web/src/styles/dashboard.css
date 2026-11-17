@@ -2266,6 +2266,51 @@ input[type="checkbox"] {
   max-width: 100%;
   flex-wrap: wrap;
 }
+.feed-filters {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.feed-filter {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.feed-filter:hover {
+  color: var(--text);
+}
+.feed-filter.is-active {
+  color: #e9d5ff;
+  background: rgba(145, 70, 255, 0.22);
+  border-color: rgba(167, 139, 250, 0.45);
+}
+.idea__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.is-muted-user {
+  color: #ffadb6;
+  border-color: rgba(255, 92, 108, 0.4);
+}
+.hcard,
+.drawer {
+  border-color: rgba(145, 70, 255, 0.28);
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+.hcard {
+  transition: transform 0.16s ease, border-color 0.16s ease;
+}
+.hcard:hover {
+  transform: translateY(-2px);
+  border-color: rgba(167, 139, 250, 0.52);
+}
 .ideas-split {
   display: flex;
   flex-direction: column;

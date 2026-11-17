@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { Activity, LiveState } from "@aria-live/shared";
 import { COMMANDS, EXTEND_MAX_SEC, EXTEND_MIN_SEC, MOD_COMMANDS } from "@aria-live/shared";
 import { timeAgo, useNow } from "../lib/time";
@@ -13,14 +14,34 @@ const KIND: Record<Activity["kind"], { label: string; icon: string }> = {
   system: { label: "System", icon: "i" },
 };
 
+type FeedFilter = "all" | "ideas" | "votes" | "builds";
+
 export function ActivityFeed({ activity }: { activity: Activity[] }) {
   const now = useNow(15_000);
-  const items = activity.slice(-150).reverse();
+  const [filter, setFilter] = useState<FeedFilter>("all");
+  const raw = activity.slice(-150).reverse();
+  const items = raw.filter((a) => {
+    if (filter === "all") return true;
+    if (filter === "ideas") return a.kind === "idea" || a.kind === "idea_duplicate";
+    if (filter === "votes") return a.kind === "vote";
+    return a.kind === "round" || a.kind === "task" || a.kind === "execution";
+  });
   return (
     <section className="panel panel--activity" aria-labelledby="activity-h">
       <header className="panel__head">
         <h2 id="activity-h">Activity Feed</h2>
-        <span className="muted num">{items.length > 0 ? `${items.length} events` : "View all"}</span>
+        <div className="feed-filters" role="group" aria-label="Filter activity">
+          {(["all", "ideas", "votes", "builds"] as const).map((f) => (
+            <button
+              key={f}
+              type="button"
+              className={`feed-filter ${filter === f ? "is-active" : ""}`}
+              onClick={() => setFilter(f)}
+            >
+              {f[0]!.toUpperCase() + f.slice(1)}
+            </button>
+          ))}
+        </div>
       </header>
       <div className="panel__body panel__body--scroll">
         {items.length === 0 ? (

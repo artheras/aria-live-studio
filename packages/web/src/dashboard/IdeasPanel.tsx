@@ -58,6 +58,32 @@ export function Ballot({ round }: { round: Round }) {
 
 function IdeaList({ round, api }: { round: Round; api: AriaApi }) {
   const { run, isPending } = useActions();
+  const [mutedLogins, setMutedLogins] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem("aria:muted-logins");
+      return raw ? (JSON.parse(raw) as string[]) : [];
+    } catch {
+      return [];
+    }
+  });
+  const toggleMute = (login: string) => {
+    setMutedLogins((prev) => {
+      const exists = prev.includes(login);
+      const next = exists ? prev.filter((l) => l !== login) : [...prev, login];
+      try {
+        localStorage.setItem("aria:muted-logins", JSON.stringify(next));
+      } catch {
+        /* ignore storage errors */
+      }
+      if (!exists) {
+        const toHide = round.ideas.filter((i) => i.author.login === login && !i.hidden);
+        if (toHide.length > 0) {
+          void run(`mute:${login}`, () => Promise.all(toHide.map((i) => api.hideIdea(i.id, true))));
+        }
+      }
+      return next;
+    });
+  };
   const ideas = [...round.ideas].sort((a, b) => b.number - a.number);
   if (!ideas.length) {
     return (
@@ -100,15 +126,25 @@ function IdeaList({ round, api }: { round: Round; api: AriaApi }) {
                 {idea.hidden && <span className="tag">Hidden</span>}
               </p>
             </div>
-            <button
-              type="button"
-              className="btn btn--ghost btn--sm idea__hide"
-              disabled={isPending(key)}
-              onClick={() => run(key, () => api.hideIdea(idea.id, !idea.hidden))}
-              aria-label={`${idea.hidden ? "Unhide" : "Hide"} idea ${idea.number}`}
-            >
-              {idea.hidden ? "Unhide" : "Hide"}
-            </button>
+            <div className="idea__actions">
+              <button
+                type="button"
+                className="btn btn--ghost btn--sm idea__hide"
+                disabled={isPending(key)}
+                onClick={() => run(key, () => api.hideIdea(idea.id, !idea.hidden))}
+                aria-label={`${idea.hidden ? "Unhide" : "Hide"} idea ${idea.number}`}
+              >
+                {idea.hidden ? "Unhide" : "Hide"}
+              </button>
+              <button
+                type="button"
+                className={`btn btn--ghost btn--sm ${mutedLogins.includes(idea.author.login) ? "is-muted-user" : ""}`}
+                onClick={() => toggleMute(idea.author.login)}
+                title={`Mute @${idea.author.login} in this browser`}
+              >
+                {mutedLogins.includes(idea.author.login) ? "Muted" : "Mute"}
+              </button>
+            </div>
           </li>
         );
       })}
