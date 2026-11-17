@@ -356,27 +356,204 @@ function OverlayCard({ state, now }: { state: LiveState; now: number }) {
   }
 }
 
+export type OverlayPos = "bl" | "br";
+export type OverlayLayout = "standard" | "compact" | "topbar" | "minimal";
+export type OverlayStageMode = "none" | "stage" | "card3d";
+
+function buildProgressPercent(state: LiveState): number {
+  const round = state.round;
+  if (!round) return 0;
+  if (round.phase === "done") return 100;
+  if (round.phase === "awaiting_approval") return 25;
+  if (round.phase === "executing") {
+    const steps = round.execution?.steps.length ?? 0;
+    return Math.min(92, 30 + steps * 15);
+  }
+  return 15;
+}
+
+function CompactStageCard({
+  state,
+  now,
+  layout,
+  card3d,
+}: {
+  state: LiveState;
+  now: number;
+  layout: OverlayLayout;
+  card3d: boolean;
+}) {
+  const round = state.round;
+  const phase = round?.phase ?? "idle";
+  const pct = buildProgressPercent(state);
+  const w = round ? winnerIdea(round) : null;
+  const latestStep = round?.execution?.steps.at(-1)?.text;
+  const top3 = round && phase === "voting" ? computeBallot(round, false).slice(0, 3) : [];
+  const leftSec = round?.votingEndsAt ? Math.max(0, Math.ceil((round.votingEndsAt - now) / 1000)) : null;
+
+  if (layout === "minimal") {
+    return (
+      <div className="ov-card ov-card--minimal" data-phase={phase}>
+        <div className="ov-min-head">
+          <span className="ov-min-kicker">ARIA LIVE · {phase.toUpperCase().replace("_", " ")}</span>
+          {leftSec !== null && phase === "voting" && <span className="ov-min-time">{leftSec}s</span>}
+        </div>
+        <div className="ov-min-title">
+          {!round || phase === "idle"
+            ? "Waiting for next round"
+            : truncate(round.task?.title || w?.text || round.prompt || "Community round", 48)}
+        </div>
+        <div className="ov-prog">
+          <div className="ov-prog__fill" style={{ width: `${pct}%` }} />
+        </div>
+        {latestStep && <p className="ov-min-sub">{truncate(latestStep, 54)}</p>}
+      </div>
+    );
+  }
+
+  if (card3d) {
+    return (
+      <div className="ov-card ov-card--card3d" data-phase={phase}>
+        <div className="ov-card3d__stage" aria-hidden="true">
+          <LiveStageCanvas state={state} transparent ecoMode />
+        </div>
+        <div className="ov-card3d__body">
+          <div className="ov-card3d__kicker">
+            <span>✦ {phase === "done" ? "BUILD COMPLETE" : phase.toUpperCase().replace("_", " ")} ✦</span>
+          </div>
+          <h1 className="ov-card3d__title">
+            {!round || phase === "idle"
+              ? "Interactive Workshop"
+              : truncate(round.task?.title || w?.text || round.prompt || "Building live", 44)}
+          </h1>
+          <div className="ov-card3d__prog-row">
+            <span>PROGRESS</span>
+            <span className="num">{pct}%</span>
+          </div>
+          <div className="ov-prog">
+            <div className="ov-prog__fill" style={{ width: `${pct}%` }} />
+          </div>
+          {latestStep && <p className="ov-card3d__step">{truncate(latestStep, 48)}</p>}
+        </div>
+      </div>
+    );
+  }
+
+  if (phase === "voting" && top3.length > 0) {
+    return (
+      <div className="ov-card ov-card--compact" data-phase="voting">
+        <div className="ov-cmp-head">
+          <span className="ov-cmp-brand">ARIA ✦ LIVE · VOTING</span>
+          {leftSec !== null && <span className="ov-cmp-time num">{leftSec}s</span>}
+        </div>
+        <ol className="ov-cmp-ballot">
+          {top3.map((r) => (
+            <li key={r.idea.id} className={`ov-cmp-row ${r.isLeader ? "is-leader" : ""}`}>
+              <span className="ov-num">{r.number}</span>
+              <div className="ov-cmp-row__main">
+                <div className="ov-cmp-row__top">
+                  <span>{truncate(r.idea.text, 30)}</span>
+                  <span className="num">{r.votes} votes</span>
+                </div>
+                <div className="ov-prog ov-prog--sm">
+                  <div className="ov-prog__fill" style={{ width: `${r.percent}%` }} />
+                </div>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </div>
+    );
+  }
+
+  if (phase === "done") {
+    return (
+      <div className="ov-card ov-card--compact ov-card--done-mini" data-phase="done">
+        <div className="ov-done-mini__body">
+          <h1 className="ov-done-mini__title">BUILD COMPLETE</h1>
+          <p className="ov-done-mini__sub">{truncate(round?.task?.title || w?.text || "Shipped!", 44)}</p>
+          <div className="ov-prog ov-prog--sm">
+            <div className="ov-prog__fill" style={{ width: "100%" }} />
+          </div>
+        </div>
+        <img className="ov-done-mini__art" src="/art/voxel-shrine.jpg" alt="" aria-hidden="true" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="ov-card ov-card--compact" data-phase={phase}>
+      <div className="ov-cmp-head">
+        <span className="ov-cmp-brand">ARIA LIVE · {phase.toUpperCase().replace("_", " ")}</span>
+      </div>
+      <h1 className="ov-cmp-title">
+        {!round || phase === "idle"
+          ? "Ready for !idea"
+          : truncate(round.task?.title || w?.text || round.prompt || "Community round", 46)}
+      </h1>
+      <div className="ov-prog">
+        <div className="ov-prog__fill" style={{ width: `${pct}%` }} />
+      </div>
+      {latestStep && <p className="ov-cmp-step">{truncate(latestStep, 52)}</p>}
+      <div className="ov-cmp-foot">
+        <div>
+          <strong className="num">{round?.voters ?? 0}</strong>
+          <span>Votes</span>
+        </div>
+        <div>
+          <strong className="num">{round?.ideas.filter((i) => !i.hidden).length ?? 0}</strong>
+          <span>Ideas</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** Pure overlay render for a snapshot (tests use this directly). */
 export function OverlayView({
   state,
   connected,
   clockOffset = 0,
   stageMode = false,
+  pos = "bl",
+  layout = "standard",
+  card3d = false,
 }: {
   state: LiveState | null;
   connected: boolean;
   clockOffset?: number;
   stageMode?: boolean;
+  pos?: OverlayPos;
+  layout?: OverlayLayout;
+  card3d?: boolean;
 }) {
   const now = useNow(500) + clockOffset;
   if (!state) return null;
   const phase = state.round?.phase ?? "idle";
+  const round = state.round;
+  const w = round ? winnerIdea(round) : null;
+  const leftSec = round?.votingEndsAt ? Math.max(0, Math.ceil((round.votingEndsAt - now) / 1000)) : null;
   const activeCelebration = (state.celebrations ?? [])
     .filter((c) => now - c.at >= 0 && now - c.at < 12_000)
     .at(-1);
+  const effectivePos = layout === "topbar" && pos === "bl" ? "br" : pos;
+  const useCompactCard = layout === "compact" || layout === "minimal" || card3d || layout === "topbar";
+
   return (
-    <div className="ov-stage">
-      {stageMode && (
+    <div className={`ov-stage ov-stage--pos-${effectivePos} ov-stage--layout-${layout}`}>
+      {layout === "topbar" && (
+        <div className="ov-topbar">
+          <span className="ov-topbar__brand">ARIA LIVE</span>
+          <span className="ov-topbar__phase">{phase.toUpperCase().replace("_", " ")}</span>
+          <span className="ov-topbar__title">
+            {!round || phase === "idle"
+              ? "Type !idea <your idea> to start"
+              : truncate(round.task?.title || w?.text || round.prompt || "Community round", 64)}
+          </span>
+          {leftSec !== null && phase === "voting" && <span className="ov-topbar__timer num">{leftSec}s left</span>}
+        </div>
+      )}
+      {stageMode && !card3d && (
         <div className="ov-3d-corner" aria-hidden="true">
           <LiveStageCanvas state={state} transparent />
         </div>
@@ -387,8 +564,12 @@ export function OverlayView({
           <span className="ov-celebration__text">{truncate(activeCelebration.text, 80)}</span>
         </div>
       )}
-      <div className="ov-anchor" key={`${state.round?.id ?? "none"}-${phase}`}>
-        <OverlayCard state={state} now={now} />
+      <div className={`ov-anchor ov-anchor--${effectivePos}`} key={`${state.round?.id ?? "none"}-${phase}`}>
+        {useCompactCard ? (
+          <CompactStageCard state={state} now={now} layout={layout} card3d={card3d} />
+        ) : (
+          <OverlayCard state={state} now={now} />
+        )}
       </div>
       {!connected && <span className="ov-offline" title="Reconnecting" aria-hidden="true" />}
     </div>
@@ -398,7 +579,13 @@ export function OverlayView({
 export function OverlayPage() {
   const params = useMemo(() => new URLSearchParams(window.location.search), []);
   const key = params.get("key");
-  const stageMode = params.get("mode") === "stage";
+  const modeParam = params.get("mode");
+  const stageMode = modeParam === "stage";
+  const card3d = modeParam === "card3d";
+  const posParam = params.get("pos") === "br" ? "br" : "bl";
+  const layoutRaw = params.get("layout");
+  const layout: OverlayLayout =
+    layoutRaw === "compact" || layoutRaw === "topbar" || layoutRaw === "minimal" ? layoutRaw : "standard";
   useEffect(() => {
     document.documentElement.classList.add("is-overlay");
     if (!key) console.warn("[aria-overlay] Missing ?key=… — copy the Overlay URL from the dashboard.");
@@ -418,6 +605,9 @@ export function OverlayPage() {
       connected={live.status === "open"}
       clockOffset={live.clockOffset}
       stageMode={stageMode}
+      pos={posParam}
+      layout={layout}
+      card3d={card3d}
     />
   );
 }

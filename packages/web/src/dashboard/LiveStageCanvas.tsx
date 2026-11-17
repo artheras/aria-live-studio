@@ -140,18 +140,18 @@ export function LiveStageCanvas({
     const scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0x3a2a54, 0.011);
 
-    // Classic 45-deg isometric hero view matching the reference workshop composition
-    const camera = new THREE.PerspectiveCamera(35, width / height, 0.1, 160);
+    // Classic 45-deg isometric hero view — larger hero framing matching the 2D voxel artwork
+    const camera = new THREE.PerspectiveCamera(36, width / height, 0.1, 160);
     if (compact) {
-      camera.position.set(14.5, 9.8, 14.8);
+      camera.position.set(13.2, 9.0, 13.4);
     } else {
-      camera.position.set(12.8, 9.0, 13.0);
+      camera.position.set(11.4, 8.2, 11.6);
     }
 
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
     // Gentle bloom so windows glow richly without blowing out the front porch
-    composer.addPass(new UnrealBloomPass(new THREE.Vector2(width, height), 0.28, 0.42, 0.85));
+    composer.addPass(new UnrealBloomPass(new THREE.Vector2(width, height), 0.34, 0.46, 0.82));
     composer.addPass(new OutputPass());
 
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -159,10 +159,10 @@ export function LiveStageCanvas({
     controls.dampingFactor = 0.06;
     controls.autoRotate = true;
     controls.autoRotateSpeed = 0.12;
-    controls.minDistance = 8.5;
+    controls.minDistance = 7.0;
     controls.maxDistance = 26;
     controls.maxPolarAngle = Math.PI * 0.49;
-    controls.target.set(0.25, compact ? 2.75 : 2.55, -0.15);
+    controls.target.set(0.2, compact ? 2.65 : 2.45, -0.15);
 
     // Twilight sky dome with directional golden-peach sunset glow on upper-right
     const skyGeo = new THREE.SphereGeometry(76, 24, 16);
@@ -636,6 +636,23 @@ export function LiveStageCanvas({
     );
     islandGroup.add(buildVoxelInstances(voxelGeo, crystalMat, windowSpecs, false, false));
     islandGroup.add(buildVoxelInstances(voxelGeo, lanternMat, lanternSpecs, false, false));
+    // Glowing violet crystal courtyard lanterns along the front path (matching 2D artwork)
+    const violetPostSpecs: VoxelSpec[] = [
+      { x: -1.45, y: 0.42, z: 4.55, sx: 0.32, sy: 0.55, sz: 0.32 },
+      { x: 0.35, y: 0.42, z: 4.95, sx: 0.32, sy: 0.55, sz: 0.32 },
+      { x: 2.15, y: 0.42, z: 3.45, sx: 0.32, sy: 0.55, sz: 0.32 },
+      { x: 3.45, y: 0.42, z: 2.15, sx: 0.32, sy: 0.55, sz: 0.32 },
+    ];
+    const violetOrbSpecs: VoxelSpec[] = violetPostSpecs.map((p) => ({
+      x: p.x,
+      y: p.y + 0.34,
+      z: p.z,
+      sx: 0.44,
+      sy: 0.44,
+      sz: 0.44,
+    }));
+    islandGroup.add(buildVoxelInstances(voxelGeo, stoneDarkMat, violetPostSpecs));
+    islandGroup.add(buildVoxelInstances(voxelGeo, crystalMat, violetOrbSpecs, false, false));
 
     // 8. 4 Animated Voxel Co-Builder Characters on the courtyard & lawn
     const voxelBuilders: { group: THREE.Group; baseY: number; phase: number; hopUntil: number }[] = [];
