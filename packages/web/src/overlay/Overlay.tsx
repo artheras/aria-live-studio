@@ -5,6 +5,7 @@ import { executorInfo } from "../lib/agents";
 import { ballotNumber, computeBallot, winnerIdea } from "../lib/round";
 import { playCue } from "../lib/sound";
 import { duration, truncate, useNow } from "../lib/time";
+import { getThemePref, resolveTheme, subscribeTheme } from "../lib/theme";
 import { useLive } from "../lib/useLive";
 import { LiveStageCanvas } from "../dashboard/LiveStageCanvas";
 import "../styles/overlay.css";
@@ -385,6 +386,7 @@ function OverlayCard({ state, now, muted = false }: { state: LiveState; now: num
 export type OverlayPos = "bl" | "br";
 export type OverlayLayout = "standard" | "compact" | "topbar" | "minimal";
 export type OverlayStageMode = "none" | "stage" | "card3d" | "showcase";
+export type OverlayTheme = "auto" | "dark" | "light";
 
 function buildProgressPercent(state: LiveState): number {
   const round = state.round;
@@ -554,6 +556,7 @@ export function OverlayView({
   pos = "bl",
   layout = "standard",
   card3d = false,
+  theme = "dark",
 }: {
   state: LiveState | null;
   connected: boolean;
@@ -564,8 +567,15 @@ export function OverlayView({
   pos?: OverlayPos;
   layout?: OverlayLayout;
   card3d?: boolean;
+  theme?: OverlayTheme;
 }) {
   const now = useNow(500) + clockOffset;
+  const [studioTheme, setStudioTheme] = useState<"light" | "dark">(() => resolveTheme(getThemePref()));
+  useEffect(() => {
+    setStudioTheme(resolveTheme(getThemePref()));
+    return subscribeTheme(() => setStudioTheme(resolveTheme(getThemePref())));
+  }, []);
+  const ovTheme = theme === "auto" ? studioTheme : theme;
   if (!state) return null;
   const phase = state.round?.phase ?? "idle";
   const round = state.round;
@@ -583,7 +593,7 @@ export function OverlayView({
     const eng = phaseEngineer(phase);
     const pct = buildProgressPercent(state);
     return (
-      <div className="ov-stage ov-stage--showcase" data-phase={phase} style={themeStyle}>
+      <div className="ov-stage ov-stage--showcase" data-phase={phase} data-ov-theme={ovTheme} style={themeStyle}>
         <div className="ov-showcase-canvas" aria-hidden="true">
           <LiveStageCanvas state={state} transparent={false} />
         </div>
@@ -618,7 +628,11 @@ export function OverlayView({
   }
 
   return (
-    <div className={`ov-stage ov-stage--pos-${effectivePos} ov-stage--layout-${layout}`} style={themeStyle}>
+    <div
+      className={`ov-stage ov-stage--pos-${effectivePos} ov-stage--layout-${layout}`}
+      data-ov-theme={ovTheme}
+      style={themeStyle}
+    >
       {layout === "topbar" && (
         <div className="ov-topbar">
           <span className="ov-topbar__brand">ARIA LIVE</span>
@@ -666,6 +680,8 @@ export function OverlayPage() {
   const layoutRaw = params.get("layout");
   const layout: OverlayLayout =
     layoutRaw === "compact" || layoutRaw === "topbar" || layoutRaw === "minimal" ? layoutRaw : "standard";
+  const themeRaw = params.get("theme");
+  const ovTheme: OverlayTheme = themeRaw === "light" || themeRaw === "auto" ? themeRaw : "dark";
   useEffect(() => {
     document.documentElement.classList.add("is-overlay");
     if (!key) console.warn("[aria-overlay] Missing ?key=… — copy the Overlay URL from the dashboard.");
@@ -690,6 +706,7 @@ export function OverlayPage() {
       pos={posParam}
       layout={layout}
       card3d={card3d}
+      theme={ovTheme}
     />
   );
 }

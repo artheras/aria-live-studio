@@ -45,7 +45,14 @@ export function ActivityFeed({ activity }: { activity: Activity[] }) {
       </header>
       <div className="panel__body panel__body--scroll">
         {items.length === 0 ? (
-          <p className="empty">Quiet so far. Chat activity shows up here.</p>
+          <div className="feed-empty-guide">
+            <p className="empty">Quiet so far. Chat activity shows up here.</p>
+            <div className="feed-empty-tips">
+              <code>!idea &lt;text&gt;</code>
+              <code>!vote 1</code>
+              <code>!boost 1</code>
+            </div>
+          </div>
         ) : (
           <ul className="feed">
             {items.map((a) => {

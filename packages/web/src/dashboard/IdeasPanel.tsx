@@ -5,7 +5,7 @@ import { computeBallot, totalVotes } from "../lib/round";
 import { Btn, useActions } from "./actions";
 import { copyText } from "./Drawer";
 import { LiveStageCanvas } from "./LiveStageCanvas";
-import { OverlayView } from "../overlay/Overlay";
+import { OverlayView, type OverlayTheme } from "../overlay/Overlay";
 
 export function Ballot({ round }: { round: Round }) {
   const rows = computeBallot(round, true);
@@ -163,6 +163,7 @@ function BroadcastMonitor({
   const [mode, setMode] = useState<OverlayStageMode>("card3d");
   const [layout, setLayout] = useState<OverlayLayout>("standard");
   const [pos, setPos] = useState<OverlayPos>("bl");
+  const [ovTheme, setOvTheme] = useState<OverlayTheme>("auto");
   const [backdrop, setBackdrop] = useState<MonitorBackdrop>("code");
   const [customBg, setCustomBg] = useState<string | null>(() => {
     try {
@@ -187,6 +188,7 @@ function BroadcastMonitor({
     if (pos !== "bl") params.set("pos", pos);
     if (layout !== "standard") params.set("layout", layout);
     if (mode !== "none") params.set("mode", mode);
+    if (ovTheme !== "dark") params.set("theme", ovTheme);
     if (obsMuted) params.set("mute", "1");
     const qs = params.toString();
     if (!qs) return baseUrl;
@@ -318,6 +320,27 @@ function BroadcastMonitor({
                                     type="button"
                                     className={`monitor-pill ${pos === v ? "is-on" : ""}`}
                                     onClick={() => setPos(v)}
+                                  >
+                                    {label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="monitor-popover__row">
+                              <span className="monitor-popover__label">Card Theme</span>
+                              <div className="monitor-pill-group">
+                                {(
+                                  [
+                                    ["auto", "Auto"],
+                                    ["light", "Light"],
+                                    ["dark", "Dark"],
+                                  ] as const
+                                ).map(([v, label]) => (
+                                  <button
+                                    key={v}
+                                    type="button"
+                                    className={`monitor-pill ${ovTheme === v ? "is-on" : ""}`}
+                                    onClick={() => setOvTheme(v)}
                                   >
                                     {label}
                                   </button>
@@ -466,11 +489,39 @@ function BroadcastMonitor({
               </div>
               <div className="mock-code-line">
                 <span className="mc-ln">02</span>
-                <span className="mc-kw">phase</span>
+                <span className="mc-kw">const</span>
+                <span> stage = </span>
+                <span className="mc-fn">createStudio</span>
+                <span>{"({ "}</span>
+                <span className="mc-ty">phase</span>
                 <span>: </span>
                 <span className="mc-str">{`'${phase}'`}</span>
-                <span>{round?.prompt ? ` · theme: "${round.prompt}"` : ""}</span>
+                <span>{round?.prompt ? `, theme: "${round.prompt}"` : ""}</span>
+                <span>{" });"}</span>
               </div>
+              {!round && (
+                <>
+                  <div className="mock-code-line">
+                    <span className="mc-ln">03</span>
+                    <span className="mc-kw">const</span>
+                    <span> overlay = </span>
+                    <span className="mc-fn">mountOverlay</span>
+                    <span>{"({ "}</span>
+                    <span className="mc-ty">mode</span>
+                    <span>: </span>
+                    <span className="mc-str">{`'${mode}'`}</span>
+                    <span>{", "}</span>
+                    <span className="mc-ty">corner</span>
+                    <span>: </span>
+                    <span className="mc-str">{`'${pos}'`}</span>
+                    <span>{" });"}</span>
+                  </div>
+                  <div className="mock-code-line">
+                    <span className="mc-ln">04</span>
+                    <span className="mc-cm">{"// Tip: open a round to collect !idea & !vote from Twitch chat"}</span>
+                  </div>
+                </>
+              )}
               {round?.task && (
                 <div className="mock-code-line">
                   <span className="mc-ln">03</span>
@@ -521,6 +572,7 @@ function BroadcastMonitor({
                 muted={obsMuted}
                 pos={pos}
                 layout={layout}
+                theme={ovTheme}
               />
             </div>
           ) : (

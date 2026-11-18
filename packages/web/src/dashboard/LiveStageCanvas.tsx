@@ -165,7 +165,8 @@ export function LiveStageCanvas({
     }
 
     // Moody Twilight Starlight vs. Warm Amber Hearth & Under-Island Amethyst Rim Lighting
-    scene.add(new THREE.HemisphereLight(0xa38ef0, 0x2c1b52, 1.05));
+    const hemi = new THREE.HemisphereLight(0xa38ef0, 0x2c1b52, 1.05);
+    scene.add(hemi);
 
     const sun = new THREE.DirectionalLight(0xffdfb8, 2.45);
     sun.position.set(9, 14, 15);
@@ -856,12 +857,8 @@ export function LiveStageCanvas({
     }
     const starGeo = new THREE.BufferGeometry();
     starGeo.setAttribute("position", new THREE.BufferAttribute(starPos, 3));
-    bgIslands.add(
-      new THREE.Points(
-        starGeo,
-        new THREE.PointsMaterial({ color: 0xf5f0ff, size: 0.24, transparent: true, opacity: 0.92 }),
-      ),
-    );
+    const starMat = new THREE.PointsMaterial({ color: 0xf5f0ff, size: 0.24, transparent: true, opacity: 0.92 });
+    bgIslands.add(new THREE.Points(starGeo, starMat));
     scene.add(bgIslands);
 
     // Animated Vertical Falling Starlight Stream Motes under the Island's Amethyst Veins
@@ -1045,6 +1042,7 @@ export function LiveStageCanvas({
     const skyMidTarget = new THREE.Color();
     const skyHorTarget = new THREE.Color();
     const fogTarget = new THREE.Color();
+    const hemiNightColor = new THREE.Color(0xa38ef0);
 
     const animate = () => {
       frame += 1;
@@ -1065,6 +1063,9 @@ export function LiveStageCanvas({
         skyMat.uniforms.horizonColor?.value.lerp(skyHorTarget, 0.06);
         if (scene.fog instanceof THREE.Fog) scene.fog.color.lerp(fogTarget, 0.06);
         sun.intensity += ((isDay ? 3.05 : 2.45) - sun.intensity) * 0.06;
+        hemi.intensity += ((isDay ? 1.45 : 1.05) - hemi.intensity) * 0.06;
+        hemi.color.lerp(isDay ? skyTopTarget : hemiNightColor, 0.06);
+        starMat.opacity += ((isDay ? 0.08 : 0.92) - starMat.opacity) * 0.06;
       }
 
       const pal = resolveThemePalette(stateRef.current.round?.prompt, stateRef.current.round?.modifiers);

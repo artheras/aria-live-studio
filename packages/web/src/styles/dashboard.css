@@ -2982,3 +2982,43 @@ input[type="checkbox"] {
   background: rgba(251, 191, 36, 0.12);
   color: #b45309;
 }
+
+/* ── Idle Activity Guide & Narrow Viewport Layout ──────────────────────── */
+.feed-empty-guide {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 6px;
+}
+.feed-empty-guide .empty {
+  margin: 0;
+  padding: 0;
+}
+.feed-empty-tips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+.feed-empty-tips code {
+  font-size: 11px;
+  padding: 2px 7px;
+  color: var(--text-2);
+}
+
+@media (max-width: 1080px) {
+  .studio {
+    min-width: 0;
+  }
+  .grid--workshop {
+    grid-template-columns: 1fr;
+  }
+  .grid--workshop .grid__main {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .grid--workshop .panel--ideas {
+    min-height: 560px;
+  }
+}

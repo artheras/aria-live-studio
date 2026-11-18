@@ -947,3 +947,49 @@
   color: #fff;
   line-height: 1.25;
 }
+
+/* ── Light Glass Overlay Theme (?theme=light / Auto in Light Studio) ──── */
+.ov-stage[data-ov-theme="light"] {
+  color: #171424;
+  --ov-shadow: none;
+}
+.ov-stage[data-ov-theme="light"] .ov-card,
+.ov-stage[data-ov-theme="light"] .ov-topbar,
+.ov-stage[data-ov-theme="light"] .ov-showcase-card {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(244, 242, 252, 0.94));
+  border-color: rgba(124, 58, 237, 0.28);
+  box-shadow: 0 16px 40px rgba(32, 24, 68, 0.16), 0 0 24px rgba(124, 58, 237, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  color: #171424;
+}
+.ov-stage[data-ov-theme="light"] .ov-card3d__stage {
+  background: rgba(236, 234, 248, 0.72);
+  border-color: rgba(124, 58, 237, 0.24);
+}
+.ov-stage[data-ov-theme="light"] .ov-kicker,
+.ov-stage[data-ov-theme="light"] .ov-card3d__kicker,
+.ov-stage[data-ov-theme="light"] .ov-card3d__prog-row,
+.ov-stage[data-ov-theme="light"] .ov-showcase-kicker,
+.ov-stage[data-ov-theme="light"] .ov-cmp-brand {
+  color: #6d28d9;
+}
+.ov-stage[data-ov-theme="light"] .ov-sub,
+.ov-stage[data-ov-theme="light"] .ov-card3d__step,
+.ov-stage[data-ov-theme="light"] .ov-min-sub,
+.ov-stage[data-ov-theme="light"] .ov-done-mini__sub {
+  color: #4b4663;
+}
+.ov-stage[data-ov-theme="light"] .ov-showcase-title,
+.ov-stage[data-ov-theme="light"] .ov-topbar__title,
+.ov-stage[data-ov-theme="light"] .ov-card3d__title {
+  color: #171424;
+}
+.ov-stage[data-ov-theme="light"] .ov-eng-pill {
+  background: rgba(255, 255, 255, 0.85);
+  color: #171424;
+}
+.ov-stage[data-ov-theme="light"] .ov-prog {
+  background: rgba(23, 20, 36, 0.1);
+}
+.ov-stage[data-ov-theme="light"] .ov-bal {
+  background: rgba(23, 20, 36, 0.05);
+}
