@@ -42,8 +42,8 @@ export function TaskCard({ task, compact }: { task: Task; compact?: boolean }) {
         <h3 className="task__title">{task.title}</h3>
         <div className="task__badges">
           <SizeBadge size={task.size} />
-          <SourceBadge task={task} />
-          <span className={`badge badge--status-${task.status}`}>{STATUS_LABEL[task.status]}</span>
+          {!compact && <SourceBadge task={task} />}
+          {!compact && <span className={`badge badge--status-${task.status}`}>{STATUS_LABEL[task.status]}</span>}
         </div>
       </header>
       {task.summary && <p className="task__summary">{task.summary}</p>}

@@ -168,7 +168,7 @@ function StepLog({ execution }: { execution: Execution }) {
       {execution.steps.map((s, i) => (
         <li key={i} className={`steplog__line steplog__line--${s.kind} ${s.ok === false ? "is-bad" : ""}`}>
           <time className="steplog__at">{clock(s.at)}</time>
-          <span className="steplog__kind">{s.kind}</span>
+          <span className="steplog__dot" title={s.kind} aria-hidden="true" />
           <span className="steplog__text">{s.text}</span>
         </li>
       ))}
@@ -199,7 +199,22 @@ function Outcome({ execution }: { execution: Execution }) {
       <dl className="outcome__facts">
         <div>
           <dt>Branch</dt>
-          <dd>{execution.branch ? <code>{execution.branch}</code> : <span className="muted">—</span>}</dd>
+          <dd>
+            {execution.branch ? (
+              <span className="outcome__branch">
+                <code>{execution.branch}</code>
+                <Btn
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => navigator.clipboard?.writeText(execution.branch!)}
+                >
+                  Copy
+                </Btn>
+              </span>
+            ) : (
+              <span className="muted">—</span>
+            )}
+          </dd>
         </div>
         <div>
           <dt>Changed files</dt>
@@ -489,7 +504,15 @@ export function RoundControl({ round, settings, me, api, clockOffset, onConnectA
           </form>
         ) : (
           <div className="actions">
-            <Btn variant="success" size="lg" pending={pending} onClick={() => act(() => api.approveTask())}>
+            <Btn
+              variant="success"
+              size="lg"
+              pending={pending}
+              onClick={() => {
+                playCue("approve");
+                void act(() => api.approveTask());
+              }}
+            >
               Approve
             </Btn>
             <Btn variant="secondary" disabled={pending} onClick={() => setEditing(true)}>
@@ -599,6 +622,18 @@ export function RoundControl({ round, settings, me, api, clockOffset, onConnectA
               </Btn>
             </div>
             {diffText !== null && <pre className="diff-preview">{diffText}</pre>}
+          </div>
+        )}
+        {execution?.status === "failed" && task && (
+          <div className="actions">
+            <Btn
+              variant="primary"
+              size="sm"
+              pending={pending}
+              onClick={() => act(() => api.startExecution(), "Retrying build")}
+            >
+              Retry execution
+            </Btn>
           </div>
         )}
         {task && <TaskCard task={task} compact />}
