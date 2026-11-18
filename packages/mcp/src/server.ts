@@ -107,7 +107,14 @@ export interface AgentApi {
     branch?: string;
     error?: string;
     previewUrl?: string;
+    diffSnippet?: string;
+    mediaUrl?: string;
+    mediaKind?: "video" | "image";
   }): Promise<void>;
+  uploadMedia?(input: {
+    filename: string;
+    dataBase64: string;
+  }): Promise<{ url: string; mediaKind: "video" | "image" }>;
 }
 
 export type Role = "agent" | "cohost" | "streamer";
@@ -294,6 +301,9 @@ function createAgentServer(client: AgentApi, clientName: string | undefined): Mc
         const st = statSync(file_path);
         if (!st.isFile() || st.size <= 0 || st.size > 8 * 1024 * 1024) {
           return text("File must exist and be 1B–8MB.");
+        }
+        if (!client.uploadMedia) {
+          return text("Media upload is not supported by this client.");
         }
         const buf = readFileSync(file_path);
         const uploaded = await client.uploadMedia({

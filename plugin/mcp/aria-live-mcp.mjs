@@ -13487,7 +13487,21 @@ var LiveClient = class {
   async complete(input) {
     await this.request("POST", "/api/agent/complete", input, 1e4);
   }
+  async uploadMedia(input) {
+    const { data } = await this.request(
+      "POST",
+      "/api/agent/media",
+      input,
+      3e4
+    );
+    if (!data?.url) throw new LiveError("Empty media upload response", 502, "bad_response");
+    return data;
+  }
 };
+
+// src/server.ts
+import { readFileSync, statSync } from "node:fs";
+import { basename } from "node:path";
 
 // ../../node_modules/zod/v3/external.js
 var external_exports = {};
@@ -22282,10 +22296,13 @@ ${describeStatus(status)}`);
         changed_files: external_exports.array(external_exports.string().max(200)).max(100).optional(),
         branch: external_exports.string().max(200).optional(),
         error: external_exports.string().max(500).optional(),
-        preview_url: external_exports.string().max(300).optional().describe("Optional live preview URL for the OBS overlay.")
+        preview_url: external_exports.string().max(300).optional().describe("Optional live preview URL for the OBS overlay."),
+        diff_snippet: external_exports.string().max(4e3).optional().describe("Optional stream-safe git diff excerpt to display in the Studio Workspace."),
+        media_url: external_exports.string().max(500).optional().describe("Optional Agent-generated video or image URL rendered on the OBS overlay."),
+        media_kind: external_exports.enum(["video", "image"]).optional().describe("Explicit media type for media_url.")
       }
     },
-    async ({ task_id, status, summary, changed_files, branch, error: error2, preview_url }) => {
+    async ({ task_id, status, summary, changed_files, branch, error: error2, preview_url, diff_snippet, media_url, media_kind }) => {
       try {
         await client2.complete({
           taskId: task_id,
@@ -22294,9 +22311,41 @@ ${describeStatus(status)}`);
           changedFiles: changed_files,
           branch,
           error: error2,
-          previewUrl: preview_url
+          previewUrl: preview_url,
+          diffSnippet: diff_snippet,
+          mediaUrl: media_url,
+          mediaKind: media_kind
         });
         return text(`Task ${task_id} marked ${status}. The stream shows the result.`);
+      } catch (err) {
+        return failure2(err);
+      }
+    }
+  );
+  server2.registerTool(
+    "live_upload_media",
+    {
+      title: "Upload generated media for OBS overlay",
+      description: "Uploads a local video (.mp4/.webm/.mov) or image (.png/.jpg/.webp) up to 8 MB to the Aria Live server and returns { url, mediaKind } to pass into live_complete_task.",
+      inputSchema: {
+        file_path: external_exports.string().min(1).max(400).describe("Absolute path to the generated video or image file.")
+      }
+    },
+    async ({ file_path }) => {
+      try {
+        const st = statSync(file_path);
+        if (!st.isFile() || st.size <= 0 || st.size > 8 * 1024 * 1024) {
+          return text("File must exist and be 1B\u20138MB.");
+        }
+        if (!client2.uploadMedia) {
+          return text("Media upload is not supported by this client.");
+        }
+        const buf = readFileSync(file_path);
+        const uploaded = await client2.uploadMedia({
+          filename: basename(file_path),
+          dataBase64: buf.toString("base64")
+        });
+        return text(`Uploaded (${uploaded.mediaKind}): ${uploaded.url}`, uploaded);
       } catch (err) {
         return failure2(err);
       }

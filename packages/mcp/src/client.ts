@@ -139,7 +139,7 @@ export class LiveClient {
     filename: string;
     dataBase64: string;
   }): Promise<{ url: string; mediaKind: "video" | "image" }> {
-    const data = await this.request<{ url: string; mediaKind: "video" | "image" }>(
+    const { data } = await this.request<{ url: string; mediaKind: "video" | "image" }>(
       "POST",
       "/api/agent/media",
       input,
