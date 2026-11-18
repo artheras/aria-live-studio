@@ -2925,3 +2925,47 @@ input[type="checkbox"] {
 :root[data-theme="light"] .feed__icon--execution { color: var(--info); }
 :root[data-theme="light"] .feed__icon--rejected { color: var(--bad); }
 :root[data-theme="light"] .is-muted-user { color: var(--bad); }
+:root[data-theme="light"] .monitor-stage {
+  background:
+    linear-gradient(rgba(23, 20, 36, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(23, 20, 36, 0.045) 1px, transparent 1px),
+    radial-gradient(circle at 20% 20%, rgba(124, 58, 237, 0.08), #eceaf6);
+  background-size: 24px 24px, 24px 24px, auto;
+}
+:root[data-theme="light"] .reticle {
+  border-color: rgba(23, 20, 36, 0.2);
+}
+:root[data-theme="light"] .monitor-stage--code {
+  background:
+    radial-gradient(circle at 75% 25%, rgba(2, 132, 199, 0.08), transparent 45%),
+    linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+}
+:root[data-theme="light"] .monitor-mock-code {
+  color: rgba(30, 41, 59, 0.78);
+}
+:root[data-theme="light"] .mock-code-tab {
+  background: rgba(15, 23, 42, 0.06);
+  border-color: rgba(15, 23, 42, 0.12);
+  color: rgba(15, 23, 42, 0.75);
+}
+:root[data-theme="light"] .mc-ln { color: rgba(100, 116, 139, 0.6); }
+:root[data-theme="light"] .mc-cm { color: rgba(100, 116, 139, 0.8); }
+:root[data-theme="light"] .mc-kw { color: #7c3aed; }
+:root[data-theme="light"] .mc-ty { color: #0284c7; }
+:root[data-theme="light"] .mc-fn { color: #2563eb; }
+:root[data-theme="light"] .mc-num { color: #d97706; }
+:root[data-theme="light"] .mc-str { color: #059669; }
+:root[data-theme="light"] .monitor-stage--game {
+  background:
+    radial-gradient(circle at 50% 35%, rgba(245, 158, 11, 0.14), transparent 52%),
+    radial-gradient(circle at 25% 70%, rgba(124, 58, 237, 0.12), transparent 55%),
+    linear-gradient(180deg, #f3efff 0%, #e9e3fb 60%, #f5f2ff 100%);
+}
+:root[data-theme="light"] .mock-game-wave { color: #b45309; }
+:root[data-theme="light"] .mock-game-hp { background: rgba(23, 20, 36, 0.12); }
+:root[data-theme="light"] .mock-game-score { color: #1e293b; }
+:root[data-theme="light"] .monitor-webcam-safe {
+  border-color: rgba(217, 119, 6, 0.55);
+  background: rgba(251, 191, 36, 0.12);
+  color: #b45309;
+}
