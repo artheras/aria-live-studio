@@ -668,25 +668,40 @@ export function OverlayView({
   );
 }
 
+type PopoutBackdrop = "studio" | "chroma" | "grid";
+
 export function OverlayPage() {
   const params = useMemo(() => new URLSearchParams(window.location.search), []);
   const key = params.get("key");
-  const modeParam = params.get("mode");
-  const stageMode = modeParam === "stage";
-  const card3d = modeParam === "card3d";
-  const showcaseMode = modeParam === "showcase";
+  const popout = params.get("popout") === "1";
+  const initialMode: OverlayStageMode = (() => {
+    const m = params.get("mode");
+    return m === "stage" || m === "card3d" || m === "showcase" ? m : "none";
+  })();
   const muted = params.get("mute") === "1";
-  const posParam = params.get("pos") === "br" ? "br" : "bl";
+  const posParam: OverlayPos = params.get("pos") === "br" ? "br" : "bl";
   const layoutRaw = params.get("layout");
   const layout: OverlayLayout =
     layoutRaw === "compact" || layoutRaw === "topbar" || layoutRaw === "minimal" ? layoutRaw : "standard";
   const themeRaw = params.get("theme");
-  const ovTheme: OverlayTheme = themeRaw === "light" || themeRaw === "auto" ? themeRaw : "dark";
+  const initialTheme: OverlayTheme = themeRaw === "light" || themeRaw === "auto" ? themeRaw : "dark";
+
+  const [mode, setMode] = useState<OverlayStageMode>(initialMode);
+  const [ovTheme, setOvTheme] = useState<OverlayTheme>(initialTheme);
+  const [backdrop, setBackdrop] = useState<PopoutBackdrop>("studio");
+  const [barHidden, setBarHidden] = useState(false);
+  const [copied, setCopied] = useState(false);
+
   useEffect(() => {
-    document.documentElement.classList.add("is-overlay");
+    if (!popout) {
+      document.documentElement.classList.add("is-overlay");
+    } else {
+      document.documentElement.classList.remove("is-overlay");
+    }
     if (!key) console.warn("[aria-overlay] Missing ?key=… — copy the Overlay URL from the dashboard.");
     return () => document.documentElement.classList.remove("is-overlay");
-  }, [key]);
+  }, [key, popout]);
+
   const live = useLive("overlay", {
     key,
     enabled: !!key,
@@ -694,8 +709,40 @@ export function OverlayPage() {
     onNeverConnected: () =>
       console.warn("[aria-overlay] Can't connect — is the server running and the overlay key correct?"),
   });
-  if (!key) return null;
-  return (
+
+  if (!key) {
+    return (
+      <div className="ov-empty-notice">
+        <div className="ov-empty-notice__card">
+          <h1>Aria Live Overlay</h1>
+          <p>
+            Missing <code>?key=…</code> parameter. Copy your Overlay URL or click <strong>Pop out</strong> from the
+            Aria Live Studio dashboard.
+          </p>
+          <a className="ov-empty-notice__btn" href="/">
+            Open Studio Dashboard
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  const stageMode = mode === "stage";
+  const card3d = mode === "card3d";
+  const showcaseMode = mode === "showcase";
+
+  const cleanObsUrl = () => {
+    const p = new URLSearchParams();
+    p.set("key", key);
+    if (posParam !== "bl") p.set("pos", posParam);
+    if (layout !== "standard") p.set("layout", layout);
+    if (mode !== "none") p.set("mode", mode);
+    if (ovTheme !== "dark") p.set("theme", ovTheme);
+    if (muted) p.set("mute", "1");
+    return `${window.location.origin}/overlay?${p.toString()}`;
+  };
+
+  const view = (
     <OverlayView
       state={live.state}
       connected={live.status === "open"}
@@ -708,5 +755,112 @@ export function OverlayPage() {
       card3d={card3d}
       theme={ovTheme}
     />
+  );
+
+  if (!popout) return view;
+
+  return (
+    <div className={`ov-popout ov-popout--${backdrop}`} data-ov-popout-theme={ovTheme}>
+      {view}
+      {!live.state && (
+        <div className="ov-popout-connecting">
+          <span className="ov-popout-dot" />
+          <span>Connecting to live studio stream…</span>
+        </div>
+      )}
+      {barHidden ? (
+        <button
+          type="button"
+          className="ov-popout-restore"
+          onClick={() => setBarHidden(false)}
+          title="Show Pop-out Controls"
+        >
+          Controls
+        </button>
+      ) : (
+        <div className="ov-popout-bar" role="toolbar" aria-label="Pop-out overlay controls">
+          <span className={`ov-popout-status ${live.status === "open" ? "is-live" : ""}`}>
+            <i aria-hidden="true" />
+            {live.status === "open" ? "Live" : live.status === "reconnecting" ? "Reconnecting" : "Connecting"}
+          </span>
+          <div className="ov-popout-group" role="group" aria-label="Mode">
+            {(
+              [
+                ["none", "Card"],
+                ["stage", "Corner 3D"],
+                ["card3d", "3D Card"],
+                ["showcase", "Showcase"],
+              ] as const
+            ).map(([v, label]) => (
+              <button
+                key={v}
+                type="button"
+                className={`ov-popout-pill ${mode === v ? "is-on" : ""}`}
+                onClick={() => setMode(v)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="ov-popout-group" role="group" aria-label="Theme">
+            {(
+              [
+                ["auto", "Auto"],
+                ["light", "Light"],
+                ["dark", "Dark"],
+              ] as const
+            ).map(([v, label]) => (
+              <button
+                key={v}
+                type="button"
+                className={`ov-popout-pill ${ovTheme === v ? "is-on" : ""}`}
+                onClick={() => setOvTheme(v)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="ov-popout-group" role="group" aria-label="Backdrop">
+            {(
+              [
+                ["studio", "Studio"],
+                ["chroma", "Green"],
+                ["grid", "Grid"],
+              ] as const
+            ).map(([v, label]) => (
+              <button
+                key={v}
+                type="button"
+                className={`ov-popout-pill ${backdrop === v ? "is-on" : ""}`}
+                onClick={() => setBackdrop(v)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            className="ov-popout-btn"
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(cleanObsUrl());
+                setCopied(true);
+                window.setTimeout(() => setCopied(false), 1800);
+              } catch { /* ignore */ }
+            }}
+          >
+            {copied ? "Copied!" : "Copy OBS URL"}
+          </button>
+          <button
+            type="button"
+            className="ov-popout-btn ov-popout-btn--ghost"
+            onClick={() => setBarHidden(true)}
+            title="Hide toolbar for clean window capture"
+          >
+            Hide
+          </button>
+        </div>
+      )}
+    </div>
   );
 }

@@ -473,7 +473,12 @@ function BroadcastMonitor({
               >
                 Copy URL
               </Btn>
-              <a className="btn btn--secondary btn--sm" href={activeUrl} target="_blank" rel="noreferrer">
+              <a
+                className="btn btn--secondary btn--sm"
+                href={`${activeUrl}${activeUrl.includes("?") ? "&" : "?"}popout=1`}
+                target="_blank"
+                rel="noreferrer"
+              >
                 Pop out
               </a>
             </div>

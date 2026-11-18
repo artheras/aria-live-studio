@@ -1024,6 +1024,197 @@
   border-color: rgba(217, 119, 6, 0.4);
   color: #b45309;
 }
+
+/* ── Pop-out Window & Missing Key Notice ───────────────────────────────── */
+.ov-empty-notice {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+}
+.ov-empty-notice__card {
+  max-width: 460px;
+  padding: 24px 28px;
+  border-radius: 16px;
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+.ov-empty-notice__card h1 {
+  margin: 0 0 8px;
+  font-size: 20px;
+}
+.ov-empty-notice__card p {
+  margin: 0 0 18px;
+  color: var(--text-2);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.ov-empty-notice__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.ov-popout {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  font-family: var(--font);
+}
+.ov-popout--studio {
+  background:
+    radial-gradient(circle at 75% 24%, rgba(145, 70, 255, 0.14), transparent 48%),
+    radial-gradient(circle at 20% 78%, rgba(56, 189, 248, 0.08), transparent 46%),
+    var(--bg);
+}
+.ov-popout--chroma {
+  background: #00b140;
+}
+.ov-popout--grid {
+  background:
+    linear-gradient(rgba(145, 70, 255, 0.09) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(145, 70, 255, 0.09) 1px, transparent 1px),
+    var(--bg);
+  background-size: 28px 28px;
+}
+.ov-popout-connecting {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: var(--surface-menu, rgba(18, 17, 29, 0.92));
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: var(--shadow);
+  z-index: 40;
+}
+.ov-popout-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--warn, #f5b942);
+}
+.ov-popout-bar {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 50;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 14px;
+  background: var(--surface-menu, rgba(18, 17, 29, 0.92));
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(14px);
+  color: var(--text);
+}
+.ov-popout-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  padding-right: 4px;
+}
+.ov-popout-status i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--warn, #f5b942);
+}
+.ov-popout-status.is-live {
+  color: var(--good, #2fd48a);
+}
+.ov-popout-status.is-live i {
+  background: var(--good, #2fd48a);
+  box-shadow: 0 0 8px var(--good, #2fd48a);
+}
+.ov-popout-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--surface-pill-group, rgba(255, 255, 255, 0.06));
+  border: 1px solid var(--border);
+}
+.ov-popout-pill {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.ov-popout-pill:hover {
+  color: var(--text);
+}
+.ov-popout-pill.is-on {
+  background: var(--accent);
+  color: #fff;
+}
+.ov-popout-btn {
+  appearance: none;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.ov-popout-btn--ghost {
+  background: transparent;
+  border-color: var(--border-strong);
+  color: var(--text-2);
+}
+.ov-popout-restore {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  z-index: 50;
+  appearance: none;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-menu, rgba(18, 17, 29, 0.85));
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  opacity: 0.55;
+  transition: opacity 0.15s ease;
+}
+.ov-popout-restore:hover {
+  opacity: 1;
+}
 .ov-stage[data-ov-theme="light"] .ov-eng-pill {
   background: rgba(255, 255, 255, 0.85);
   color: #171424;
