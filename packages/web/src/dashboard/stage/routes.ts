@@ -1,33 +1,33 @@
-/** Walk from the front stalls up to each door, then around the hall. Stays on grass and off the houses. */
+/** Walk along the expanded stone avenues & plazas between all 7 houses and 5 foreground stations. */
 export const villageLoop: ReadonlyArray<readonly [number, number]> = [
-  [0.2, 10.2],
-  [-2.4, 8.6],
-  [-4.0, 7.2],
-  [-1.4, 7.6],
-  [0.4, 6.4],
-  [2.8, 7.2],
-  [0.4, 4.6],
-  [-4.8, 1.4],
-  [-5.6, 0.2],
-  [0.2, 1.8],
-  [5.4, 0.5],
-  [1.2, -2.2],
-  [-2.2, -5.4],
-  [0.6, -3.2],
-  [4.4, -5.2],
-  [1.4, 1.6],
-  [0.3, 8.4],
+  [-5.8, 9.0],  // 0: cottage-garden front step & Idea Post plaza
+  [-3.2, 10.4], // 1: south-west promenade (clear of Ballot Obelisk)
+  [0.8, 11.2],  // 2: south-central foreground lawn (in front of Blueprint Gazebo)
+  [6.4, 8.8],   // 3: cottage-timber & Build Outpost plaza
+  [10.2, 5.4],  // 4: sunny south-east courtyard in front of Scaffolding Lodge
+  [7.4, 2.2],   // 5: east corridor south
+  [7.6, 0.2],   // 6: cottage-stone front court
+  [6.8, -3.0],  // 7: east corridor north
+  [5.6, -6.2],  // 8: cottage-hearth front court
+  [1.8, -6.0],  // 9: north plaza east
+  [-2.6, -6.4], // 10: cottage-violet front court
+  [-6.2, -5.8], // 11: north-west plaza corner
+  [-6.8, -2.4], // 12: west corridor north
+  [-7.2, 0.2],  // 13: cottage-lantern front court
+  [-5.6, 2.2],  // 14: west-central plaza
+  [-0.4, 2.6],  // 15: central workshop grand staircase foot
+  [-0.4, 5.6],  // 16: central stone avenue mid
+  [-2.8, 7.8],  // 17: central-to-southwest connector
 ];
 
 const doorPaths: ReadonlyArray<ReadonlyArray<readonly [number, number]>> = [
-  [[-4.6, 9.6], [-2.2, 9.2], [0.2, 10.2], [3.4, 9.4]],
-  [[0.4, 8.8], [0.4, 6.4], [0.3, 4.4], [0.2, 2.2]],
-  [[0.4, 6.4], [-2.2, 6.8], [-4.2, 7.0]],
-  [[0.4, 6.4], [2.6, 6.8], [4.6, 7.2]],
-  [[0.3, 4.4], [-2.6, 2.2], [-5.4, 0.3]],
-  [[0.3, 4.4], [2.8, 2.2], [5.2, 0.4]],
-  [[0.2, 2.2], [-1.2, -1.4], [-2.2, -5.2]],
-  [[0.2, 2.2], [2.0, -1.6], [4.4, -5.0]],
+  [[-5.8, 9.0], [-2.8, 7.8], [-0.4, 5.6], [2.8, 7.8], [6.4, 8.8]],
+  [[0.8, 11.2], [-0.4, 8.4], [-0.4, 5.6], [-0.4, 2.6]],
+  [[-3.2, 10.4], [0.8, 11.2], [4.4, 9.8]],
+  [[-5.6, 2.2], [-0.4, 2.6], [3.2, 2.4], [7.4, 2.2]],
+  [[7.4, 2.2], [7.6, 0.2], [6.8, -3.0], [5.6, -6.2]],
+  [[5.6, -6.2], [1.8, -6.0], [-2.6, -6.4], [-6.2, -5.8]],
+  [[-6.2, -5.8], [-6.8, -2.4], [-7.2, 0.2], [-5.6, 2.2]],
 ];
 
 export function routeStones(step = 1.05): Array<[number, number]> {

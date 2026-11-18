@@ -28,10 +28,14 @@ result.**
 
 ## Studio & stream features
 
-- **Interactive 3D Voxel Workshop Stage**: A Three.js 3D voxel castle that reacts
-  to each round phase with milestone obelisks, a voxel pet, raycaster click
-  sparks, an **Eco 3D** mode for lower GPU usage, and an optional OBS 3D stage
-  corner (`?mode=stage` on the overlay URL).
+- **Interactive 3D Voxel Workshop Stage**: A Three.js 3D floating clockwork
+  acropolis island set against a deep indigo starfield with a craggy basalt
+  underbelly, 28 glowing amethyst crystal veins, falling starlight streams,
+  three floating satellite islets, 7 custom micro-voxel architectural landmarks,
+  5 foreground service stations, 4 role-colored voxel engineers, and 3 animated
+  island companions (`fox`, `hen`, `bird`). Includes raycaster click sparks, an
+  **Eco 3D** mode for lower GPU usage, and a one-click **Copy 3D Card** preset
+  (`?mode=stage` on the overlay URL).
 - **6-Step Round Workflow & Moderation**: Live stepper (`Ideas → Vote → Plan →
   Approve → Build → Done`), **Activity Feed** category filters (`All`, `Ideas`,
   `Votes`, `Builds`), per-viewer mute control to curb spam, **SFX** audio toggle,
@@ -39,13 +43,78 @@ result.**
 - **Isolated Git Worktree Diff, Merge & Revert**: Inspect the coding agent's
   branch diff, merge winning changes, or revert a round directly from the
   dashboard (`GET /api/round/diff`, `POST /api/round/merge`,
-  `POST /api/round/revert`).
+  `POST /api/round/revert`), plus preflight environment checks
+  (`GET /api/preflight`) and built-in executors for `aria-code` and
+  `claude-code`.
 - **Channel Points, Bits & Stream Events**: Supports Channel Points custom
   reward redemptions to boost ideas, Bits cheers, subscriptions, raids, and
   stream-online celebrations on the overlay.
 - **Twitch Extension Panel**: Includes an extension UI (`/api/ext/state`,
   `/api/ext/idea`, `/api/ext/vote`) so viewers can submit ideas and vote with a
   click instead of typing chat commands.
+
+## 3D Floating Acropolis, Voxel Engineers & Island Companions
+
+![3D Voxel Floating Acropolis Stage](docs/screenshots/voxel-stage-3d.png)
+
+### Meet the 4 Voxel Engineers (四位体素工程师形象与职责)
+
+All four engineers share the articulated `/models/aria-engineer.glb` voxel rig
+(animated head, arms, legs, glowing foot aura ring, and floating octahedron
+crest), with per-instance PBR material recoloring across the three-tone hard hat
+and uniform shades (`suitDark` / `suitMid` / `suitLight`) and glowing chest/lamp
+trim (`isTrim`), while keeping natural skin tones, facial features, dark work
+trousers, and boots intact.
+
+| # | Engineer Role | Hard Hat & Uniform Palette (三阶配色) | Signature Tool (手持装备) | Home Patrol & Phase Stations (日常巡逻与各阶段工位) |
+|---|---|---|---|---|
+| **0** | **Royal Violet Scout**<br>皇家紫 · 创意侦察员 | **Royal Violet**<br>`#4c1d95` · `#6d28d9` · `#8b5cf6`<br>Trim/Glow: `#ddd6fe` / `#a855f7` | **Voxel Hammer**<br>侦察木槌 (`ToolHammer`) | **Idle**: Patrols the South-West Promenade.<br>**Collecting**: Mans the **Twitch `!idea` Post Pavilion** (`-6.4, 9.8`).<br>**Voting**: Cheers on the left flank of the **Live Ballot Obelisk**.<br>**Planning / Executing**: Relays live community ideas and build status along the South Promenade. |
+| **1** | **Cobalt Sky Teller**<br>天青钴蓝 · 计票检录官 | **Cobalt Sky Blue**<br>`#0369a1` · `#0284c7` · `#38bdf8`<br>Trim/Glow: `#e0f2fe` / `#38bdf8` | **Steel Wrench**<br>精工扳手 (`ToolWrench`) | **Idle**: Patrols the South-East Courtyard.<br>**Collecting & Voting**: Tallies live votes at the **Live Ballot Obelisk Shrine** (hops with violet sparks on every new `!vote`).<br>**Planning**: Briefs on the left of the **Blueprint Gazebo**.<br>**Executing**: Climbs onto the **Central Workshop Scaffolding** (`elev: 1.58`) to wrench on the clockwork frame with cyan sparks. |
+| **2** | **Emerald Planner**<br>翡翠绿 · 蓝图架构师 | **Emerald Green**<br>`#047857` · `#059669` · `#10b981`<br>Trim/Glow: `#d1fae5` / `#10b981` | **Blueprint Tablet**<br>全息蓝图板 (`ToolTablet`) | **Idle**: Patrols the East Stone Corridor.<br>**Collecting / Voting / Planning**: Leads architectural drafting and task breakdown at the **Aria Planner Blueprint Gazebo** (`4.45, 10.15`).<br>**Executing**: Coordinates live MCP tool calls and progress telemetry from the **East Stone Plaza & MCP Relay Beacon Pedestal**. |
+| **3** | **Amber Gold Builder**<br>琥珀金橙 · 主工坊建造师 | **Amber Gold-Orange**<br>`#b45309` · `#d97706` · `#f59e0b`<br>Trim/Glow: `#fef3c7` / `#f59e0b` | **Forging Hammer**<br>重型锻造锤 (`ToolHammer`) | **Idle**: Patrols the West-Central Plaza & Grand Staircase.<br>**Collecting & Planning**: Welcomes proposals and inspects the **Central Workshop** portal.<br>**Voting**: Preps materials at the **East Workshop Court**.<br>**Executing**: Forges code at the **Central Grand Clockwork Cathedral Workshop**, showering golden sparks on file edits. |
+
+### Movement & Anti-Collision System (智能巡逻与防重叠走位)
+
+- **Obstacle-Free Stone Avenues (`routes.ts`)**: A 18-waypoint `villageLoop` and
+  connected `doorPaths` follow the open cobblestone plazas and stepped corridors
+  between all 7 buildings and 5 foreground stations without clipping any stone
+  foundation pad (`rectPad`).
+- **Four-Quadrant Clockwise Distribution & Personal-Space Repulsion**: In `idle`
+  state, the 4 engineers start in 4 distinct, unobstructed camera-visible
+  quadrants (`South-West Promenade`, `South-East Courtyard`, `East Corridor`,
+  `West-Central Plaza`) moving in the same clockwise flow, with real-time
+  pairwise separation repulsion (`minDist = 1.45`) so two engineers never walk
+  through or overlap each other.
+- **Interactive Raycaster**: Clicking any engineer or animal in the 3D stage
+  triggers an immediate celebratory hop and particle burst.
+
+### Island Companions & Architectural Landmarks (生态伙伴与建筑群)
+
+- **3 Animated Voxel Companions**:
+  - **Woodland Fox (林地小狐狸)**: Orange-and-cream voxel fox patrolling a
+    dedicated West & South-West Woodland Lawn loop (`foxRoute`) with a
+    four-legged trot, wagging tail, and periodic playful hops.
+  - **Garden Hen (花圃母鸡)**: Cream-white voxel hen with a crimson comb
+    waddling along the South-Central & East Flower Meadow (`henRoute`),
+    alternating between walking and pausing to bob its head and peck the grass.
+  - **Sky Bluebird (巡天蓝鸟)**: Azure songbird alternating between perching on
+    the South-West Oak canopy and gliding in a banked figure-8 flight circuit
+    above the village rooftops.
+- **7 Micro-Voxel Architectural Landmarks & 5 Foreground Service Stations**:
+  - **Central Grand Clockwork Cathedral Workshop (`workshop.glb`)**: Crowned by
+    a cross-gabled amethyst roof, a 4-window square lantern bell-tower spire, a
+    revolving 8-tooth bronze & walnut clockwork gear emblem (`Gear`), and a
+    4-tier wooden scaffolding tower.
+  - **6 Surrounding Artisan Cottages**: `cottage-garden.glb` (glass sunroom
+    conservatory), `cottage-timber.glb` (Tudor half-timber & porch),
+    `cottage-lantern.glb` (3-story square lantern tower), `cottage-stone.glb`
+    (steep purple lodge with 3-tier scaffolding), `cottage-violet.glb`
+    (cross-gable bay cottage), and `cottage-hearth.glb` (exterior blazing stone
+    forge & tall chimney).
+  - **5 Live Foreground Service Stations**: **Twitch `!idea` Post Pavilion**,
+    **Live Ballot Obelisk Shrine** (with 4 animated vote tally bars), **Aria
+    Planner Blueprint Gazebo**, **MCP Relay Beacon Pedestal** (with spinning
+    octahedron crystal & rising pulse ring), and **Build Outpost Forge Stall**.
 
 ## Why it is safe to put on stream
 

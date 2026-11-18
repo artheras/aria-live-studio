@@ -71,38 +71,38 @@ export function createStageDraft(geo: THREE.BufferGeometry): StageDraft {
   const blossomWhiteSpecs: VoxelSpec[] = [];
   const smokeSpecs: VoxelSpec[] = [];
 
-  const stoneLightMat = new THREE.MeshStandardMaterial({ color: 0xd9d0c4, roughness: 0.82 });
-  const stoneMidMat = new THREE.MeshStandardMaterial({ color: 0xb7ab9c, roughness: 0.84 });
-  const stoneDarkMat = new THREE.MeshStandardMaterial({ color: 0x8d8276, roughness: 0.88 });
-  const dirtMat = new THREE.MeshStandardMaterial({ color: 0x6b5040, roughness: 0.92 });
-  const grassMat = new THREE.MeshStandardMaterial({ color: 0x5aa656, roughness: 0.78 });
-  const mossMat = new THREE.MeshStandardMaterial({ color: 0x4c914b, roughness: 0.76 });
-  const pineMat = new THREE.MeshStandardMaterial({ color: 0x2f7a45, roughness: 0.8 });
-  const woodMat = new THREE.MeshStandardMaterial({ color: 0xc4894a, roughness: 0.74 });
-  const darkWoodMat = new THREE.MeshStandardMaterial({ color: 0x5c341c, roughness: 0.84 });
-  const roofMat = new THREE.MeshStandardMaterial({ color: 0x6d4cb8, roughness: 0.62 });
-  const roofLightMat = new THREE.MeshStandardMaterial({ color: 0x8d6ad4, roughness: 0.55 });
+  const stoneLightMat = new THREE.MeshStandardMaterial({ color: 0x7a7387, roughness: 0.84 });
+  const stoneMidMat = new THREE.MeshStandardMaterial({ color: 0x595366, roughness: 0.86 });
+  const stoneDarkMat = new THREE.MeshStandardMaterial({ color: 0x383344, roughness: 0.9 });
+  const dirtMat = new THREE.MeshStandardMaterial({ color: 0x4e392c, roughness: 0.92 });
+  const grassMat = new THREE.MeshStandardMaterial({ color: 0x385e34, roughness: 0.8 });
+  const mossMat = new THREE.MeshStandardMaterial({ color: 0x2a4a28, roughness: 0.82 });
+  const pineMat = new THREE.MeshStandardMaterial({ color: 0x213d22, roughness: 0.84 });
+  const woodMat = new THREE.MeshStandardMaterial({ color: 0x9c6b3b, roughness: 0.76 });
+  const darkWoodMat = new THREE.MeshStandardMaterial({ color: 0x4d2e18, roughness: 0.86 });
+  const roofMat = new THREE.MeshStandardMaterial({ color: 0x5832a4, roughness: 0.56 });
+  const roofLightMat = new THREE.MeshStandardMaterial({ color: 0x764ecc, roughness: 0.5 });
   const crystalMat = new THREE.MeshStandardMaterial({
-    color: 0xf0dbff,
-    emissive: 0xa855f7,
-    emissiveIntensity: 1.35,
-    roughness: 0.22,
+    color: 0xf5d0fe,
+    emissive: 0xc026d3,
+    emissiveIntensity: 2.2,
+    roughness: 0.18,
   });
   const lanternMat = new THREE.MeshStandardMaterial({
-    color: 0xffe49e,
-    emissive: 0xffa028,
-    emissiveIntensity: 0.85,
-    roughness: 0.28,
+    color: 0xffe8a3,
+    emissive: 0xff9418,
+    emissiveIntensity: 2.2,
+    roughness: 0.24,
   });
   const warmGlassMat = new THREE.MeshStandardMaterial({
     color: 0xffe1a8,
-    emissive: 0xff9a32,
-    emissiveIntensity: 1.15,
-    roughness: 0.28,
+    emissive: 0xff9224,
+    emissiveIntensity: 2.1,
+    roughness: 0.24,
   });
-  const blossomPinkMat = new THREE.MeshStandardMaterial({ color: 0xe672a5, roughness: 0.62 });
-  const blossomGoldMat = new THREE.MeshStandardMaterial({ color: 0xffd166, roughness: 0.58 });
-  const blossomWhiteMat = new THREE.MeshStandardMaterial({ color: 0xf7f1ea, roughness: 0.6 });
+  const blossomPinkMat = new THREE.MeshStandardMaterial({ color: 0x9333ea, roughness: 0.62 });
+  const blossomGoldMat = new THREE.MeshStandardMaterial({ color: 0xc084fc, roughness: 0.58 });
+  const blossomWhiteMat = new THREE.MeshStandardMaterial({ color: 0xe9d5ff, roughness: 0.6 });
   const smokeMat = new THREE.MeshStandardMaterial({
     color: 0xf3eee8,
     roughness: 0.95,
