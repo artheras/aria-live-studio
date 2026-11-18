@@ -257,10 +257,12 @@ export function Header({
           type="button"
           className={`service-pill ${connection.state === "connected" ? "is-ok" : "is-warn"}`}
           onClick={onSettings}
-          title={`Twitch: ${TWITCH_LABEL[connection.state]} · Click to manage Settings`}
+          title={`Twitch: ${TWITCH_LABEL[connection.state]}${connection.isLive ? " (Stream LIVE)" : ""} · Click to manage Settings`}
         >
           <span className="service-pill__dot" aria-hidden="true" />
-          <span>{connection.state === "connected" ? "Twitch Connected" : "Twitch Offline"}</span>
+          <span>
+            {connection.state === "connected" ? (connection.isLive ? "Twitch · LIVE" : "Twitch Connected") : "Twitch Offline"}
+          </span>
         </button>
         <a className="service-pill" href="/history" title="View past rounds & VOD markers">
           <span>History</span>

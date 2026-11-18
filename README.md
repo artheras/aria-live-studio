@@ -52,6 +52,15 @@ result.**
 - **Twitch Extension Panel**: Includes an extension UI (`/api/ext/state`,
   `/api/ext/idea`, `/api/ext/vote`) so viewers can submit ideas and vote with a
   click instead of typing chat commands.
+- **System & Time-Aware Themes + Pop-Out Studio**: Supports `Auto / Light / Dark`
+  appearance switching inside the avatar menu and **Manage Settings** (synced
+  with the 3D day/night sky and Light/Dark Glass overlay cards), plus an
+  interactive **Pop out** window with `Studio`, `Green` (chroma key `#00b140`),
+  and `Grid` backdrops.
+- **Agent Media & Diff Streaming**: Coding agents can optionally pass
+  `diff_snippet` and `media_url` (`video` / `image`) via `live_complete_task`
+  to show real code changes in the Studio Workspace and render AI-generated
+  videos/images directly on the OBS overlay.
 
 ## 3D Floating Acropolis, Voxel Engineers & Island Companions
 
@@ -239,10 +248,13 @@ build: `!aria approve` gets "Approvals happen on the dashboard".
 The streamer drives the round from the dashboard: **Open round → Start vote →
 Close vote → Plan with Aria → Approve → Build → Next round.**
 
-## Connect a coding agent (Codex · Claude Code · Aria Code)
+## Connect a coding agent (Codex · Claude Code · Cursor · Gemini CLI · Aria Code)
 
-The dashboard's **Connect a coding agent** panel shows your agent token and
-ready-to-paste snippets. The agent uses five MCP tools:
+The dashboard's **Connect a coding agent** panel shows your agent token,
+active multi-agent roster/lease status, a **Test Connection** ping check, and
+ready-to-paste local/remote snippets for **Aria Code**, **Claude Code**,
+**Codex**, **Cursor** (`.cursor/mcp.json`), and **Gemini CLI**
+(`~/.gemini/settings.json`). The agent uses five MCP tools:
 
 | Tool | |
 |---|---|
@@ -250,7 +262,7 @@ ready-to-paste snippets. The agent uses five MCP tools:
 | `live_wait_for_task` | waits until the streamer approves the winning task |
 | `live_claim_task` | claims it; the overlay now shows who is building |
 | `live_report_progress` | one line per milestone, shown on stream |
-| `live_complete_task` | finishes with a summary and the changed files |
+| `live_complete_task` | finishes with a summary, changed files, and optional `diff_snippet` / `media_url` |
 
 The `aria-live` skill (`skills/aria-live/SKILL.md`) teaches the agent
 this loop and its rules. Per-app install steps, including the co-host skill,

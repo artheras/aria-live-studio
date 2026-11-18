@@ -216,6 +216,7 @@ export class LiveService {
     const list: Array<{ type: string; version: string; condition: Record<string, string> }> = [
       { type: "channel.raid", version: "1", condition: { to_broadcaster_user_id: broadcasterId } },
       { type: "stream.online", version: "1", condition: { broadcaster_user_id: broadcasterId } },
+      { type: "stream.offline", version: "1", condition: { broadcaster_user_id: broadcasterId } },
     ];
     if (scopes.has("channel:read:redemptions")) {
       list.push({ type: "channel.channel_points_custom_reward_redemption.add", version: "1", condition: { broadcaster_user_id: broadcasterId } });
@@ -353,6 +354,11 @@ export class LiveService {
         displayName: String(ev.user_name ?? ev.user_login ?? "Subscriber"),
       };
       this.engine.recordCelebration("subscribe", user, `${user.displayName} subscribed!`);
+      return;
+    }
+
+    if (type === "stream.offline") {
+      this.engine.setConnection({ isLive: false });
       return;
     }
 
