@@ -111,16 +111,16 @@ export function LiveStageCanvas({
 
     // Full-Island Diorama 3/4 view framing the central Clockwork Spire, terraced village & deep crystal roots.
     const camera = new THREE.PerspectiveCamera(36, width / height, 0.1, 240);
-    camera.position.set(compact ? 29.8 : 27.6, compact ? 12.2 : 11.2, compact ? 30.6 : 28.4);
+    camera.position.set(compact ? 34.2 : 27.6, compact ? 14.0 : 11.2, compact ? 35.2 : 28.4);
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
     controls.autoRotate = false;
     controls.minDistance = 6.5;
-    controls.maxDistance = 48;
+    controls.maxDistance = 54;
     controls.maxPolarAngle = Math.PI * 0.48;
-    controls.target.set(0.0, compact ? -1.8 : -2.2, 0.2);
+    controls.target.set(0.0, compact ? -1.6 : -2.2, 0.2);
     const onControlStart = () => {
       cameraGoalRef.current = null;
     };

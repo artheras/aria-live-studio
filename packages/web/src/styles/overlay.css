@@ -1215,6 +1215,46 @@
 .ov-popout-restore:hover {
   opacity: 1;
 }
+
+.ov-popout[data-ov-popout-theme="light"].ov-popout--studio {
+  background:
+    radial-gradient(circle at 75% 24%, rgba(124, 58, 237, 0.1), transparent 48%),
+    radial-gradient(circle at 20% 78%, rgba(2, 132, 199, 0.08), transparent 46%),
+    linear-gradient(180deg, #f7f8fc 0%, #eceff8 100%);
+}
+.ov-popout[data-ov-popout-theme="light"].ov-popout--grid {
+  background:
+    linear-gradient(rgba(23, 20, 36, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(23, 20, 36, 0.05) 1px, transparent 1px),
+    #f5f5fa;
+  background-size: 28px 28px;
+}
+.ov-popout[data-ov-popout-theme="light"] .ov-popout-bar,
+.ov-popout[data-ov-popout-theme="light"] .ov-popout-connecting,
+.ov-popout[data-ov-popout-theme="light"] .ov-popout-restore {
+  background: rgba(255, 255, 255, 0.94);
+  border-color: #dfdce9;
+  color: #171424;
+  box-shadow: 0 12px 30px rgba(32, 24, 68, 0.12);
+}
+.ov-popout[data-ov-popout-theme="light"] .ov-popout-group {
+  background: #eceaf5;
+  border-color: #dfdce9;
+}
+.ov-popout[data-ov-popout-theme="light"] .ov-popout-pill {
+  color: #6c6782;
+}
+.ov-popout[data-ov-popout-theme="light"] .ov-popout-pill:hover {
+  color: #171424;
+}
+.ov-popout[data-ov-popout-theme="light"] .ov-popout-pill.is-on {
+  background: #7c3aed;
+  color: #fff;
+}
+.ov-popout[data-ov-popout-theme="light"] .ov-popout-btn--ghost {
+  border-color: #c8c3dc;
+  color: #3c3852;
+}
 .ov-stage[data-ov-theme="light"] .ov-eng-pill {
   background: rgba(255, 255, 255, 0.85);
   color: #171424;

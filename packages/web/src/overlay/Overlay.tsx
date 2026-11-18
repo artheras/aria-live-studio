@@ -688,9 +688,15 @@ export function OverlayPage() {
 
   const [mode, setMode] = useState<OverlayStageMode>(initialMode);
   const ovTheme: OverlayTheme = popout ? "auto" : initialTheme;
+  const [studioTheme, setStudioTheme] = useState<"light" | "dark">(() => resolveTheme(getThemePref()));
   const [backdrop, setBackdrop] = useState<PopoutBackdrop>("studio");
   const [barHidden, setBarHidden] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    setStudioTheme(resolveTheme(getThemePref()));
+    return subscribeTheme(() => setStudioTheme(resolveTheme(getThemePref())));
+  }, []);
 
   useEffect(() => {
     if (!popout) {
@@ -760,7 +766,7 @@ export function OverlayPage() {
   if (!popout) return view;
 
   return (
-    <div className={`ov-popout ov-popout--${backdrop}`} data-ov-popout-theme={ovTheme}>
+    <div className={`ov-popout ov-popout--${backdrop}`} data-ov-popout-theme={studioTheme}>
       {view}
       {!live.state && (
         <div className="ov-popout-connecting">
