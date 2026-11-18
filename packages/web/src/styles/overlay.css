@@ -49,6 +49,11 @@
   font-weight: 800;
   letter-spacing: 0.04em;
   color: #f3e8ff;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.ov-small b {
+  white-space: nowrap;
 }
 .ov-stage-title svg {
   color: #b589ff;
