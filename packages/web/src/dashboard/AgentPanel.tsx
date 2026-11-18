@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { LiveState } from "@aria-live/shared";
-import type { AriaApi } from "../lib/api";
+import type { AriaApi, PreflightStatus } from "../lib/api";
 import { errorMessage } from "../lib/api";
 import { timeAgo } from "../lib/time";
 import {
@@ -34,6 +34,7 @@ export function AgentPanel({
   const [tab, setTab] = useState<"local" | "remote">("local");
   const [pingMs, setPingMs] = useState<number | null>(null);
   const [testing, setTesting] = useState(false);
+  const [preflight, setPreflight] = useState<PreflightStatus | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -41,6 +42,12 @@ export function AgentPanel({
       .agentConnection()
       .then((c) => alive && setConn(c))
       .catch((e) => alive && setError(errorMessage(e)));
+    if (typeof api.preflight === "function") {
+      api
+        .preflight()
+        .then((p) => alive && setPreflight(p))
+        .catch(() => {});
+    }
     return () => {
       alive = false;
     };
@@ -103,6 +110,17 @@ export function AgentPanel({
               {a.name} · {timeAgo(a.lastSeenAt, Date.now())}
             </span>
           ))}
+        </div>
+      )}
+      {preflight && (
+        <div className="agent-panel__meta">
+          <span className={`pill pill--${preflight.planner.apiKeyConfigured ? "good" : "warn"}`}>
+            Planner: {preflight.planner.model ?? preflight.planner.kind}
+          </span>
+          <span className={`pill pill--${preflight.executor.ok ? "good" : "warn"}`} title={preflight.executor.reason ?? undefined}>
+            Executor: {preflight.executor.kind}
+            {preflight.executor.targetRepoConfigured ? " · Repo bound" : " · MCP-only"}
+          </span>
         </div>
       )}
       <div className="agent-panel__meta">

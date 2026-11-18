@@ -38,6 +38,8 @@ export interface Config {
   /** Trust X-Forwarded-Proto from a TLS-terminating reverse proxy (TRUST_PROXY=1). */
   trustProxy: boolean;
   projectBrief: string;
+  /** Optional HTTP(S) webhook URL for physical/IoT/OBS hardware lifecycle events. */
+  eventWebhookUrl?: string;
   allowedLogins: string[] | undefined;
   planner: {
     apiKey: string | undefined;
@@ -166,6 +168,10 @@ export function loadConfig(env: Env = process.env): Config {
     streamerKey,
     trustProxy,
     projectBrief: str(env, "PROJECT_BRIEF") ?? "",
+    eventWebhookUrl: (() => {
+      const raw = str(env, "EVENT_WEBHOOK_URL");
+      return raw && /^https?:\/\//i.test(raw) ? raw : undefined;
+    })(),
     allowedLogins: allowed && allowed.length ? allowed : undefined,
     planner: {
       apiKey: str(env, "OPENAI_API_KEY"),

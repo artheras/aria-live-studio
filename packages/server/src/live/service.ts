@@ -111,8 +111,10 @@ export class LiveService {
     });
     this.engine.on((e) => {
       if (e.type === "change") deps.store.scheduleSave(() => this.engine.snapshot());
-      else if (e.type === "milestone") this.extras.handle(e.milestone);
-      else {
+      else if (e.type === "milestone") {
+        this.extras.handle(e.milestone);
+        this.emitWebhook(e.milestone);
+      } else {
         void this.extras.restoreTitle();
         const enriched = this.extras.enrich(e.summary).catch(() => e.summary);
         this.historyWrites = this.historyWrites
@@ -706,5 +708,30 @@ export class LiveService {
         });
       }
     }, 10_000).unref?.();
+  }
+
+  private emitWebhook(milestone: { kind: string; round?: { index: number; phase: string; prompt?: string; task?: { title: string } | null } }): void {
+    const target = this.deps.config.eventWebhookUrl;
+    if (!target) return;
+    const payload = {
+      event: milestone.kind,
+      at: Date.now(),
+      channel: this.engine.state.connection.channel?.login ?? null,
+      roundIndex: milestone.round?.index ?? null,
+      phase: milestone.round?.phase ?? null,
+      prompt: milestone.round?.prompt ?? null,
+      taskTitle: milestone.round?.task?.title ?? null,
+    };
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), 3000);
+    timer.unref?.();
+    fetch(target, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: ac.signal,
+    })
+      .catch(() => {})
+      .finally(() => clearTimeout(timer));
   }
 }
