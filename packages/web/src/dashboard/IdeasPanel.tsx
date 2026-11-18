@@ -5,6 +5,7 @@ import { computeBallot, totalVotes } from "../lib/round";
 import { Btn, useActions } from "./actions";
 import { copyText } from "./Drawer";
 import { LiveStageCanvas } from "./LiveStageCanvas";
+import { OverlayView } from "../overlay/Overlay";
 
 export function Ballot({ round }: { round: Round }) {
   const rows = computeBallot(round, true);
@@ -190,16 +191,6 @@ function BroadcastMonitor({
     const qs = params.toString();
     if (!qs) return baseUrl;
     return `${baseUrl}${baseUrl.includes("?") ? "&" : "?"}${qs}`;
-  })();
-  const iframeSrc = (() => {
-    if (!activeUrl) return null;
-    if (livePreviewUrl) return activeUrl;
-    try {
-      const parsed = new URL(activeUrl, window.location.origin);
-      return `${parsed.pathname}${parsed.search}`;
-    } catch {
-      return activeUrl;
-    }
   })();
 
   useEffect(() => {
@@ -507,14 +498,31 @@ function BroadcastMonitor({
               <span>WEBCAM 16:9 SAFE ZONE</span>
             </div>
           )}
-          {iframeSrc ? (
+          {livePreviewUrl ? (
             <iframe
               className="idle-preview__frame"
-              src={iframeSrc}
-              title={livePreviewUrl ? "Live build sandbox" : "Live OBS Overlay monitor"}
-              sandbox={livePreviewUrl ? "allow-scripts allow-same-origin" : undefined}
+              src={livePreviewUrl}
+              title="Live build sandbox"
+              sandbox="allow-scripts allow-same-origin"
               style={{ transform: `scale(${scale})` }}
             />
+          ) : state ? (
+            <div
+              className="idle-preview__frame idle-preview__frame--inline"
+              style={{ transform: `scale(${scale})` }}
+              aria-label="Live OBS Overlay monitor"
+            >
+              <OverlayView
+                state={state}
+                connected={true}
+                stageMode={mode === "stage"}
+                showcaseMode={mode === "showcase"}
+                card3d={mode === "card3d"}
+                muted={obsMuted}
+                pos={pos}
+                layout={layout}
+              />
+            </div>
           ) : (
             <div className="monitor-standby">
               <span className="monitor-standby__code">STANDBY</span>

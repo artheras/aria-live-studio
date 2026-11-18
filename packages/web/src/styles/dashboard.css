@@ -1402,6 +1402,10 @@ input[type="checkbox"] {
   background: transparent;
   color-scheme: inherit;
 }
+.idle-preview__frame--inline {
+  position: relative;
+  overflow: hidden;
+}
 .panel__head--toggle {
   cursor: pointer;
   list-style: none;
