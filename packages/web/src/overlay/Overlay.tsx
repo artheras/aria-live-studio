@@ -687,7 +687,7 @@ export function OverlayPage() {
   const initialTheme: OverlayTheme = themeRaw === "light" || themeRaw === "auto" ? themeRaw : "dark";
 
   const [mode, setMode] = useState<OverlayStageMode>(initialMode);
-  const [ovTheme, setOvTheme] = useState<OverlayTheme>(initialTheme);
+  const ovTheme = initialTheme;
   const [backdrop, setBackdrop] = useState<PopoutBackdrop>("studio");
   const [barHidden, setBarHidden] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -797,24 +797,6 @@ export function OverlayPage() {
                 type="button"
                 className={`ov-popout-pill ${mode === v ? "is-on" : ""}`}
                 onClick={() => setMode(v)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <div className="ov-popout-group" role="group" aria-label="Theme">
-            {(
-              [
-                ["auto", "Auto"],
-                ["light", "Light"],
-                ["dark", "Dark"],
-              ] as const
-            ).map(([v, label]) => (
-              <button
-                key={v}
-                type="button"
-                className={`ov-popout-pill ${ovTheme === v ? "is-on" : ""}`}
-                onClick={() => setOvTheme(v)}
               >
                 {label}
               </button>
