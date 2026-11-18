@@ -757,7 +757,8 @@
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 /* Hide projected chat bubbles inside the compact 3D Card inset so text never clips at the frame edge. */
-.ov-card3d__stage .stage-bubble {
+.ov-card3d__stage .workshop-bubble,
+.ov-card3d__stage .workshop-builder-pin {
   display: none;
 }
 .ov-card3d__kicker {

@@ -441,7 +441,7 @@ function CompactStageCard({
     return (
       <div className="ov-card ov-card--card3d" data-phase={phase}>
         <div className="ov-card3d__stage" aria-hidden="true">
-          <LiveStageCanvas state={state} transparent ecoMode />
+          <LiveStageCanvas state={state} compact transparent ecoMode />
         </div>
         <div className="ov-card3d__body">
           <div className="ov-card3d__kicker">

@@ -173,6 +173,8 @@ function BroadcastMonitor({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [obsMuted, setObsMuted] = useState(false);
   const [customizeOpen, setCustomizeOpen] = useState(false);
+  const [camSafe, setCamSafe] = useState<"off" | "tl" | "tr" | "bl" | "br">("off");
+  const popoverRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.38);
   const baseUrl = livePreviewUrl || url;
@@ -227,6 +229,24 @@ function BroadcastMonitor({
     return () => ro.disconnect();
   }, [activeUrl]);
 
+  useEffect(() => {
+    if (!customizeOpen) return;
+    const onMouseDown = (ev: MouseEvent) => {
+      if (popoverRef.current && !popoverRef.current.contains(ev.target as Node)) {
+        setCustomizeOpen(false);
+      }
+    };
+    const onKeyDown = (ev: KeyboardEvent) => {
+      if (ev.key === "Escape") setCustomizeOpen(false);
+    };
+    document.addEventListener("mousedown", onMouseDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onMouseDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [customizeOpen]);
+
   return (
     <div className="monitor-wrap">
       <div className="monitor-bezel">
@@ -243,6 +263,7 @@ function BroadcastMonitor({
                     {(
                       [
                         ["none", "Card"],
+                        ["stage", "Corner 3D"],
                         ["card3d", "3D Card"],
                         ["showcase", "Showcase"],
                       ] as const
@@ -257,7 +278,7 @@ function BroadcastMonitor({
                       </button>
                     ))}
                   </div>
-                  <div className="monitor-popover-anchor">
+                  <div className="monitor-popover-anchor" ref={popoverRef}>
                     <button
                       type="button"
                       className={`monitor-pill monitor-pill--trigger ${customizeOpen ? "is-on" : ""}`}
@@ -268,28 +289,6 @@ function BroadcastMonitor({
                     </button>
                     {customizeOpen && (
                       <div className="monitor-popover" role="dialog" aria-label="Customize OBS Overlay">
-                        <div className="monitor-popover__row">
-                          <span className="monitor-popover__label">Stage</span>
-                          <div className="monitor-pill-group">
-                            {(
-                              [
-                                ["none", "Card"],
-                                ["stage", "Corner 3D"],
-                                ["card3d", "3D Card"],
-                                ["showcase", "Showcase"],
-                              ] as const
-                            ).map(([v, label]) => (
-                              <button
-                                key={v}
-                                type="button"
-                                className={`monitor-pill ${mode === v ? "is-on" : ""}`}
-                                onClick={() => setMode(v)}
-                              >
-                                {label}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
                         {mode !== "showcase" && (
                           <>
                             <div className="monitor-popover__row">
@@ -390,6 +389,29 @@ function BroadcastMonitor({
                             </button>
                           </div>
                         </div>
+                        <div className="monitor-popover__row">
+                          <span className="monitor-popover__label">Webcam Safe</span>
+                          <div className="monitor-pill-group">
+                            {(
+                              [
+                                ["off", "Off"],
+                                ["tl", "TL"],
+                                ["tr", "TR"],
+                                ["bl", "BL"],
+                                ["br", "BR"],
+                              ] as const
+                            ).map(([v, label]) => (
+                              <button
+                                key={v}
+                                type="button"
+                                className={`monitor-pill ${camSafe === v ? "is-on" : ""}`}
+                                onClick={() => setCamSafe(v)}
+                              >
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -478,6 +500,11 @@ function BroadcastMonitor({
             <div className="monitor-standby">
               <span className="monitor-standby__code">CUSTOM BACKDROP</span>
               <span className="muted">Click Upload to preview over your real IDE or game screenshot</span>
+            </div>
+          )}
+          {camSafe !== "off" && !livePreviewUrl && (
+            <div className={`monitor-webcam-safe monitor-webcam-safe--${camSafe}`} aria-hidden="true">
+              <span>WEBCAM 16:9 SAFE ZONE</span>
             </div>
           )}
           {iframeSrc ? (

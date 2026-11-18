@@ -1390,24 +1390,28 @@ export function LiveStageCanvas({
     <div className="workshop-scene workshop-scene--3d" ref={mountRef}>
       {!webglReady && <img className="workshop-scene__art" src="/art/voxel-workshop.jpg" alt="Voxel Workshop Stage" />}
 
-      {ideas.map((idea, idx) => (
-        <div
-          key={idea.id}
-          className={`workshop-bubble workshop-bubble--flank workshop-bubble--flank-${idx} ${idea.boosts ? "is-boosted" : ""}`}
-        >
-          <span className="workshop-bubble__user">@{idea.author.displayName || idea.author.login}</span>
-          <span className="workshop-bubble__text">{truncate(idea.text, 22)}</span>
-          {idea.boosts ? <span className="workshop-bubble__boost">+{idea.boosts}</span> : null}
-        </div>
-      ))}
+      {!compact &&
+        !transparent &&
+        ideas.map((idea, idx) => (
+          <div
+            key={idea.id}
+            className={`workshop-bubble workshop-bubble--flank workshop-bubble--flank-${idx} ${idea.boosts ? "is-boosted" : ""}`}
+          >
+            <span className="workshop-bubble__user">@{idea.author.displayName || idea.author.login}</span>
+            <span className="workshop-bubble__text">{truncate(idea.text, 22)}</span>
+            {idea.boosts ? <span className="workshop-bubble__boost">+{idea.boosts}</span> : null}
+          </div>
+        ))}
 
-      {(state.coBuilders ?? []).slice(0, 3).map((b, idx) => (
-        <div key={b.login} className="workshop-builder-pin" style={{ bottom: 12 + idx * 22 }}>
-          <span className="workshop-builder-pin__dot" aria-hidden="true" />
-          <span>@{b.displayName || b.login}</span>
-          <span className="workshop-builder-pin__count">{b.shipped}</span>
-        </div>
-      ))}
+      {!compact &&
+        !transparent &&
+        (state.coBuilders ?? []).slice(0, 3).map((b, idx) => (
+          <div key={b.login} className="workshop-builder-pin" style={{ bottom: 12 + idx * 22 }}>
+            <span className="workshop-builder-pin__dot" aria-hidden="true" />
+            <span>@{b.displayName || b.login}</span>
+            <span className="workshop-builder-pin__count">{b.shipped}</span>
+          </div>
+        ))}
     </div>
   );
 }

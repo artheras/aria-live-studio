@@ -222,7 +222,7 @@ export function Header({
       setShowReconnect(false);
       return;
     }
-    const timer = window.setTimeout(() => setShowReconnect(true), 1800);
+    const timer = window.setTimeout(() => setShowReconnect(true), 4000);
     return () => window.clearTimeout(timer);
   }, [live]);
 
