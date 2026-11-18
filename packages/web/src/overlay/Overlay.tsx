@@ -39,9 +39,25 @@ const ONLY: Record<Eligibility, string | null> = {
   vip_mod: "VIPs & mods only",
 };
 
+function phaseEngineer(phase: string) {
+  switch (phase) {
+    case "collecting":
+      return { img: "/art/engineer-0-scout.png", name: "Scout", role: "Idea Collector", accent: "#a855f7" };
+    case "voting":
+    case "decided":
+      return { img: "/art/engineer-1-teller.png", name: "Teller", role: "Ballot Keeper", accent: "#38bdf8" };
+    case "planning":
+    case "awaiting_approval":
+      return { img: "/art/engineer-2-planner.png", name: "Planner", role: "Architect", accent: "#10b981" };
+    default:
+      return { img: "/art/engineer-3-builder.png", name: "Builder", role: "Master Forge", accent: "#f59e0b" };
+  }
+}
+
 function Header({ round, label, only }: { round: Round; label: string; only?: Eligibility }) {
   const badge = only ? ONLY[only] : null;
   const active = round.phase === "planning" || round.phase === "executing";
+  const eng = phaseEngineer(round.phase);
   return (
     <div className="ov-head">
       <span className="ov-brand">
@@ -58,6 +74,10 @@ function Header({ round, label, only }: { round: Round; label: string; only?: El
       <span className="ov-sep" />
       <span className="ov-kicker">
         Round {round.index} · {label}
+      </span>
+      <span className="ov-eng-pill" style={{ borderColor: eng.accent }} title={`${eng.name} · ${eng.role}`}>
+        <img src={eng.img} width={20} height={20} alt="" aria-hidden="true" />
+        <span>{eng.name}</span>
       </span>
       {badge && <span className="ov-badge ov-badge--only">{badge}</span>}
     </div>
@@ -312,8 +332,13 @@ function OverlayCard({ state, now }: { state: LiveState; now: number }) {
             </ul>
           ) : null}
           {!compact && ok && !ex?.previewUrl && (
-            <div className="ov-shrine-wrap">
-              <img className="ov-shrine" src="/art/voxel-shrine.jpg" alt="" aria-hidden="true" />
+            <div className="ov-crew-wrap">
+              <img className="ov-crew-lead" src="/art/engineer-3-builder.png" alt="Builder" />
+              <div className="ov-crew-squad" aria-hidden="true">
+                <img src="/art/engineer-0-scout.png" alt="" />
+                <img src="/art/engineer-1-teller.png" alt="" />
+                <img src="/art/engineer-2-planner.png" alt="" />
+              </div>
             </div>
           )}
           {!compact && ok && ex?.previewUrl && (
@@ -358,7 +383,7 @@ function OverlayCard({ state, now }: { state: LiveState; now: number }) {
 
 export type OverlayPos = "bl" | "br";
 export type OverlayLayout = "standard" | "compact" | "topbar" | "minimal";
-export type OverlayStageMode = "none" | "stage" | "card3d";
+export type OverlayStageMode = "none" | "stage" | "card3d" | "showcase";
 
 function buildProgressPercent(state: LiveState): number {
   const round = state.round;
@@ -476,7 +501,7 @@ function CompactStageCard({
             <div className="ov-prog__fill" style={{ width: "100%" }} />
           </div>
         </div>
-        <img className="ov-done-mini__art" src="/art/voxel-shrine.jpg" alt="" aria-hidden="true" />
+        <img className="ov-done-mini__art" src="/art/engineer-3-builder.png" alt="" aria-hidden="true" />
       </div>
     );
   }
@@ -515,6 +540,7 @@ export function OverlayView({
   connected,
   clockOffset = 0,
   stageMode = false,
+  showcaseMode = false,
   pos = "bl",
   layout = "standard",
   card3d = false,
@@ -523,6 +549,7 @@ export function OverlayView({
   connected: boolean;
   clockOffset?: number;
   stageMode?: boolean;
+  showcaseMode?: boolean;
   pos?: OverlayPos;
   layout?: OverlayLayout;
   card3d?: boolean;
@@ -538,6 +565,44 @@ export function OverlayView({
     .at(-1);
   const effectivePos = layout === "topbar" && pos === "bl" ? "br" : pos;
   const useCompactCard = layout === "compact" || layout === "minimal" || card3d || layout === "topbar";
+
+  if (showcaseMode) {
+    const eng = phaseEngineer(phase);
+    const pct = buildProgressPercent(state);
+    return (
+      <div className="ov-stage ov-stage--showcase" data-phase={phase}>
+        <div className="ov-showcase-canvas" aria-hidden="true">
+          <LiveStageCanvas state={state} transparent={false} />
+        </div>
+        {activeCelebration && (
+          <div className={`ov-celebration ov-celebration--${activeCelebration.kind}`} key={activeCelebration.id}>
+            <span className="ov-celebration__tag">{activeCelebration.kind.replace("_", " ")}</span>
+            <span className="ov-celebration__text">{truncate(activeCelebration.text, 80)}</span>
+          </div>
+        )}
+        <div className="ov-showcase-banner">
+          <img className="ov-showcase-avatar" src={eng.img} alt={eng.name} style={{ borderColor: eng.accent }} />
+          <div className="ov-showcase-info">
+            <div className="ov-showcase-kicker">
+              <span>ARIA LIVE · {phase.toUpperCase().replace("_", " ")}</span>
+              <span>·</span>
+              <span>{eng.name} ({eng.role})</span>
+              {leftSec !== null && phase === "voting" && <span className="ov-min-time">{leftSec}s</span>}
+            </div>
+            <h1 className="ov-showcase-title">
+              {!round || phase === "idle"
+                ? `Type ${COMMANDS.idea} <your idea> in chat to start building!`
+                : truncate(round.task?.title || w?.text || round.prompt || "Community Workshop", 64)}
+            </h1>
+            <div className="ov-prog">
+              <div className="ov-prog__fill" style={{ width: `${pct}%` }} />
+            </div>
+          </div>
+        </div>
+        {!connected && <span className="ov-offline" title="Reconnecting" aria-hidden="true" />}
+      </div>
+    );
+  }
 
   return (
     <div className={`ov-stage ov-stage--pos-${effectivePos} ov-stage--layout-${layout}`}>
@@ -582,6 +647,7 @@ export function OverlayPage() {
   const modeParam = params.get("mode");
   const stageMode = modeParam === "stage";
   const card3d = modeParam === "card3d";
+  const showcaseMode = modeParam === "showcase";
   const posParam = params.get("pos") === "br" ? "br" : "bl";
   const layoutRaw = params.get("layout");
   const layout: OverlayLayout =
@@ -605,6 +671,7 @@ export function OverlayPage() {
       connected={live.status === "open"}
       clockOffset={live.clockOffset}
       stageMode={stageMode}
+      showcaseMode={showcaseMode}
       pos={posParam}
       layout={layout}
       card3d={card3d}

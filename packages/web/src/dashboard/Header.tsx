@@ -50,10 +50,26 @@ export function ConnectionPill({ connection }: { connection: Connection }) {
   );
 }
 
+import type { OverlayLayout, OverlayPos, OverlayStageMode } from "../overlay/Overlay";
+
+function buildConfiguredOverlayUrl(base: string, pos: OverlayPos, layout: OverlayLayout, mode: OverlayStageMode): string {
+  const params = new URLSearchParams();
+  if (pos !== "bl") params.set("pos", pos);
+  if (layout !== "standard") params.set("layout", layout);
+  if (mode !== "none") params.set("mode", mode);
+  const qs = params.toString();
+  if (!qs) return base;
+  return `${base}${base.includes("?") ? "&" : "?"}${qs}`;
+}
+
 function OverlayButton({ api }: { api: AriaApi }) {
   const { run, isPending, toast } = useActions();
   const [url, setUrl] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<OverlayPos>("bl");
+  const [layout, setLayout] = useState<OverlayLayout>("standard");
+  const [mode, setMode] = useState<OverlayStageMode>("none");
+  const configuredUrl = url ? buildConfiguredOverlayUrl(url, pos, layout, mode) : "";
   return (
     <div className="popover-anchor">
       <Btn
@@ -74,11 +90,85 @@ function OverlayButton({ api }: { api: AriaApi }) {
       {open && url && (
         <div className="popover" role="dialog" aria-label="Overlay URL">
           <p className="popover__title">Add as OBS Browser Source 1920×1080</p>
-          <input className="popover__url" readOnly value={url} onFocus={(e) => e.currentTarget.select()} />
+          <div className="popover__presets">
+            <div className="popover__row">
+              <span className="popover__label">3D Mode</span>
+              <div className="popover__pills">
+                {(
+                  [
+                    ["none", "Card"],
+                    ["stage", "Corner 3D"],
+                    ["card3d", "3D Card"],
+                    ["showcase", "Fullscreen 3D"],
+                  ] as const
+                ).map(([v, label]) => (
+                  <button
+                    key={v}
+                    type="button"
+                    className={`popover__pill ${mode === v ? "is-on" : ""}`}
+                    onClick={() => setMode(v)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {mode !== "showcase" && (
+              <>
+                <div className="popover__row">
+                  <span className="popover__label">Layout</span>
+                  <div className="popover__pills">
+                    {(
+                      [
+                        ["standard", "Standard"],
+                        ["compact", "Compact"],
+                        ["topbar", "Top Bar"],
+                        ["minimal", "Minimal"],
+                      ] as const
+                    ).map(([v, label]) => (
+                      <button
+                        key={v}
+                        type="button"
+                        className={`popover__pill ${layout === v ? "is-on" : ""}`}
+                        onClick={() => setLayout(v)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="popover__row">
+                  <span className="popover__label">Position</span>
+                  <div className="popover__pills">
+                    {(
+                      [
+                        ["bl", "Bottom Left"],
+                        ["br", "Bottom Right"],
+                      ] as const
+                    ).map(([v, label]) => (
+                      <button
+                        key={v}
+                        type="button"
+                        className={`popover__pill ${pos === v ? "is-on" : ""}`}
+                        onClick={() => setPos(v)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+          <input className="popover__url" readOnly value={configuredUrl} onFocus={(e) => e.currentTarget.select()} />
           <p className="muted">Keep this URL private — the key lets anyone view your overlay.</p>
           <div className="actions">
-            <Btn size="sm" variant="primary" onClick={async () => toast("success", (await copyText(url)) ? "Copied" : "Copy failed")}>
-              Copy again
+            <Btn
+              size="sm"
+              variant="primary"
+              onClick={async () => toast("success", (await copyText(configuredUrl)) ? "Copied" : "Copy failed")}
+            >
+              Copy URL
             </Btn>
             <Btn
               size="sm"
@@ -90,6 +180,9 @@ function OverlayButton({ api }: { api: AriaApi }) {
             >
               Copy 3D Card
             </Btn>
+            <a className="btn btn--sm" href={configuredUrl} target="_blank" rel="noreferrer">
+              Preview
+            </a>
             <Btn size="sm" variant="ghost" onClick={() => setOpen(false)}>
               Close
             </Btn>
