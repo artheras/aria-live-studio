@@ -23,7 +23,7 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const CODEX = process.env.CODEX_BIN || "codex";
-const EXPECTED_TOOLS = ["live_claim_task", "live_complete_task", "live_report_progress", "live_status", "live_wait_for_task"];
+const EXPECTED_TOOLS = ["live_claim_task", "live_complete_task", "live_report_progress", "live_status", "live_upload_media", "live_wait_for_task"];
 
 let failures = 0;
 const check = (ok, what, detail) => {

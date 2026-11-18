@@ -953,7 +953,7 @@ async function phaseB() {
     if (shots) await shots.agentDrawer();
     const mcp = await startMcp(conn, aria.base, "codex-mcp-client");
     const tools = (await mcp.client.listTools()).tools.map((t) => t.name).sort();
-    check(tools.join(",") === "live_claim_task,live_complete_task,live_report_progress,live_status,live_wait_for_task", "bridge exposes exactly the 5 live_* tools", tools);
+    check(tools.join(",") === "live_claim_task,live_complete_task,live_report_progress,live_status,live_upload_media,live_wait_for_task", "bridge exposes all 6 live_* tools", tools);
     const status = await mcp.call("live_status");
     check(!status.isError && /connected to aria_streams/.test(status.text) && /phase awaiting_approval/.test(status.text), "live_status: connected, awaiting approval", status.text);
     check(status.structuredContent?.task?.status === "draft", "live_status structured task status = draft");
@@ -1071,7 +1071,7 @@ async function phaseB() {
     const task3 = await api.post("/api/task/plan");
     const remote = await startRemoteMcp(conn.remote.agentUrl, "claude-code", conn.token);
     const rTools = (await remote.client.listTools()).tools.map((t) => t.name).sort();
-    check(rTools.join(",") === "live_claim_task,live_complete_task,live_report_progress,live_status,live_wait_for_task", "remote /mcp exposes the 5 agent tools", rTools);
+    check(rTools.join(",") === "live_claim_task,live_complete_task,live_report_progress,live_status,live_upload_media,live_wait_for_task", "remote /mcp exposes all 6 agent tools", rTools);
     const rWait = remote.call("live_wait_for_task", {});
     await sleep(500);
     await api.post("/api/task/approve");
