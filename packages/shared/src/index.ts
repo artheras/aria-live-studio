@@ -168,6 +168,9 @@ export interface Execution {
   previewUrl?: string | null;
   /** Stream-safe git diff excerpt reported by the executor or MCP coding agent. */
   diffSnippet?: string | null;
+  /** Optional Agent-generated video/image URL rendered on the OBS overlay and Pop out window. */
+  mediaUrl?: string | null;
+  mediaKind?: "video" | "image" | null;
 }
 
 // ── Connection and settings ──────────────────────────────────────────────

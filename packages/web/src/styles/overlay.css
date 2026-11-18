@@ -1255,6 +1255,71 @@
   border-color: #c8c3dc;
   color: #3c3852;
 }
+
+/* ── Agent Generated Video / Image Media Stage ─────────────────────────── */
+.ov-media-stage {
+  position: absolute;
+  top: 72px;
+  right: 40px;
+  width: 440px;
+  border-radius: 18px;
+  overflow: hidden;
+  background: rgba(16, 12, 26, 0.9);
+  border: 1px solid rgba(167, 139, 250, 0.36);
+  box-shadow: 0 20px 52px rgba(0, 0, 0, 0.52), 0 0 28px rgba(145, 70, 255, 0.18);
+  backdrop-filter: blur(14px);
+  z-index: 8;
+}
+.ov-media-stage__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.ov-media-stage__badge {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(145, 70, 255, 0.28);
+  color: #e9d5ff;
+}
+.ov-media-stage__title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #f3ecff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ov-media-stage__frame {
+  aspect-ratio: 16 / 9;
+  background: #08070d;
+}
+.ov-media-stage__frame video,
+.ov-media-stage__frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.ov-stage[data-ov-theme="light"] .ov-media-stage {
+  background: rgba(255, 255, 255, 0.94);
+  border-color: rgba(124, 58, 237, 0.28);
+  box-shadow: 0 16px 40px rgba(32, 24, 68, 0.16);
+}
+.ov-stage[data-ov-theme="light"] .ov-media-stage__head {
+  border-bottom-color: rgba(23, 20, 36, 0.08);
+}
+.ov-stage[data-ov-theme="light"] .ov-media-stage__badge {
+  background: rgba(124, 58, 237, 0.14);
+  color: #6d28d9;
+}
+.ov-stage[data-ov-theme="light"] .ov-media-stage__title {
+  color: #171424;
+}
 .ov-stage[data-ov-theme="light"] .ov-eng-pill {
   background: rgba(255, 255, 255, 0.85);
   color: #171424;

@@ -34,6 +34,8 @@ export interface ExecutionResult {
   summary: string | null;
   error: string | null;
   previewUrl?: string | null;
+  mediaUrl?: string | null;
+  mediaKind?: "video" | "image" | null;
 }
 
 export interface ExecutionHooks {

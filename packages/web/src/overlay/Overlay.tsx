@@ -546,6 +546,41 @@ function resolveOverlayAccent(prompt?: string | null, modifiers?: string[]): [st
   return ["#9146ff", "#c084fc"];
 }
 
+function isVideoMedia(url: string, kind?: "video" | "image" | null): boolean {
+  if (kind === "video") return true;
+  if (kind === "image") return false;
+  return /\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(url);
+}
+
+function AgentMediaStage({
+  mediaUrl,
+  mediaKind,
+  title,
+  muted,
+}: {
+  mediaUrl: string;
+  mediaKind?: "video" | "image" | null;
+  title?: string;
+  muted: boolean;
+}) {
+  const isVideo = isVideoMedia(mediaUrl, mediaKind);
+  return (
+    <div className="ov-media-stage">
+      <div className="ov-media-stage__head">
+        <span className="ov-media-stage__badge">AGENT MEDIA</span>
+        {title && <span className="ov-media-stage__title">{truncate(title, 44)}</span>}
+      </div>
+      <div className="ov-media-stage__frame">
+        {isVideo ? (
+          <video src={mediaUrl} autoPlay loop playsInline muted={muted} />
+        ) : (
+          <img src={mediaUrl} alt={title || "Agent generated media"} />
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function OverlayView({
   state,
   connected,
@@ -644,6 +679,14 @@ export function OverlayView({
           </span>
           {leftSec !== null && phase === "voting" && <span className="ov-topbar__timer num">{leftSec}s left</span>}
         </div>
+      )}
+      {phase === "done" && round?.execution?.mediaUrl && (
+        <AgentMediaStage
+          mediaUrl={round.execution.mediaUrl}
+          mediaKind={round.execution.mediaKind}
+          title={round.task?.title}
+          muted={muted}
+        />
       )}
       {stageMode && !card3d && (
         <div className="ov-3d-corner" aria-hidden="true">

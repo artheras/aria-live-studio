@@ -185,14 +185,15 @@ export class AgentBridge {
     if (!Array.isArray(files) || files.length > 100 || !files.every((f) => typeof f === "string" && f.length <= 200)) {
       throw new AgentError(400, "bad_input", "changedFiles must be at most 100 strings of at most 200 chars");
     }
-    for (const k of ["summary", "branch", "error", "previewUrl", "diffSnippet"] as const) {
+    for (const k of ["summary", "branch", "error", "previewUrl", "diffSnippet", "mediaUrl", "mediaKind"] as const) {
       if (body[k] !== undefined && body[k] !== null && typeof body[k] !== "string") {
         throw new AgentError(400, "bad_input", `${k} must be a string`);
       }
     }
     this.held(body.taskId);
-    const opt = (k: "summary" | "branch" | "error" | "previewUrl", max: number) =>
+    const opt = (k: "summary" | "branch" | "error" | "previewUrl" | "mediaUrl", max: number) =>
       typeof body[k] === "string" && body[k] ? streamSafe(body[k], max) : null;
+    const mediaKind = body.mediaKind === "video" || body.mediaKind === "image" ? body.mediaKind : null;
     const rawDiff = typeof body.diffSnippet === "string" ? body.diffSnippet : "";
     const safeDiff = rawDiff
       ? rawDiff
@@ -210,6 +211,8 @@ export class AgentBridge {
       summary: opt("summary", 2000),
       error: opt("error", 500),
       previewUrl: opt("previewUrl", 300),
+      mediaUrl: opt("mediaUrl", 500),
+      mediaKind,
     });
     if (safeDiff) this.engine.setExecutionDiff(safeDiff);
     this.engine.clearAgentLease(String(body.taskId));

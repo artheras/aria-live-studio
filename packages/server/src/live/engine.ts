@@ -891,6 +891,8 @@ export class RoundEngine {
     ex.summary = result.summary ? cleanMulti(result.summary, 4000) : null;
     ex.error = result.error ? streamSafeLine(result.error, 1000) : null;
     ex.previewUrl = sanitizePreviewUrl(result.previewUrl);
+    ex.mediaUrl = sanitizePreviewUrl(result.mediaUrl);
+    ex.mediaKind = result.mediaKind === "video" || result.mediaKind === "image" ? result.mediaKind : null;
     r.phase = "done";
     if (result.status === "succeeded" && r.winnerId) {
       const winner = r.ideas.find((i) => i.id === r.winnerId);
