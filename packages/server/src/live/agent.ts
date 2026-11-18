@@ -138,6 +138,7 @@ export class AgentBridge {
       const clientName = sanitizeClient(client);
       this.engine.touchAgent(clientName);
       this.engine.beginExecution(`${AGENT_EXECUTOR_PREFIX}${clientName}`);
+      this.engine.setAgentLease(clientName, taskId);
     } catch (err) {
       if (err instanceof EngineError) throw new AgentError(409, err.code, err.message);
       throw err;
@@ -164,9 +165,14 @@ export class AgentBridge {
     if (typeof kind !== "string" || !STEP_KINDS.includes(kind as ExecutionStepKind)) {
       throw new AgentError(400, "bad_input", `kind must be one of ${STEP_KINDS.join(", ")}`);
     }
-    this.held(taskId);
+    const r = this.held(taskId);
     const line = streamSafe(text, 200);
     if (!line) throw new AgentError(400, "bad_input", "text is required");
+    if (r.execution?.executor.startsWith(AGENT_EXECUTOR_PREFIX)) {
+      const clientName = r.execution.executor.slice(AGENT_EXECUTOR_PREFIX.length);
+      this.engine.touchAgent(clientName);
+      this.engine.setAgentLease(clientName, String(taskId));
+    }
     this.engine.appendExecutionStep({ at: 0, kind: kind as ExecutionStepKind, text: line });
   }
 
@@ -179,7 +185,7 @@ export class AgentBridge {
     if (!Array.isArray(files) || files.length > 100 || !files.every((f) => typeof f === "string" && f.length <= 200)) {
       throw new AgentError(400, "bad_input", "changedFiles must be at most 100 strings of at most 200 chars");
     }
-    for (const k of ["summary", "branch", "error", "previewUrl"] as const) {
+    for (const k of ["summary", "branch", "error", "previewUrl", "diffSnippet"] as const) {
       if (body[k] !== undefined && body[k] !== null && typeof body[k] !== "string") {
         throw new AgentError(400, "bad_input", `${k} must be a string`);
       }
@@ -187,6 +193,15 @@ export class AgentBridge {
     this.held(body.taskId);
     const opt = (k: "summary" | "branch" | "error" | "previewUrl", max: number) =>
       typeof body[k] === "string" && body[k] ? streamSafe(body[k], max) : null;
+    const rawDiff = typeof body.diffSnippet === "string" ? body.diffSnippet : "";
+    const safeDiff = rawDiff
+      ? rawDiff
+          .split(/\r?\n/)
+          .slice(0, 60)
+          .map((l) => streamSafe(l, 200))
+          .filter(Boolean)
+          .join("\n")
+      : null;
     this.engine.finishExecution({
       status,
       branch: opt("branch", 200),
@@ -196,6 +211,8 @@ export class AgentBridge {
       error: opt("error", 500),
       previewUrl: opt("previewUrl", 300),
     });
+    if (safeDiff) this.engine.setExecutionDiff(safeDiff);
+    this.engine.clearAgentLease(String(body.taskId));
   }
 
   /** Streamer pressed Cancel while an agent holds the task. */
@@ -204,6 +221,7 @@ export class AgentBridge {
     const ex = r?.execution;
     if (!r || r.phase !== "executing" || !ex || !ex.executor.startsWith(AGENT_EXECUTOR_PREFIX)) return false;
     this.cancelled.add(ex.taskId);
+    this.engine.clearAgentLease(ex.taskId);
     this.engine.finishExecution({
       status: "cancelled",
       branch: null,

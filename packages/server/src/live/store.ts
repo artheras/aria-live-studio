@@ -25,6 +25,12 @@ export class Store {
     this.historyPath = join(dataDir, "history.jsonl");
   }
 
+  /** Create an isolated per-channel Store under `baseDir/channels/<channelId>`. */
+  static forChannel(baseDir: string, channelId: string, debounceMs = 500): Store {
+    const safeId = channelId.replace(/[^A-Za-z0-9._-]/g, "_") || "default";
+    return new Store(join(baseDir, "channels", safeId), debounceMs);
+  }
+
   loadState(): EngineSnapshot | undefined {
     if (!existsSync(this.statePath)) return undefined;
     try {

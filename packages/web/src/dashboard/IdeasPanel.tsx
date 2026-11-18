@@ -532,6 +532,18 @@ function BroadcastMonitor({
                   <span>{` ${step.text}`}</span>
                 </div>
               ))}
+              {round?.execution?.diffSnippet &&
+                round.execution.diffSnippet
+                  .split("\n")
+                  .slice(0, 6)
+                  .map((diffLine, idx) => (
+                    <div key={`diff-${idx}`} className="mock-code-line">
+                      <span className="mc-ln">~</span>
+                      <span className={diffLine.startsWith("+") ? "mc-str" : diffLine.startsWith("-") ? "mc-num" : "mc-cm"}>
+                        {diffLine}
+                      </span>
+                    </div>
+                  ))}
             </div>
           )}
           {backdrop === "custom" && !customBg && !livePreviewUrl && (

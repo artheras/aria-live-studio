@@ -999,13 +999,48 @@ export class RoundEngine {
     if (updated) this.changed();
   }
 
-  /** Record the latest MCP coding agent heartbeat without spamming snapshots. */
+  /** Record the latest MCP coding agent heartbeat and maintain the active agent roster. */
   touchAgent(name: string): void {
     const clean = streamSafeLine(name, 48) || "MCP";
     const now = this.deps.now();
     const prev = this.s.agentStatus;
-    if (prev && prev.name === clean && now - prev.lastSeenAt < 15_000) return;
+    const cutoff = now - 5 * 60_000;
+    const existing = (this.s.connectedAgents ?? []).filter((a) => a.lastSeenAt >= cutoff && a.name !== clean);
+    const prevEntry = (this.s.connectedAgents ?? []).find((a) => a.name === clean);
+    if (prev && prev.name === clean && now - prev.lastSeenAt < 15_000 && prevEntry) return;
     this.s.agentStatus = { name: clean, lastSeenAt: now };
+    this.s.connectedAgents = [{ name: clean, lastSeenAt: now }, ...existing].slice(0, 12);
+    this.changed();
+  }
+
+  /** Set or refresh the active MCP task claim lease. */
+  setAgentLease(client: string, taskId: string, ttlMs = 10 * 60_000): void {
+    const now = this.deps.now();
+    const prev = this.s.activeLease;
+    const claimedAt = prev && prev.taskId === taskId && prev.client === client ? prev.claimedAt : now;
+    this.s.activeLease = {
+      client: streamSafeLine(client, 48) || "agent",
+      taskId,
+      claimedAt,
+      expiresAt: now + ttlMs,
+    };
+    this.changed();
+  }
+
+  /** Clear any active MCP task claim lease. */
+  clearAgentLease(taskId?: string): void {
+    if (!this.s.activeLease) return;
+    if (taskId && this.s.activeLease.taskId !== taskId) return;
+    this.s.activeLease = null;
+    this.changed();
+  }
+
+  /** Attach a sanitized diff snippet to the current round's execution. */
+  setExecutionDiff(diffSnippet: string | null | undefined): void {
+    const ex = this.s.round?.execution;
+    if (!ex) return;
+    const clean = typeof diffSnippet === "string" ? diffSnippet.trim().slice(0, 4000) : "";
+    ex.diffSnippet = clean || null;
     this.changed();
   }
 

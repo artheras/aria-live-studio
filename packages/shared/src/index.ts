@@ -166,6 +166,8 @@ export interface Execution {
   clipUrl?: string | null;
   /** Live preview URL for the built change (shown on OBS overlay when safe http/https/relative). */
   previewUrl?: string | null;
+  /** Stream-safe git diff excerpt reported by the executor or MCP coding agent. */
+  diffSnippet?: string | null;
 }
 
 // ── Connection and settings ──────────────────────────────────────────────
@@ -284,6 +286,19 @@ export interface CoBuilder {
   shipped: number;
 }
 
+export interface ConnectedAgent {
+  name: string;
+  lastSeenAt: number;
+  role?: string;
+}
+
+export interface AgentLease {
+  client: string;
+  taskId: string;
+  claimedAt: number;
+  expiresAt: number;
+}
+
 export interface LiveState {
   version: number;
   connection: Connection;
@@ -297,6 +312,10 @@ export interface LiveState {
   coBuilders?: CoBuilder[];
   /** Latest connected MCP coding agent heartbeat. */
   agentStatus?: { name: string; lastSeenAt: number } | null;
+  /** All recently active MCP coding agents (multi-agent collaboration). */
+  connectedAgents?: ConnectedAgent[];
+  /** Active task claim lease while an MCP agent is executing. */
+  activeLease?: AgentLease | null;
   stats: {
     rounds: number;
     ideas: number;

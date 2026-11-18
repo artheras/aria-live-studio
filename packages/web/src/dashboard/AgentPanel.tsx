@@ -18,10 +18,14 @@ export function AgentPanel({
   api,
   agentConnected = false,
   agentStatus = null,
+  connectedAgents = [],
+  activeLease = null,
 }: {
   api: AriaApi;
   agentConnected?: boolean;
   agentStatus?: LiveState["agentStatus"] | null;
+  connectedAgents?: LiveState["connectedAgents"];
+  activeLease?: LiveState["activeLease"] | null;
 }) {
   const { toast } = useActions();
   const [conn, setConn] = useState<AgentConnection | null>(null);
@@ -83,6 +87,23 @@ export function AgentPanel({
               : "Waiting for agent poll"}
         </span>
         {pingMs !== null && <span className="muted num">Bridge {pingMs} ms</span>}
+        {activeLease && (
+          <span className="pill pill--info">
+            Lease: {activeLease.client} · {timeAgo(activeLease.claimedAt, Date.now())}
+          </span>
+        )}
+      </div>
+      {connectedAgents && connectedAgents.length > 1 && (
+        <div className="agent-panel__meta">
+          <span className="muted">Active agents:</span>
+          {connectedAgents.map((a) => (
+            <span key={a.name} className="pill">
+              {a.name} · {timeAgo(a.lastSeenAt, Date.now())}
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="agent-panel__meta">
         <Btn
           size="sm"
           variant="ghost"
