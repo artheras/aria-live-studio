@@ -41,6 +41,12 @@
   overflow: hidden;
   text-shadow: var(--ov-shadow);
 }
+.ov-stage-avatar {
+  border-radius: 8px;
+  border: 1.5px solid #f59e0b;
+  object-fit: cover;
+  flex-shrink: 0;
+}
 .ov-stage-title {
   display: inline-flex;
   align-items: center;

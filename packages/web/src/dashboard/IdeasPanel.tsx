@@ -140,17 +140,48 @@ function IdeaList({ round, api }: { round: Round; api: AriaApi }) {
   );
 }
 
+import type { OverlayLayout, OverlayPos, OverlayStageMode } from "../overlay/Overlay";
+
+type MonitorBackdrop = "grid" | "code" | "game";
+type DemoPhase = "live" | "collecting" | "voting" | "executing" | "done";
+
 function BroadcastMonitor({ api, livePreviewUrl }: { api: AriaApi; livePreviewUrl?: string | null }) {
   const { toast } = useActions();
   const [url, setUrl] = useState<string | null>(null);
-  const [include3dStage, setInclude3dStage] = useState(false);
+  const [mode, setMode] = useState<OverlayStageMode>("card3d");
+  const [layout, setLayout] = useState<OverlayLayout>("standard");
+  const [pos, setPos] = useState<OverlayPos>("bl");
+  const [backdrop, setBackdrop] = useState<MonitorBackdrop>("code");
+  const [demoPhase, setDemoPhase] = useState<DemoPhase>("live");
   const stageRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.38);
   const baseUrl = livePreviewUrl || url;
-  const activeUrl =
-    baseUrl && !livePreviewUrl && include3dStage
-      ? `${baseUrl}${baseUrl.includes("?") ? "&" : "?"}mode=stage`
-      : baseUrl;
+
+  const buildUrl = (withDemo: boolean) => {
+    if (!baseUrl) return null;
+    if (livePreviewUrl) return baseUrl;
+    const params = new URLSearchParams();
+    if (pos !== "bl") params.set("pos", pos);
+    if (layout !== "standard") params.set("layout", layout);
+    if (mode !== "none") params.set("mode", mode);
+    if (withDemo && demoPhase !== "live") params.set("demo", demoPhase);
+    const qs = params.toString();
+    if (!qs) return baseUrl;
+    return `${baseUrl}${baseUrl.includes("?") ? "&" : "?"}${qs}`;
+  };
+
+  const activeUrl = buildUrl(true);
+  const exportUrl = buildUrl(false);
+  const iframeSrc = (() => {
+    if (!activeUrl) return null;
+    if (livePreviewUrl) return activeUrl;
+    try {
+      const parsed = new URL(activeUrl, window.location.origin);
+      return `${parsed.pathname}${parsed.search}`;
+    } catch {
+      return activeUrl;
+    }
+  })();
 
   useEffect(() => {
     let active = true;
@@ -185,48 +216,134 @@ function BroadcastMonitor({ api, livePreviewUrl }: { api: AriaApi; livePreviewUr
         <div className="monitor-bezel__bar">
           <span className="monitor-bezel__ch">
             <span className="monitor-bezel__led" aria-hidden="true" />
-            {livePreviewUrl ? "CH-02 // LIVE BUILD SANDBOX" : "CH-01 // OBS OVERLAY 1280×720"}
+            {livePreviewUrl ? "CH-02 // LIVE BUILD SANDBOX" : "CH-01 // OBS OVERLAY 1920×1080"}
           </span>
-          {activeUrl && (
+          {activeUrl && exportUrl && (
             <div className="monitor-bezel__tools">
               {!livePreviewUrl && (
-                <button
-                  type="button"
-                  className={`focus-pill ${include3dStage ? "is-on" : ""}`}
-                  aria-pressed={include3dStage}
-                  onClick={() => setInclude3dStage((v) => !v)}
-                >
-                  <span>3D Stage</span>
-                  <span className="focus-pill__track" aria-hidden="true">
-                    <span className="focus-pill__thumb" />
-                  </span>
-                </button>
+                <>
+                  <div className="monitor-pill-group" role="group" aria-label="3D Mode">
+                    {(
+                      [
+                        ["none", "Card"],
+                        ["stage", "Corner 3D"],
+                        ["card3d", "3D Card"],
+                        ["showcase", "Showcase"],
+                      ] as const
+                    ).map(([v, label]) => (
+                      <button
+                        key={v}
+                        type="button"
+                        className={`monitor-pill ${mode === v ? "is-on" : ""}`}
+                        onClick={() => setMode(v)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  {mode !== "showcase" && (
+                    <div className="monitor-pill-group" role="group" aria-label="Overlay Layout">
+                      {(
+                        [
+                          ["standard", "Std"],
+                          ["compact", "Cmp"],
+                          ["topbar", "Top"],
+                          ["minimal", "Min"],
+                        ] as const
+                      ).map(([v, label]) => (
+                        <button
+                          key={v}
+                          type="button"
+                          className={`monitor-pill ${layout === v ? "is-on" : ""}`}
+                          onClick={() => setLayout(v)}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        className="monitor-pill"
+                        title="Toggle bottom-left / bottom-right corner"
+                        onClick={() => setPos((p) => (p === "bl" ? "br" : "bl"))}
+                      >
+                        {pos.toUpperCase()}
+                      </button>
+                    </div>
+                  )}
+                  <div className="monitor-pill-group" role="group" aria-label="Simulated Stream Backdrop">
+                    {(
+                      [
+                        ["grid", "Grid"],
+                        ["code", "IDE"],
+                        ["game", "Game"],
+                      ] as const
+                    ).map(([v, label]) => (
+                      <button
+                        key={v}
+                        type="button"
+                        className={`monitor-pill ${backdrop === v ? "is-on" : ""}`}
+                        onClick={() => setBackdrop(v)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="monitor-pill-group" role="group" aria-label="Preview Phase">
+                    {(
+                      [
+                        ["live", "Live"],
+                        ["collecting", "Ideas"],
+                        ["voting", "Vote"],
+                        ["executing", "Build"],
+                        ["done", "Done"],
+                      ] as const
+                    ).map(([v, label]) => (
+                      <button
+                        key={v}
+                        type="button"
+                        className={`monitor-pill ${demoPhase === v ? "is-on" : ""}`}
+                        onClick={() => setDemoPhase(v)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </>
               )}
               <Btn
                 size="sm"
                 variant="ghost"
                 onClick={async () => {
-                  const ok = await copyText(activeUrl);
-                  toast(ok ? "success" : "info", ok ? "URL copied" : "Copy failed");
+                  const ok = await copyText(exportUrl);
+                  toast(ok ? "success" : "info", ok ? "OBS URL copied" : "Copy failed");
                 }}
               >
                 Copy URL
               </Btn>
-              <a className="btn btn--secondary btn--sm" href={activeUrl} target="_blank" rel="noreferrer">
+              <a className="btn btn--secondary btn--sm" href={exportUrl} target="_blank" rel="noreferrer">
                 Pop out
               </a>
             </div>
           )}
         </div>
-        <div className="idle-preview__stage monitor-stage" ref={stageRef}>
+        <div className={`idle-preview__stage monitor-stage monitor-stage--${backdrop}`} ref={stageRef}>
+          {backdrop === "code" && !livePreviewUrl && (
+            <div className="monitor-mock-code" aria-hidden="true">
+              <span>{"// src/boss/DragonBoss.ts — Live Stream IDE"}</span>
+              <span>{"export class DragonBoss extends Entity {"}</span>
+              <span>{"  hp = 2400; phase = 'enraged';"}</span>
+              <span>{"  breatheFire(target: Vec2) { spawnFlameArc(this.pos, target); }"}</span>
+              <span>{"}"}</span>
+            </div>
+          )}
           <span className="reticle reticle--tl" aria-hidden="true" />
           <span className="reticle reticle--tr" aria-hidden="true" />
           <span className="reticle reticle--bl" aria-hidden="true" />
           <span className="reticle reticle--br" aria-hidden="true" />
-          {activeUrl ? (
+          {iframeSrc ? (
             <iframe
               className="idle-preview__frame"
-              src={activeUrl}
+              src={iframeSrc}
               title={livePreviewUrl ? "Live build sandbox" : "Live OBS Overlay monitor"}
               sandbox={livePreviewUrl ? "allow-scripts allow-same-origin" : undefined}
               style={{ transform: `scale(${scale})` }}
