@@ -159,6 +159,7 @@ function BroadcastMonitor({
   const [layout, setLayout] = useState<OverlayLayout>("standard");
   const [pos, setPos] = useState<OverlayPos>("bl");
   const [backdrop, setBackdrop] = useState<MonitorBackdrop>("code");
+  const [obsMuted, setObsMuted] = useState(false);
   const stageRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.38);
   const baseUrl = livePreviewUrl || url;
@@ -170,6 +171,7 @@ function BroadcastMonitor({
     if (pos !== "bl") params.set("pos", pos);
     if (layout !== "standard") params.set("layout", layout);
     if (mode !== "none") params.set("mode", mode);
+    if (obsMuted) params.set("mute", "1");
     const qs = params.toString();
     if (!qs) return baseUrl;
     return `${baseUrl}${baseUrl.includes("?") ? "&" : "?"}${qs}`;
@@ -224,7 +226,7 @@ function BroadcastMonitor({
             <div className="monitor-bezel__tools">
               {!livePreviewUrl && (
                 <>
-                  <span className="monitor-phase-badge" title="Follows real round progress">
+                  <span className="monitor-phase-badge" data-phase={phase} title="Follows real round progress">
                     {phase === "idle" ? "Idle" : phase.replace("_", " ")}
                   </span>
                   <div className="monitor-pill-group" role="group" aria-label="3D Mode">
@@ -247,52 +249,62 @@ function BroadcastMonitor({
                     ))}
                   </div>
                   {mode !== "showcase" && (
-                    <div className="monitor-pill-group" role="group" aria-label="Overlay Layout">
-                      {(
-                        [
-                          ["standard", "Std"],
-                          ["compact", "Cmp"],
-                          ["topbar", "Top"],
-                          ["minimal", "Min"],
-                        ] as const
-                      ).map(([v, label]) => (
+                    <>
+                      <div className="monitor-pill-group" role="group" aria-label="Overlay Layout">
+                        {(
+                          [
+                            ["standard", "Std"],
+                            ["compact", "Cmp"],
+                            ["topbar", "Top"],
+                            ["minimal", "Min"],
+                          ] as const
+                        ).map(([v, label]) => (
+                          <button
+                            key={v}
+                            type="button"
+                            className={`monitor-pill ${layout === v ? "is-on" : ""}`}
+                            onClick={() => setLayout(v)}
+                          >
+                            {label}
+                          </button>
+                        ))}
                         <button
-                          key={v}
                           type="button"
-                          className={`monitor-pill ${layout === v ? "is-on" : ""}`}
-                          onClick={() => setLayout(v)}
+                          className="monitor-pill"
+                          title="Toggle bottom-left / bottom-right corner"
+                          onClick={() => setPos((p) => (p === "bl" ? "br" : "bl"))}
                         >
-                          {label}
+                          {pos.toUpperCase()}
                         </button>
-                      ))}
-                      <button
-                        type="button"
-                        className="monitor-pill"
-                        title="Toggle bottom-left / bottom-right corner"
-                        onClick={() => setPos((p) => (p === "bl" ? "br" : "bl"))}
-                      >
-                        {pos.toUpperCase()}
-                      </button>
-                    </div>
+                      </div>
+                      <div className="monitor-pill-group" role="group" aria-label="Simulated Stream Backdrop">
+                        {(
+                          [
+                            ["grid", "Grid"],
+                            ["code", "IDE"],
+                            ["game", "Game"],
+                          ] as const
+                        ).map(([v, label]) => (
+                          <button
+                            key={v}
+                            type="button"
+                            className={`monitor-pill ${backdrop === v ? "is-on" : ""}`}
+                            onClick={() => setBackdrop(v)}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    </>
                   )}
-                  <div className="monitor-pill-group" role="group" aria-label="Simulated Stream Backdrop">
-                    {(
-                      [
-                        ["grid", "Grid"],
-                        ["code", "IDE"],
-                        ["game", "Game"],
-                      ] as const
-                    ).map(([v, label]) => (
-                      <button
-                        key={v}
-                        type="button"
-                        className={`monitor-pill ${backdrop === v ? "is-on" : ""}`}
-                        onClick={() => setBackdrop(v)}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
+                  <button
+                    type="button"
+                    className={`monitor-pill ${obsMuted ? "is-on" : ""}`}
+                    title="Mute OBS Browser Source audio cues to avoid echo"
+                    onClick={() => setObsMuted((m) => !m)}
+                  >
+                    {obsMuted ? "Muted" : "Audio"}
+                  </button>
                 </>
               )}
               <Btn

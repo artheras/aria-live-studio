@@ -2297,10 +2297,10 @@ input[type="checkbox"] {
   grid-template-columns: 360px minmax(0, 1fr);
 }
 .grid--workshop .grid__main {
-  padding: 20px;
+  padding: 16px 20px 18px;
   background: #0e0f17;
   border-right: 1px solid var(--border);
-  gap: 18px;
+  gap: 14px;
 }
 .grid--workshop .panel--round,
 .grid--workshop .panel--activity,
@@ -2506,6 +2506,43 @@ input[type="checkbox"] {
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   background: rgba(14, 15, 23, 0.82);
 }
+.service-pill {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: rgba(20, 22, 34, 0.86);
+  color: var(--text-2);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.14s ease, color 0.14s ease, background 0.14s ease;
+}
+.service-pill:hover {
+  border-color: rgba(167, 139, 250, 0.55);
+  color: #fff;
+}
+.service-pill__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+.service-pill.is-ok .service-pill__dot {
+  background: #34d399;
+  box-shadow: 0 0 8px rgba(52, 211, 153, 0.65);
+}
+.service-pill.is-warn .service-pill__dot {
+  background: #fbbf24;
+  box-shadow: 0 0 8px rgba(251, 191, 36, 0.55);
+}
+
 .monitor-phase-badge {
   font-size: 11px;
   font-weight: 700;
@@ -2516,6 +2553,21 @@ input[type="checkbox"] {
   background: rgba(145, 70, 255, 0.16);
   border: 1px solid rgba(167, 139, 250, 0.35);
   color: #dcd0ff;
+}
+.monitor-phase-badge[data-phase="voting"] {
+  background: rgba(56, 189, 248, 0.16);
+  border-color: rgba(56, 189, 248, 0.45);
+  color: #bae6fd;
+}
+.monitor-phase-badge[data-phase="executing"] {
+  background: rgba(245, 158, 11, 0.18);
+  border-color: rgba(245, 158, 11, 0.5);
+  color: #fde68a;
+}
+.monitor-phase-badge[data-phase="done"] {
+  background: rgba(16, 185, 129, 0.18);
+  border-color: rgba(16, 185, 129, 0.48);
+  color: #a7f3d0;
 }
 .monitor-pill-group {
   display: inline-flex;
