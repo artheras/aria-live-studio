@@ -2599,6 +2599,38 @@ input[type="checkbox"] {
   background: rgba(145, 70, 255, 0.28);
   color: #f4ecff;
 }
+.monitor-popover-anchor {
+  position: relative;
+}
+.monitor-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 40;
+  min-width: 340px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: rgba(16, 14, 34, 0.94);
+  backdrop-filter: blur(18px);
+  border: 1px solid rgba(167, 139, 250, 0.24);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.monitor-popover__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+.monitor-popover__label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted, #9b9bb0);
+}
 .monitor-stage--code {
   background:
     radial-gradient(circle at 75% 25%, rgba(56, 189, 248, 0.08), transparent 45%),

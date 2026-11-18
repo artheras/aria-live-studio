@@ -172,6 +172,7 @@ function BroadcastMonitor({
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [obsMuted, setObsMuted] = useState(false);
+  const [customizeOpen, setCustomizeOpen] = useState(false);
   const stageRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.38);
   const baseUrl = livePreviewUrl || url;
@@ -232,20 +233,16 @@ function BroadcastMonitor({
         <div className="monitor-bezel__bar">
           <span className="monitor-bezel__ch">
             <span className="monitor-bezel__led" aria-hidden="true" />
-            {livePreviewUrl ? "CH-02 // LIVE BUILD SANDBOX" : "CH-01 // OBS OVERLAY 1920×1080"}
+            {livePreviewUrl ? "Live Build Sandbox" : "1080p Live Source"}
           </span>
           {activeUrl && (
             <div className="monitor-bezel__tools">
               {!livePreviewUrl && (
                 <>
-                  <span className="monitor-phase-badge" data-phase={phase} title="Follows real round progress">
-                    {phase === "idle" ? "Idle" : phase.replace("_", " ")}
-                  </span>
-                  <div className="monitor-pill-group" role="group" aria-label="3D Mode">
+                  <div className="monitor-pill-group" role="group" aria-label="Overlay Mode">
                     {(
                       [
                         ["none", "Card"],
-                        ["stage", "Corner 3D"],
                         ["card3d", "3D Card"],
                         ["showcase", "Showcase"],
                       ] as const
@@ -260,105 +257,169 @@ function BroadcastMonitor({
                       </button>
                     ))}
                   </div>
-                  {mode !== "showcase" && (
-                    <>
-                      <div className="monitor-pill-group" role="group" aria-label="Overlay Layout">
-                        {(
-                          [
-                            ["standard", "Std"],
-                            ["compact", "Cmp"],
-                            ["topbar", "Top"],
-                            ["minimal", "Min"],
-                          ] as const
-                        ).map(([v, label]) => (
-                          <button
-                            key={v}
-                            type="button"
-                            className={`monitor-pill ${layout === v ? "is-on" : ""}`}
-                            onClick={() => setLayout(v)}
-                          >
-                            {label}
-                          </button>
-                        ))}
-                        <button
-                          type="button"
-                          className="monitor-pill"
-                          title="Toggle bottom-left / bottom-right corner"
-                          onClick={() => setPos((p) => (p === "bl" ? "br" : "bl"))}
-                        >
-                          {pos.toUpperCase()}
-                        </button>
-                      </div>
-                      <div className="monitor-pill-group" role="group" aria-label="OBS Monitor Backdrop">
-                        {(
-                          [
-                            ["grid", "Grid"],
-                            ["code", "Workspace"],
-                            ["custom", "Custom BG"],
-                          ] as const
-                        ).map(([v, label]) => (
-                          <button
-                            key={v}
-                            type="button"
-                            className={`monitor-pill ${backdrop === v ? "is-on" : ""}`}
-                            onClick={() => {
-                              setBackdrop(v);
-                              if (v === "custom" && !customBg) {
-                                fileInputRef.current?.click();
-                              }
-                            }}
-                          >
-                            {label}
-                          </button>
-                        ))}
-                        {backdrop === "custom" && (
-                          <button
-                            type="button"
-                            className="monitor-pill"
-                            title="Upload a real screenshot of your IDE or game"
-                            onClick={() => fileInputRef.current?.click()}
-                          >
-                            {customBg ? "Change" : "Upload"}
-                          </button>
+                  <div className="monitor-popover-anchor">
+                    <button
+                      type="button"
+                      className={`monitor-pill monitor-pill--trigger ${customizeOpen ? "is-on" : ""}`}
+                      aria-expanded={customizeOpen}
+                      onClick={() => setCustomizeOpen((o) => !o)}
+                    >
+                      Customize ▾
+                    </button>
+                    {customizeOpen && (
+                      <div className="monitor-popover" role="dialog" aria-label="Customize OBS Overlay">
+                        <div className="monitor-popover__row">
+                          <span className="monitor-popover__label">Stage</span>
+                          <div className="monitor-pill-group">
+                            {(
+                              [
+                                ["none", "Card"],
+                                ["stage", "Corner 3D"],
+                                ["card3d", "3D Card"],
+                                ["showcase", "Showcase"],
+                              ] as const
+                            ).map(([v, label]) => (
+                              <button
+                                key={v}
+                                type="button"
+                                className={`monitor-pill ${mode === v ? "is-on" : ""}`}
+                                onClick={() => setMode(v)}
+                              >
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        {mode !== "showcase" && (
+                          <>
+                            <div className="monitor-popover__row">
+                              <span className="monitor-popover__label">Layout</span>
+                              <div className="monitor-pill-group">
+                                {(
+                                  [
+                                    ["standard", "Std"],
+                                    ["compact", "Cmp"],
+                                    ["topbar", "Top"],
+                                    ["minimal", "Min"],
+                                  ] as const
+                                ).map(([v, label]) => (
+                                  <button
+                                    key={v}
+                                    type="button"
+                                    className={`monitor-pill ${layout === v ? "is-on" : ""}`}
+                                    onClick={() => setLayout(v)}
+                                  >
+                                    {label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="monitor-popover__row">
+                              <span className="monitor-popover__label">Corner</span>
+                              <div className="monitor-pill-group">
+                                {(
+                                  [
+                                    ["bl", "Bottom Left"],
+                                    ["br", "Bottom Right"],
+                                  ] as const
+                                ).map(([v, label]) => (
+                                  <button
+                                    key={v}
+                                    type="button"
+                                    className={`monitor-pill ${pos === v ? "is-on" : ""}`}
+                                    onClick={() => setPos(v)}
+                                  >
+                                    {label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="monitor-popover__row">
+                              <span className="monitor-popover__label">Backdrop</span>
+                              <div className="monitor-pill-group">
+                                {(
+                                  [
+                                    ["grid", "Grid"],
+                                    ["code", "Workspace"],
+                                    ["custom", "Custom BG"],
+                                  ] as const
+                                ).map(([v, label]) => (
+                                  <button
+                                    key={v}
+                                    type="button"
+                                    className={`monitor-pill ${backdrop === v ? "is-on" : ""}`}
+                                    onClick={() => {
+                                      setBackdrop(v);
+                                      if (v === "custom" && !customBg) {
+                                        fileInputRef.current?.click();
+                                      }
+                                    }}
+                                  >
+                                    {label}
+                                  </button>
+                                ))}
+                                {backdrop === "custom" && (
+                                  <button
+                                    type="button"
+                                    className="monitor-pill"
+                                    onClick={() => fileInputRef.current?.click()}
+                                  >
+                                    {customBg ? "Change" : "Upload"}
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </>
                         )}
+                        <div className="monitor-popover__row">
+                          <span className="monitor-popover__label">Audio</span>
+                          <div className="monitor-pill-group">
+                            <button
+                              type="button"
+                              className={`monitor-pill ${!obsMuted ? "is-on" : ""}`}
+                              onClick={() => setObsMuted(false)}
+                            >
+                              Active
+                            </button>
+                            <button
+                              type="button"
+                              className={`monitor-pill ${obsMuted ? "is-on" : ""}`}
+                              onClick={() => setObsMuted(true)}
+                            >
+                              Muted
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*"
-                        style={{ display: "none" }}
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (!file) return;
-                          const reader = new FileReader();
-                          reader.onload = () => {
-                            if (typeof reader.result === "string") {
-                              setCustomBg(reader.result);
-                              setBackdrop("custom");
-                              try {
-                                window.localStorage.setItem("aria.obs.customBackdrop", reader.result);
-                              } catch { /* ignore quota */ }
-                            }
-                          };
-                          reader.readAsDataURL(file);
-                          e.target.value = "";
-                        }}
-                      />
-                    </>
-                  )}
-                  <button
-                    type="button"
-                    className={`monitor-pill ${obsMuted ? "is-on" : ""}`}
-                    title="Mute OBS Browser Source audio cues to avoid echo"
-                    onClick={() => setObsMuted((m) => !m)}
-                  >
-                    {obsMuted ? "Muted" : "Audio"}
-                  </button>
+                    )}
+                  </div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    style={{ display: "none" }}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        if (typeof reader.result === "string") {
+                          setCustomBg(reader.result);
+                          setBackdrop("custom");
+                          try {
+                            window.localStorage.setItem("aria.obs.customBackdrop", reader.result);
+                          } catch { /* ignore quota */ }
+                        }
+                      };
+                      reader.readAsDataURL(file);
+                      e.target.value = "";
+                    }}
+                  />
                 </>
               )}
               <Btn
                 size="sm"
-                variant="ghost"
+                variant="primary"
                 onClick={async () => {
                   const ok = await copyText(activeUrl);
                   toast(ok ? "success" : "info", ok ? "OBS URL copied" : "Copy failed");
@@ -419,10 +480,6 @@ function BroadcastMonitor({
               <span className="muted">Click Upload to preview over your real IDE or game screenshot</span>
             </div>
           )}
-          <span className="reticle reticle--tl" aria-hidden="true" />
-          <span className="reticle reticle--tr" aria-hidden="true" />
-          <span className="reticle reticle--bl" aria-hidden="true" />
-          <span className="reticle reticle--br" aria-hidden="true" />
           {iframeSrc ? (
             <iframe
               className="idle-preview__frame"
