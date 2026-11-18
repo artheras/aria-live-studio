@@ -88,8 +88,10 @@ export function AgentPanel({
         </span>
         {pingMs !== null && <span className="muted num">Bridge {pingMs} ms</span>}
         {activeLease && (
-          <span className="pill pill--info">
-            Lease: {activeLease.client} · {timeAgo(activeLease.claimedAt, Date.now())}
+          <span className={`pill pill--${Date.now() > activeLease.expiresAt ? "warn" : "info"}`}>
+            {Date.now() > activeLease.expiresAt
+              ? `Lease expired (${activeLease.client}) — cancel or retry`
+              : `Lease: ${activeLease.client} · ${timeAgo(activeLease.claimedAt, Date.now())}`}
           </span>
         )}
       </div>

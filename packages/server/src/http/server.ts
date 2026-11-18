@@ -18,8 +18,9 @@
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { execFile } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { promisify } from "node:util";
-import { createReadStream, existsSync, statSync } from "node:fs";
+import { createReadStream, existsSync, mkdirSync, statSync, writeFileSync } from "node:fs";
 import { extname, join, normalize, resolve, sep } from "node:path";
 import type { AddressInfo } from "node:net";
 import type { ApiError, ClientRole } from "@aria-live/shared";
@@ -37,6 +38,16 @@ import { WsHub } from "./ws.ts";
 
 const execFileAsync = promisify(execFile);
 export const BODY_LIMIT = 64 * 1024;
+const MEDIA_BODY_LIMIT = 12 * 1024 * 1024;
+const MEDIA_MIME: Record<string, { mime: string; kind: "video" | "image" }> = {
+  ".mp4": { mime: "video/mp4", kind: "video" },
+  ".webm": { mime: "video/webm", kind: "video" },
+  ".mov": { mime: "video/quicktime", kind: "video" },
+  ".png": { mime: "image/png", kind: "image" },
+  ".jpg": { mime: "image/jpeg", kind: "image" },
+  ".jpeg": { mime: "image/jpeg", kind: "image" },
+  ".webp": { mime: "image/webp", kind: "image" },
+};
 const MAX_WAIT_SEC = 60;
 
 export class HttpError extends Error {
@@ -134,14 +145,14 @@ function sendError(res: ServerResponse, status: number, code: string, error: str
   sendJson(res, status, body);
 }
 
-async function readBody(req: IncomingMessage): Promise<Record<string, unknown>> {
+async function readBody(req: IncomingMessage, maxBytes = BODY_LIMIT): Promise<Record<string, unknown>> {
   const len = Number(req.headers["content-length"] ?? 0);
-  if (len > BODY_LIMIT) throw new HttpError(413, "too_large", "Request body too large");
+  if (len > maxBytes) throw new HttpError(413, "too_large", "Request body too large");
   const chunks: Buffer[] = [];
   let size = 0;
   for await (const chunk of req) {
     size += (chunk as Buffer).length;
-    if (size > BODY_LIMIT) throw new HttpError(413, "too_large", "Request body too large");
+    if (size > maxBytes) throw new HttpError(413, "too_large", "Request body too large");
     chunks.push(chunk as Buffer);
   }
   if (size === 0) return {};
@@ -422,6 +433,24 @@ export function createApp(deps: AppDeps): App {
     res.writeHead(204).end();
     return undefined;
   });
+  route("POST /api/agent/media", "agent", ({ body }) => {
+    const filename = typeof body.filename === "string" ? body.filename.trim() : "";
+    const dataBase64 = typeof body.dataBase64 === "string" ? body.dataBase64.trim() : "";
+    if (!filename || !dataBase64) throw new HttpError(400, "bad_input", "filename and dataBase64 are required");
+    const ext = extname(filename).toLowerCase();
+    const spec = MEDIA_MIME[ext];
+    if (!spec) throw new HttpError(400, "bad_media_type", `Unsupported extension: ${ext}`);
+    const cleaned = dataBase64.replace(/^data:[^;]+;base64,/, "");
+    const buf = Buffer.from(cleaned, "base64");
+    if (buf.length === 0 || buf.length > 8 * 1024 * 1024) {
+      throw new HttpError(413, "too_large", "Decoded media must be 1B–8MB");
+    }
+    const mediaDir = join(store.dataDir, "media");
+    mkdirSync(mediaDir, { recursive: true });
+    const outName = `${randomUUID()}${ext}`;
+    writeFileSync(join(mediaDir, outName), buf, { mode: 0o600 });
+    return { url: `/media/${outName}`, mediaKind: spec.kind };
+  });
 
   // ── Twitch Extension EBS endpoints (JWT signed with TWITCH_EXTENSION_SECRET) ──
   const extClaims = (req: IncomingMessage, res: ServerResponse): ExtensionJwtClaims => {
@@ -509,7 +538,10 @@ export function createApp(deps: AppDeps): App {
           }
         }
       }
-      const body = method === "GET" || method === "HEAD" ? {} : await readBody(req);
+      const body =
+        method === "GET" || method === "HEAD"
+          ? {}
+          : await readBody(req, url.pathname === "/api/agent/media" ? MEDIA_BODY_LIMIT : BODY_LIMIT);
       const out = await r.handler({ req, res, url, params, session, body });
       if (!res.headersSent && !res.writableEnded) sendJson(res, 200, out ?? null);
       return;
@@ -606,6 +638,22 @@ export function createApp(deps: AppDeps): App {
           activeAgents: (st.connectedAgents ?? []).length,
           hasActiveLease: Boolean(st.activeLease),
         });
+      }
+      if (url.pathname.startsWith("/media/") && (req.method === "GET" || req.method === "HEAD")) {
+        const name = url.pathname.slice("/media/".length);
+        if (!/^[A-Za-z0-9._-]+$/.test(name)) return sendError(res, 400, "bad_path", "Bad media path");
+        const spec = MEDIA_MIME[extname(name).toLowerCase()];
+        if (!spec) return sendError(res, 404, "not_found", "Not found");
+        const mediaFile = join(store.dataDir, "media", name);
+        if (!existsSync(mediaFile) || !statSync(mediaFile).isFile()) return sendError(res, 404, "not_found", "Not found");
+        res.writeHead(200, {
+          "Content-Type": spec.mime,
+          "Cache-Control": "public, max-age=3600",
+          "X-Content-Type-Options": "nosniff",
+        });
+        if (req.method === "HEAD") return void res.end();
+        createReadStream(mediaFile).pipe(res);
+        return;
       }
       if (url.pathname.startsWith("/api/")) return handleApi(req, res, url);
       if (await mcp.handle(req, res, url)) return;
