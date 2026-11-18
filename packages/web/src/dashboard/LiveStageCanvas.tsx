@@ -413,6 +413,10 @@ export function LiveStageCanvas({
       wpIdx: number;
       phase: number;
       hopUntil: number;
+      vx: number;
+      vz: number;
+      stridePhase: number;
+      walkBlend: number;
       head: THREE.Object3D;
       leftLeg: THREE.Object3D;
       rightLeg: THREE.Object3D;
@@ -468,11 +472,12 @@ export function LiveStageCanvas({
       const eyeR = eyeL.clone();
       eyeR.position.x = 0.14;
       const shoeL = new THREE.Mesh(voxelGeo, legMat);
-      shoeL.scale.set(0.28, 0.1, 0.34);
-      shoeL.position.set(-0.14, 0.08, 0.04);
+      shoeL.scale.set(1.16, 0.22, 1.3);
+      shoeL.position.set(0, -0.42, 0.12);
+      leftLeg.add(shoeL);
       const shoeR = shoeL.clone();
-      shoeR.position.x = 0.14;
-      g.add(head, hair, cap, body, leftLeg, rightLeg, leftArm, rightArm, eyeL, eyeR, shoeL, shoeR);
+      rightLeg.add(shoeR);
+      g.add(head, hair, cap, body, leftLeg, rightLeg, leftArm, rightArm, eyeL, eyeR);
       g.position.set(x, y, z);
       g.rotation.y = rotY;
       g.scale.setScalar(1.22);
@@ -484,6 +489,10 @@ export function LiveStageCanvas({
         wpIdx: 0,
         phase,
         hopUntil: 0,
+        vx: 0,
+        vz: 0,
+        stridePhase: phase,
+        walkBlend: 0,
         head,
         leftLeg,
         rightLeg,
@@ -977,6 +986,8 @@ export function LiveStageCanvas({
 
     let raf = 0;
     let frame = 0;
+    let prevMs = performance.now();
+    let elapsedSec = 0;
     let seenPhase = stateRef.current.round?.phase ?? "idle";
     let seenVotes = stateRef.current.round?.tallies.reduce((sum, row) => sum + row.votes, 0) ?? 0;
     let seenCelebration = stateRef.current.celebrations?.at(-1)?.id ?? null;
@@ -986,8 +997,11 @@ export function LiveStageCanvas({
 
     const animate = () => {
       frame += 1;
-      const t = frame * 0.016;
       const nowMs = performance.now();
+      const dt = Math.min(0.05, Math.max(0.004, (nowMs - prevMs) / 1000));
+      prevMs = nowMs;
+      elapsedSec += dt;
+      const t = elapsedSec;
 
       const pal = resolveThemePalette(stateRef.current.round?.prompt, stateRef.current.round?.modifiers);
       targetFlag.setHex(pal.crystal);
@@ -1095,7 +1109,7 @@ export function LiveStageCanvas({
       const followRoute = (pos: THREE.Vector3, points: THREE.Vector3[], idx: number, speed: number) => {
         let i = idx;
         let goal = points[i % points.length]!;
-        if (Math.hypot(goal.x - pos.x, goal.z - pos.z) < 0.18) {
+        if (Math.hypot(goal.x - pos.x, goal.z - pos.z) < 0.35) {
           i = (i + 1) % points.length;
           goal = points[i]!;
         }
@@ -1151,29 +1165,44 @@ export function LiveStageCanvas({
         const hop = hopping ? Math.sin(((v.hopUntil - nowMs) / 720) * Math.PI) * 0.42 : 0;
         const st = activeStations ? activeStations[idx % activeStations.length] : undefined;
         let moving = false;
-        let dx = 0;
-        let dz = 0;
         let holding = false;
+        let tvx = 0;
+        let tvz = 0;
 
         if (st) {
-          dx = st.x - v.group.position.x;
-          dz = st.z - v.group.position.z;
+          const dx = st.x - v.group.position.x;
+          const dz = st.z - v.group.position.z;
           const dist = Math.hypot(dx, dz);
-          if (dist > 0.14) {
-            const stepDist = Math.min(dist, phase === "executing" ? 0.065 : 0.052);
-            v.group.position.x += (dx / dist) * stepDist;
-            v.group.position.z += (dz / dist) * stepDist;
-            moving = true;
+          if (dist > 0.12) {
+            const maxSpd = phase === "executing" ? 3.4 : 2.7;
+            const desiredSpd = maxSpd * Math.min(1, dist / 1.1);
+            tvx = (dx / dist) * desiredSpd;
+            tvz = (dz / dist) * desiredSpd;
+            moving = desiredSpd > 0.18;
           } else {
             holding = true;
           }
         } else {
-          const walk = followRoute(v.group.position, v.waypoints, v.wpIdx, 0.024);
-          v.wpIdx = walk.i;
-          moving = walk.moving;
-          dx = walk.dx;
-          dz = walk.dz;
+          // Smooth corner-rounding patrol along villageLoop waypoints
+          let goal = v.waypoints[v.wpIdx % v.waypoints.length]!;
+          if (Math.hypot(goal.x - v.group.position.x, goal.z - v.group.position.z) < 0.58) {
+            v.wpIdx = (v.wpIdx + 1) % v.waypoints.length;
+            goal = v.waypoints[v.wpIdx]!;
+          }
+          const dx = goal.x - v.group.position.x;
+          const dz = goal.z - v.group.position.z;
+          const dist = Math.hypot(dx, dz);
+          if (dist > 0.04) {
+            tvx = (dx / dist) * 1.55;
+            tvz = (dz / dist) * 1.55;
+            moving = true;
+          }
         }
+
+        // Smooth velocity damping (zero abrupt starts/stops or direction snaps)
+        const accel = 1 - Math.exp(-dt * 7.5);
+        v.vx += (tvx - v.vx) * accel;
+        v.vz += (tvz - v.vz) * accel;
 
         // Pairwise personal-space repulsion so two engineers never overlap or clip through each other
         for (let j = 0; j < villagers.length; j++) {
@@ -1183,32 +1212,52 @@ export function LiveStageCanvas({
           const rz = v.group.position.z - other.group.position.z;
           const d = Math.hypot(rx, rz);
           if (d > 0.001 && d < 1.45 && !holding) {
-            const push = ((1.45 - d) / 1.45) * 0.022;
-            v.group.position.x += (rx / d) * push;
-            v.group.position.z += (rz / d) * push;
+            const push = ((1.45 - d) / 1.45) * 1.15;
+            v.vx += (rx / d) * push * accel;
+            v.vz += (rz / d) * push * accel;
           }
         }
 
-        if (holding && st) {
-          const face = Math.atan2(st.faceX - v.group.position.x, st.faceZ - v.group.position.z);
-          v.group.rotation.y += Math.sin(face - v.group.rotation.y) * 0.18;
-        } else if (moving) {
-          const targetRot = Math.atan2(dx, dz);
-          v.group.rotation.y += Math.sin(targetRot - v.group.rotation.y) * 0.16;
-        }
+        v.group.position.x += v.vx * dt;
+        v.group.position.z += v.vz * dt;
+        const speed = Math.hypot(v.vx, v.vz);
 
-        // Smooth elevation adaptation when climbing onto the Central Workshop terrace
+        // Shortest-arc yaw alignment
+        const desiredYaw =
+          holding && st
+            ? Math.atan2(st.faceX - v.group.position.x, st.faceZ - v.group.position.z)
+            : speed > 0.08
+              ? Math.atan2(v.vx, v.vz)
+              : v.group.rotation.y;
+        const yawDiff = Math.atan2(
+          Math.sin(desiredYaw - v.group.rotation.y),
+          Math.cos(desiredYaw - v.group.rotation.y),
+        );
+        v.group.rotation.y += yawDiff * (1 - Math.exp(-dt * 9.5));
+
+        // Smooth walk-to-idle blend & continuous distance-locked stride phase (no snap/skate)
+        const targetBlend = moving ? Math.min(1, speed / 1.35) : 0;
+        v.walkBlend += (targetBlend - v.walkBlend) * (1 - Math.exp(-dt * 9.0));
+        v.stridePhase += dt * (1.8 + speed * 3.4);
+        const step = Math.sin(v.stridePhase);
+        const stepCos = Math.cos(v.stridePhase);
+
+        // Smooth elevation adaptation + natural double-frequency stride bounce
         const targetElev = st && holding && st.elev !== undefined ? st.elev : v.base.y;
         const curBaseY = v.group.position.y - hop;
-        const nextBaseY = curBaseY + (targetElev - curBaseY) * 0.16;
+        const nextBaseY = curBaseY + (targetElev - curBaseY) * (1 - Math.exp(-dt * 8.5));
+        const strideBob = Math.abs(step) * 0.068 * v.walkBlend;
 
-        const walkSpeed = moving ? 6.5 : 2.2;
-        const step = Math.sin(t * walkSpeed + v.phase);
-        v.group.position.y = nextBaseY + hop;
-        v.leftLeg.rotation.x = hopping ? -0.5 : moving ? step * 0.55 : step * 0.12;
-        v.rightLeg.rotation.x = hopping ? 0.5 : moving ? -step * 0.55 : -step * 0.12;
-        v.head.rotation.x = 0;
-        v.head.rotation.y = 0;
+        v.group.position.y = nextBaseY + hop + strideBob;
+        // Subtle forward lean + weight shift & turn banking
+        v.group.rotation.x = 0.055 * v.walkBlend;
+        v.group.rotation.z = -yawDiff * 0.08 * v.walkBlend + step * 0.036 * v.walkBlend;
+
+        const legAmp = 0.08 * (1 - v.walkBlend) + 0.62 * v.walkBlend;
+        v.leftLeg.rotation.x = hopping ? -0.5 : step * legAmp;
+        v.rightLeg.rotation.x = hopping ? 0.5 : -step * legAmp;
+        v.head.rotation.x = Math.sin(v.stridePhase * 2) * 0.035 * v.walkBlend;
+        v.head.rotation.y = yawDiff * 0.25 * v.walkBlend;
 
         for (const gm of v.glowMats) {
           gm.emissiveIntensity = holding ? 1.35 : 0.75;
@@ -1218,27 +1267,40 @@ export function LiveStageCanvas({
           v.group.position.y = nextBaseY + Math.abs(Math.sin(t * 5 + v.phase)) * 0.36;
           v.leftArm.rotation.x = -2.35;
           v.rightArm.rotation.x = -2.35;
+          v.leftArm.rotation.z = 0;
+          v.rightArm.rotation.z = 0;
           v.head.rotation.y = Math.sin(t * 3 + idx) * 0.22;
         } else if (phase === "executing" && holding) {
           v.leftArm.rotation.x = step * 0.25;
           v.rightArm.rotation.x = -0.95 - Math.abs(Math.sin(t * 9 + v.phase)) * 1.25;
+          v.leftArm.rotation.z = 0;
+          v.rightArm.rotation.z = 0;
           v.head.rotation.x = 0.18;
           if (idx === 3 && frame % 18 === 0) spark(0xf5b942, { x: 0.15, y: 2.2, z: 0.4 }, 5);
           if (idx === 1 && frame % 24 === 0) spark(0x38bdf8, { x: 2.35, y: 2.3, z: 0.4 }, 4);
         } else if ((phase === "planning" || phase === "awaiting_approval") && holding) {
           v.leftArm.rotation.x = -0.85 + Math.sin(t * 3.2 + idx) * 0.25;
           v.rightArm.rotation.x = -0.65;
+          v.leftArm.rotation.z = 0;
+          v.rightArm.rotation.z = 0;
           v.head.rotation.x = Math.sin(t * 4 + idx) * 0.14;
           v.head.rotation.y = Math.cos(t * 2.2 + idx) * 0.2;
         } else if (phase === "collecting" && holding) {
           v.leftArm.rotation.x = -1.35 + Math.sin(t * 4 + v.phase) * 0.35;
           v.rightArm.rotation.x = -0.35;
+          v.leftArm.rotation.z = 0;
+          v.rightArm.rotation.z = 0;
         } else if (phase === "voting" && holding) {
           v.leftArm.rotation.x = -0.9 + Math.sin(t * 3.5 + idx) * 0.3;
           v.rightArm.rotation.x = -0.9 - Math.sin(t * 3.5 + idx) * 0.3;
+          v.leftArm.rotation.z = 0;
+          v.rightArm.rotation.z = 0;
         } else {
-          v.leftArm.rotation.x = hopping ? -0.8 : moving ? step * 0.45 : step * 0.12;
-          v.rightArm.rotation.x = hopping ? -0.8 : moving ? -step * 0.45 : -step * 0.12;
+          const armAmp = 0.08 * (1 - v.walkBlend) + 0.48 * v.walkBlend;
+          v.leftArm.rotation.x = hopping ? -0.8 : -step * armAmp - 0.06 * v.walkBlend;
+          v.rightArm.rotation.x = hopping ? -0.8 : step * armAmp - 0.06 * v.walkBlend;
+          v.leftArm.rotation.z = 0.05 + Math.abs(stepCos) * 0.04 * v.walkBlend;
+          v.rightArm.rotation.z = -0.05 - Math.abs(stepCos) * 0.04 * v.walkBlend;
         }
       });
 
