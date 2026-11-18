@@ -143,35 +143,37 @@ function IdeaList({ round, api }: { round: Round; api: AriaApi }) {
 import type { OverlayLayout, OverlayPos, OverlayStageMode } from "../overlay/Overlay";
 
 type MonitorBackdrop = "grid" | "code" | "game";
-type DemoPhase = "live" | "collecting" | "voting" | "executing" | "done";
 
-function BroadcastMonitor({ api, livePreviewUrl }: { api: AriaApi; livePreviewUrl?: string | null }) {
+function BroadcastMonitor({
+  api,
+  livePreviewUrl,
+  phase = "idle",
+}: {
+  api: AriaApi;
+  livePreviewUrl?: string | null;
+  phase?: Round["phase"];
+}) {
   const { toast } = useActions();
   const [url, setUrl] = useState<string | null>(null);
   const [mode, setMode] = useState<OverlayStageMode>("card3d");
   const [layout, setLayout] = useState<OverlayLayout>("standard");
   const [pos, setPos] = useState<OverlayPos>("bl");
   const [backdrop, setBackdrop] = useState<MonitorBackdrop>("code");
-  const [demoPhase, setDemoPhase] = useState<DemoPhase>("live");
   const stageRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.38);
   const baseUrl = livePreviewUrl || url;
 
-  const buildUrl = (withDemo: boolean) => {
+  const activeUrl = (() => {
     if (!baseUrl) return null;
     if (livePreviewUrl) return baseUrl;
     const params = new URLSearchParams();
     if (pos !== "bl") params.set("pos", pos);
     if (layout !== "standard") params.set("layout", layout);
     if (mode !== "none") params.set("mode", mode);
-    if (withDemo && demoPhase !== "live") params.set("demo", demoPhase);
     const qs = params.toString();
     if (!qs) return baseUrl;
     return `${baseUrl}${baseUrl.includes("?") ? "&" : "?"}${qs}`;
-  };
-
-  const activeUrl = buildUrl(true);
-  const exportUrl = buildUrl(false);
+  })();
   const iframeSrc = (() => {
     if (!activeUrl) return null;
     if (livePreviewUrl) return activeUrl;
@@ -218,10 +220,13 @@ function BroadcastMonitor({ api, livePreviewUrl }: { api: AriaApi; livePreviewUr
             <span className="monitor-bezel__led" aria-hidden="true" />
             {livePreviewUrl ? "CH-02 // LIVE BUILD SANDBOX" : "CH-01 // OBS OVERLAY 1920×1080"}
           </span>
-          {activeUrl && exportUrl && (
+          {activeUrl && (
             <div className="monitor-bezel__tools">
               {!livePreviewUrl && (
                 <>
+                  <span className="monitor-phase-badge" title="Follows real round progress">
+                    {phase === "idle" ? "Idle" : phase.replace("_", " ")}
+                  </span>
                   <div className="monitor-pill-group" role="group" aria-label="3D Mode">
                     {(
                       [
@@ -288,39 +293,19 @@ function BroadcastMonitor({ api, livePreviewUrl }: { api: AriaApi; livePreviewUr
                       </button>
                     ))}
                   </div>
-                  <div className="monitor-pill-group" role="group" aria-label="Preview Phase">
-                    {(
-                      [
-                        ["live", "Live"],
-                        ["collecting", "Ideas"],
-                        ["voting", "Vote"],
-                        ["executing", "Build"],
-                        ["done", "Done"],
-                      ] as const
-                    ).map(([v, label]) => (
-                      <button
-                        key={v}
-                        type="button"
-                        className={`monitor-pill ${demoPhase === v ? "is-on" : ""}`}
-                        onClick={() => setDemoPhase(v)}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
                 </>
               )}
               <Btn
                 size="sm"
                 variant="ghost"
                 onClick={async () => {
-                  const ok = await copyText(exportUrl);
+                  const ok = await copyText(activeUrl);
                   toast(ok ? "success" : "info", ok ? "OBS URL copied" : "Copy failed");
                 }}
               >
                 Copy URL
               </Btn>
-              <a className="btn btn--secondary btn--sm" href={exportUrl} target="_blank" rel="noreferrer">
+              <a className="btn btn--secondary btn--sm" href={activeUrl} target="_blank" rel="noreferrer">
                 Pop out
               </a>
             </div>
@@ -571,7 +556,7 @@ export function IdeasPanel({
             )}
           </div>
         ) : activeView === "overlay" ? (
-          <BroadcastMonitor api={api} />
+          <BroadcastMonitor api={api} phase={phase} />
         ) : activeView === "build" && previewUrl ? (
           <BroadcastMonitor api={api} livePreviewUrl={previewUrl} />
         ) : (
