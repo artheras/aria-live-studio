@@ -1366,44 +1366,153 @@ export function LiveStageCanvas({
           gm.emissiveIntensity = holding ? 1.35 : 0.75;
         }
 
-        if (phase === "done") {
+        const execFailed =
+          phase === "rejected" ||
+          (phase === "done" && (round?.execution?.status === "failed" || round?.execution?.status === "cancelled"));
+        const latestStep = round?.execution?.steps.at(-1);
+        const isErrorStep = latestStep?.kind === "error";
+
+        if (execFailed) {
+          v.leftArm.rotation.x = -0.25;
+          v.rightArm.rotation.x = -0.25;
+          v.leftArm.rotation.z = 0.18;
+          v.rightArm.rotation.z = -0.18;
+          v.head.rotation.x = 0.26;
+          v.head.rotation.y = Math.sin(t * 2.8 + idx) * 0.2;
+        } else if (phase === "done") {
           v.group.position.y = nextBaseY + Math.abs(Math.sin(t * 5 + v.phase)) * 0.36;
           v.leftArm.rotation.x = -2.35;
           v.rightArm.rotation.x = -2.35;
           v.leftArm.rotation.z = 0;
           v.rightArm.rotation.z = 0;
+          v.head.rotation.x = -0.1;
           v.head.rotation.y = Math.sin(t * 3 + idx) * 0.22;
         } else if (phase === "executing" && holding) {
-          v.leftArm.rotation.x = step * 0.25;
-          v.rightArm.rotation.x = -0.95 - Math.abs(Math.sin(t * 9 + v.phase)) * 1.25;
-          v.leftArm.rotation.z = 0;
-          v.rightArm.rotation.z = 0;
-          v.head.rotation.x = 0.18;
-          if (idx === 3 && frame % 18 === 0) spark(0xf5b942, { x: 0.15, y: 2.2, z: 0.4 }, 5);
-          if (idx === 1 && frame % 24 === 0) spark(0x38bdf8, { x: 2.35, y: 2.3, z: 0.4 }, 4);
-        } else if ((phase === "planning" || phase === "awaiting_approval") && holding) {
-          v.leftArm.rotation.x = -0.85 + Math.sin(t * 3.2 + idx) * 0.25;
-          v.rightArm.rotation.x = -0.65;
-          v.leftArm.rotation.z = 0;
-          v.rightArm.rotation.z = 0;
-          v.head.rotation.x = Math.sin(t * 4 + idx) * 0.14;
-          v.head.rotation.y = Math.cos(t * 2.2 + idx) * 0.2;
+          if (isErrorStep) {
+            v.leftArm.rotation.x = -0.2;
+            v.rightArm.rotation.x = -0.2;
+            v.leftArm.rotation.z = 0.12;
+            v.rightArm.rotation.z = -0.12;
+            v.head.rotation.x = 0.16;
+            v.head.rotation.y = Math.sin(t * 6 + idx) * 0.26;
+          } else if (idx === 2) {
+            // Planner holds holographic tablet with both hands and monitors progress
+            v.leftArm.rotation.x = -0.78;
+            v.rightArm.rotation.x = -0.78;
+            v.leftArm.rotation.z = -0.18;
+            v.rightArm.rotation.z = 0.18;
+            v.head.rotation.x = -0.05 + Math.sin(t * 2.4) * 0.16;
+            v.head.rotation.y = Math.sin(t * 1.4) * 0.18;
+          } else if (idx === 0) {
+            // Scout relays live status outward to viewers
+            v.leftArm.rotation.x = -0.7 + Math.sin(t * 3.5) * 0.25;
+            v.rightArm.rotation.x = -0.35;
+            v.leftArm.rotation.z = 0.08;
+            v.rightArm.rotation.z = -0.05;
+            v.head.rotation.x = 0;
+            v.head.rotation.y = Math.sin(t * 1.8) * 0.28;
+          } else {
+            // Builder & Teller hammer and wrench on the clockwork workshop
+            v.leftArm.rotation.x = step * 0.25;
+            v.rightArm.rotation.x = -0.95 - Math.abs(Math.sin(t * 9 + v.phase)) * 1.25;
+            v.leftArm.rotation.z = 0;
+            v.rightArm.rotation.z = 0;
+            v.head.rotation.x = 0.18;
+            if (idx === 3 && frame % 18 === 0) spark(0xf5b942, { x: 0.15, y: 2.2, z: 0.4 }, 5);
+            if (idx === 1 && frame % 24 === 0) spark(0x38bdf8, { x: 2.35, y: 2.3, z: 0.4 }, 4);
+          }
+        } else if (phase === "planning" && holding) {
+          if (idx === 2) {
+            v.leftArm.rotation.x = -0.85 + Math.sin(t * 3.2) * 0.12;
+            v.rightArm.rotation.x = -0.75;
+            v.leftArm.rotation.z = -0.14;
+            v.rightArm.rotation.z = 0.14;
+            v.head.rotation.x = 0.12 + Math.sin(t * 4.5) * 0.14;
+            v.head.rotation.y = Math.cos(t * 2.2) * 0.16;
+          } else {
+            v.leftArm.rotation.x = -0.25;
+            v.rightArm.rotation.x = -0.25;
+            v.leftArm.rotation.z = 0.06;
+            v.rightArm.rotation.z = -0.06;
+            v.head.rotation.x = 0.12;
+            v.head.rotation.y = Math.cos(t * 1.8 + idx) * 0.2;
+          }
+        } else if (phase === "awaiting_approval" && holding) {
+          if (idx === 2) {
+            // Planner presents blueprint tablet for streamer approval
+            v.leftArm.rotation.x = -1.25 + Math.sin(t * 2.5) * 0.08;
+            v.rightArm.rotation.x = -1.15;
+            v.leftArm.rotation.z = -0.12;
+            v.rightArm.rotation.z = 0.12;
+            v.head.rotation.x = -0.08;
+          } else if (idx === 3) {
+            // Builder holds hammer at the ready
+            v.leftArm.rotation.x = -0.2;
+            v.rightArm.rotation.x = -1.05 + Math.sin(t * 3) * 0.1;
+            v.leftArm.rotation.z = 0.05;
+            v.rightArm.rotation.z = -0.05;
+            v.head.rotation.x = 0;
+          } else {
+            v.leftArm.rotation.x = -0.18;
+            v.rightArm.rotation.x = -0.18;
+            v.leftArm.rotation.z = 0.06;
+            v.rightArm.rotation.z = -0.06;
+            v.head.rotation.x = 0;
+            v.head.rotation.y = Math.sin(t * 1.6 + idx) * 0.18;
+          }
         } else if (phase === "collecting" && holding) {
-          v.leftArm.rotation.x = -1.35 + Math.sin(t * 4 + v.phase) * 0.35;
-          v.rightArm.rotation.x = -0.35;
-          v.leftArm.rotation.z = 0;
-          v.rightArm.rotation.z = 0;
+          if (idx === 0) {
+            // Scout waves to viewers at the !idea pavilion
+            v.leftArm.rotation.x = -1.55 + Math.sin(t * 5) * 0.42;
+            v.rightArm.rotation.x = -0.25;
+            v.leftArm.rotation.z = 0.25;
+            v.rightArm.rotation.z = -0.05;
+            v.head.rotation.x = 0;
+            v.head.rotation.y = Math.sin(t * 2.4) * 0.24;
+          } else if (idx === 1) {
+            // Teller logs incoming proposals
+            v.leftArm.rotation.x = -0.35;
+            v.rightArm.rotation.x = -0.75 + Math.sin(t * 4) * 0.18;
+            v.leftArm.rotation.z = 0.05;
+            v.rightArm.rotation.z = -0.05;
+            v.head.rotation.x = 0.18;
+          } else {
+            v.leftArm.rotation.x = Math.sin(t * 1.8 + idx) * 0.08;
+            v.rightArm.rotation.x = -Math.sin(t * 1.8 + idx) * 0.08;
+            v.leftArm.rotation.z = 0.05;
+            v.rightArm.rotation.z = -0.05;
+            v.head.rotation.x = 0;
+            v.head.rotation.y = Math.sin(t * 1.2 + idx) * 0.22;
+          }
         } else if (phase === "voting" && holding) {
-          v.leftArm.rotation.x = -0.9 + Math.sin(t * 3.5 + idx) * 0.3;
-          v.rightArm.rotation.x = -0.9 - Math.sin(t * 3.5 + idx) * 0.3;
-          v.leftArm.rotation.z = 0;
-          v.rightArm.rotation.z = 0;
+          if (idx === 1) {
+            // Teller tallies votes on the ballot obelisk
+            v.leftArm.rotation.x = -0.35;
+            v.rightArm.rotation.x = -0.9 + Math.sin(t * 5.2) * 0.35;
+            v.leftArm.rotation.z = 0.05;
+            v.rightArm.rotation.z = -0.05;
+            v.head.rotation.x = Math.sin(t * 4) * 0.15;
+          } else if (idx === 0) {
+            // Scout cheers for votes
+            v.leftArm.rotation.x = -1.35 + Math.sin(t * 4.2) * 0.4;
+            v.rightArm.rotation.x = -0.25;
+            v.leftArm.rotation.z = 0.18;
+            v.rightArm.rotation.z = -0.05;
+            v.head.rotation.x = 0;
+          } else {
+            v.leftArm.rotation.x = -0.6 + Math.sin(t * 3 + idx) * 0.22;
+            v.rightArm.rotation.x = -0.6 - Math.sin(t * 3 + idx) * 0.22;
+            v.leftArm.rotation.z = 0;
+            v.rightArm.rotation.z = 0;
+            v.head.rotation.x = 0;
+          }
         } else {
           const armAmp = 0.08 * (1 - v.walkBlend) + 0.48 * v.walkBlend;
           v.leftArm.rotation.x = hopping ? -0.8 : -step * armAmp - 0.06 * v.walkBlend;
           v.rightArm.rotation.x = hopping ? -0.8 : step * armAmp - 0.06 * v.walkBlend;
           v.leftArm.rotation.z = 0.05 + Math.abs(stepCos) * 0.04 * v.walkBlend;
           v.rightArm.rotation.z = -0.05 - Math.abs(stepCos) * 0.04 * v.walkBlend;
+          v.head.rotation.x = 0;
         }
       });
 
