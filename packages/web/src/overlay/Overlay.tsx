@@ -687,7 +687,7 @@ export function OverlayPage() {
   const initialTheme: OverlayTheme = themeRaw === "light" || themeRaw === "auto" ? themeRaw : "dark";
 
   const [mode, setMode] = useState<OverlayStageMode>(initialMode);
-  const ovTheme = initialTheme;
+  const ovTheme: OverlayTheme = popout ? "auto" : initialTheme;
   const [backdrop, setBackdrop] = useState<PopoutBackdrop>("studio");
   const [barHidden, setBarHidden] = useState(false);
   const [copied, setCopied] = useState(false);
