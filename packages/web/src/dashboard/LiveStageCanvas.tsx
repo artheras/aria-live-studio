@@ -1041,6 +1041,10 @@ export function LiveStageCanvas({
     let seenStepCount = stateRef.current.round?.execution?.steps.length ?? 0;
     const targetFlag = new THREE.Color();
     const mcpTargetColor = new THREE.Color();
+    const skyTopTarget = new THREE.Color();
+    const skyMidTarget = new THREE.Color();
+    const skyHorTarget = new THREE.Color();
+    const fogTarget = new THREE.Color();
 
     const animate = () => {
       frame += 1;
@@ -1049,6 +1053,19 @@ export function LiveStageCanvas({
       prevMs = nowMs;
       elapsedSec += dt;
       const t = elapsedSec;
+
+      if (!transparent) {
+        const isDay = document.documentElement.dataset.theme === "light";
+        skyTopTarget.setHex(isDay ? 0x93c5fd : 0x0b0521);
+        skyMidTarget.setHex(isDay ? 0xc7d2fe : 0x1c1046);
+        skyHorTarget.setHex(isDay ? 0xf3e8ff : 0x371f6e);
+        fogTarget.setHex(isDay ? 0xdbeafe : 0x1f1147);
+        skyMat.uniforms.topColor?.value.lerp(skyTopTarget, 0.06);
+        skyMat.uniforms.midColor?.value.lerp(skyMidTarget, 0.06);
+        skyMat.uniforms.horizonColor?.value.lerp(skyHorTarget, 0.06);
+        if (scene.fog instanceof THREE.Fog) scene.fog.color.lerp(fogTarget, 0.06);
+        sun.intensity += ((isDay ? 3.05 : 2.45) - sun.intensity) * 0.06;
+      }
 
       const pal = resolveThemePalette(stateRef.current.round?.prompt, stateRef.current.round?.modifiers);
       targetFlag.setHex(pal.crystal);

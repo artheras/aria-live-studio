@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
+import type { LiveState } from "@aria-live/shared";
 import type { AriaApi } from "../lib/api";
 import { errorMessage } from "../lib/api";
+import { timeAgo } from "../lib/time";
 import {
   agentSnippets,
   maskCohostUrl,
@@ -12,12 +14,22 @@ import {
 import { Btn, Spinner, useActions } from "./actions";
 import { copyText } from "./Drawer";
 
-export function AgentPanel({ api, agentConnected = false }: { api: AriaApi; agentConnected?: boolean }) {
+export function AgentPanel({
+  api,
+  agentConnected = false,
+  agentStatus = null,
+}: {
+  api: AriaApi;
+  agentConnected?: boolean;
+  agentStatus?: LiveState["agentStatus"] | null;
+}) {
   const { toast } = useActions();
   const [conn, setConn] = useState<AgentConnection | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reveal, setReveal] = useState(false);
   const [tab, setTab] = useState<"local" | "remote">("local");
+  const [pingMs, setPingMs] = useState<number | null>(null);
+  const [testing, setTesting] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -64,8 +76,35 @@ export function AgentPanel({ api, agentConnected = false }: { api: AriaApi; agen
       </div>
       <div className="agent-panel__meta">
         <span className={`pill pill--${agentConnected ? "good" : "warn"}`}>
-          {agentConnected ? "Agent connected" : "Waiting for agent poll"}
+          {agentConnected && agentStatus
+            ? `Connected: ${agentStatus.name} (${timeAgo(agentStatus.lastSeenAt, Date.now())})`
+            : agentConnected
+              ? "Agent connected"
+              : "Waiting for agent poll"}
         </span>
+        {pingMs !== null && <span className="muted num">Bridge {pingMs} ms</span>}
+        <Btn
+          size="sm"
+          variant="ghost"
+          pending={testing}
+          onClick={async () => {
+            setTesting(true);
+            const t0 = performance.now();
+            try {
+              const fresh = await api.agentConnection();
+              setConn(fresh);
+              const ms = Math.max(1, Math.round(performance.now() - t0));
+              setPingMs(ms);
+              toast("success", `MCP bridge reachable (${ms} ms)`);
+            } catch (e) {
+              toast("error", errorMessage(e));
+            } finally {
+              setTesting(false);
+            }
+          }}
+        >
+          Test Connection
+        </Btn>
         <Btn
           size="sm"
           variant="secondary"

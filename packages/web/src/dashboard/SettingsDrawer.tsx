@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { ELIGIBILITY_LABEL, FEATURE_SCOPE, type Eligibility, type Settings } from "@aria-live/shared";
 import type { AriaApi, Me } from "../lib/api";
+import { getThemePref, setThemePref, subscribeTheme, type ThemePref } from "../lib/theme";
+import { playCue } from "../lib/sound";
 import { Btn, useActions } from "./actions";
 
 type NumKey = "ideaCooldownSec" | "maxIdeaLength" | "maxIdeasPerRound" | "maxCandidates" | "voteDurationSec";
@@ -48,7 +50,9 @@ export function SettingsForm({
 }) {
   const { run, isPending } = useActions();
   const [draft, setDraft] = useState<Settings>(settings);
+  const [themePref, setThemePrefState] = useState<ThemePref>(() => getThemePref());
   useEffect(() => setDraft(settings), [settings]);
+  useEffect(() => subscribeTheme(() => setThemePrefState(getThemePref())), []);
 
   const changed: Partial<Settings> = {};
   (Object.keys(draft) as (keyof Settings)[]).forEach((k) => {
@@ -150,6 +154,30 @@ export function SettingsForm({
           <option value="compact">Compact (minimal footprint)</option>
         </select>
       </label>
+      <div className="field">
+        <span>Appearance (System &amp; Day/Night)</span>
+        <div className="monitor-pill-group" role="group" aria-label="Appearance">
+          {(
+            [
+              ["auto", "Auto"],
+              ["light", "Light"],
+              ["dark", "Dark"],
+            ] as const
+          ).map(([v, label]) => (
+            <button
+              key={v}
+              type="button"
+              className={`monitor-pill ${themePref === v ? "is-on" : ""}`}
+              onClick={() => {
+                playCue("click");
+                setThemePref(v);
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
       <div className="field">
         <span>Built-in executor</span>
         {me.executor.ok ? (

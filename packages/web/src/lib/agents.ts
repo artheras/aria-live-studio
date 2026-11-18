@@ -25,7 +25,7 @@ export interface AgentConnection {
 }
 
 export interface AgentSnippet {
-  id: "claude-code" | "codex" | "aria-code";
+  id: "claude-code" | "codex" | "cursor" | "gemini-cli" | "aria-code";
   client: string;
   where: string;
   note?: string;
@@ -76,6 +76,40 @@ export function agentSnippets({ token, mcpUrl, mcpCommand }: AgentConnection): A
         2,
       ),
     },
+    {
+      id: "cursor",
+      client: "Cursor",
+      where: "Add to .cursor/mcp.json in your project",
+      text: JSON.stringify(
+        {
+          mcpServers: {
+            [MCP_SERVER_NAME]: {
+              command: cmd.command,
+              args: cmd.args,
+              env: { ARIA_LIVE_URL: mcpUrl, ARIA_LIVE_TOKEN: token },
+            },
+          },
+        },
+        null,
+        2,
+      ),
+    },
+    {
+      id: "gemini-cli",
+      client: "Gemini CLI",
+      where: "Add to ~/.gemini/settings.json → mcpServers",
+      text: JSON.stringify(
+        {
+          [MCP_SERVER_NAME]: {
+            command: cmd.command,
+            args: cmd.args,
+            env: { ARIA_LIVE_URL: mcpUrl, ARIA_LIVE_TOKEN: token },
+          },
+        },
+        null,
+        2,
+      ),
+    },
   ];
 }
 
@@ -101,6 +135,38 @@ export function remoteSnippets(token: string, agentUrl: string): AgentSnippet[] 
         `bearer_token_env_var = "ARIA_LIVE_TOKEN"`,
         `tool_timeout_sec = 660`,
       ].join("\n"),
+    },
+    {
+      id: "cursor",
+      client: "Cursor",
+      where: "Add to .cursor/mcp.json (Streamable HTTP)",
+      text: JSON.stringify(
+        {
+          mcpServers: {
+            [MCP_SERVER_NAME]: {
+              url: agentUrl,
+              headers: { Authorization: `Bearer ${token}` },
+            },
+          },
+        },
+        null,
+        2,
+      ),
+    },
+    {
+      id: "gemini-cli",
+      client: "Gemini CLI",
+      where: "Add to ~/.gemini/settings.json → mcpServers",
+      text: JSON.stringify(
+        {
+          [MCP_SERVER_NAME]: {
+            httpUrl: agentUrl,
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        },
+        null,
+        2,
+      ),
     },
   ];
 }

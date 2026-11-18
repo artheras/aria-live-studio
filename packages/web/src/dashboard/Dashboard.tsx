@@ -103,7 +103,7 @@ function DashboardInner({ state, live, me, api, clockOffset = 0, onLogout }: Das
         />
       </Drawer>
       <Drawer open={drawer === "agent"} title="Connect a coding agent" onClose={close} wide>
-        <AgentPanel api={api} agentConnected={Boolean(state.agentStatus)} />
+        <AgentPanel api={api} agentConnected={Boolean(state.agentStatus)} agentStatus={state.agentStatus} />
       </Drawer>
     </div>
   );

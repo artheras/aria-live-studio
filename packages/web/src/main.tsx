@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
+import { initTheme } from "./lib/theme";
 import "./styles/theme.css";
 import "./styles/dashboard.css";
 
@@ -8,6 +9,7 @@ import "./styles/dashboard.css";
 if (window.location.pathname.replace(/\/+$/, "") === "/overlay") {
   document.documentElement.classList.add("is-overlay");
 }
+initTheme();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

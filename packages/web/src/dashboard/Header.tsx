@@ -3,6 +3,8 @@ import type { Connection, LiveState } from "@aria-live/shared";
 import type { AriaApi, Me } from "../lib/api";
 import type { LiveStatus } from "../lib/useLive";
 import { timeAgo, useNow } from "../lib/time";
+import { getThemePref, setThemePref, subscribeTheme, type ThemePref } from "../lib/theme";
+import { playCue } from "../lib/sound";
 import { Btn, useActions } from "./actions";
 import { copyText } from "./Drawer";
 
@@ -216,6 +218,9 @@ export function Header({
   const agentOnline = Boolean(agentStatus && now - agentStatus.lastSeenAt < 90_000);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showReconnect, setShowReconnect] = useState(false);
+  const [themePref, setThemePrefState] = useState<ThemePref>(() => getThemePref());
+
+  useEffect(() => subscribeTheme(() => setThemePrefState(getThemePref())), []);
 
   useEffect(() => {
     if (live === "open") {
@@ -298,6 +303,30 @@ export function Header({
                       ? `Agent: ${me.executor.kind}`
                       : "Agent: Waiting"}
                 </span>
+              </div>
+              <div className="user-menu__theme" role="group" aria-label="Appearance">
+                <span className="user-menu__theme-label">Appearance</span>
+                <div className="monitor-pill-group">
+                  {(
+                    [
+                      ["auto", "Auto"],
+                      ["light", "Light"],
+                      ["dark", "Dark"],
+                    ] as const
+                  ).map(([v, label]) => (
+                    <button
+                      key={v}
+                      type="button"
+                      className={`monitor-pill ${themePref === v ? "is-on" : ""}`}
+                      onClick={() => {
+                        playCue("click");
+                        setThemePref(v);
+                      }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </div>
               <div className="user-menu__items">
                 <button
