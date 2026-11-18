@@ -33,6 +33,9 @@ export function applyTheme(pref: ThemePref = getThemePref()): ResolvedTheme {
       return "dark";
     }
     document.documentElement.dataset.theme = resolved;
+    document.documentElement.style.colorScheme = resolved;
+    const meta = document.querySelector('meta[name="color-scheme"]');
+    if (meta) meta.setAttribute("content", resolved);
   }
   return resolved;
 }
@@ -61,11 +64,19 @@ export function initTheme(): () => void {
       listeners.forEach((fn) => fn());
     }
   };
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === STORAGE_KEY) {
+      applyTheme();
+      listeners.forEach((fn) => fn());
+    }
+  };
   const mq = typeof window.matchMedia === "function" ? window.matchMedia("(prefers-color-scheme: dark)") : null;
   mq?.addEventListener?.("change", onChange);
+  window.addEventListener("storage", onStorage);
   const timer = window.setInterval(onChange, 60_000);
   return () => {
     mq?.removeEventListener?.("change", onChange);
+    window.removeEventListener("storage", onStorage);
     window.clearInterval(timer);
   };
 }
