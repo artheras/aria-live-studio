@@ -41,6 +41,9 @@
   --surface-hud: rgba(14, 15, 24, 0.78);
   --border-subtle: rgba(255, 255, 255, 0.06);
   --danger-ink: #ff9aa6;
+  --warn-ink: #ffe0a3;
+  --bad-ink: #ffc2c8;
+  --info-ink: #dccbff;
   --font: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Consolas, monospace;
   color-scheme: dark;
@@ -85,6 +88,9 @@
   --surface-hud: rgba(255, 255, 255, 0.86);
   --border-subtle: rgba(23, 20, 36, 0.08);
   --danger-ink: #dc2626;
+  --warn-ink: #b45309;
+  --bad-ink: #b91c1c;
+  --info-ink: #6d28d9;
   color-scheme: light;
 }
 
