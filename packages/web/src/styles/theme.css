@@ -26,6 +26,21 @@
   --radius: 12px;
   --radius-sm: 8px;
   --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  --surface-topbar: #0d0e16;
+  --surface-topbar-glass: rgba(12, 11, 17, 0.86);
+  --surface-sidebar: #0e0f17;
+  --surface-stage: #0a0618;
+  --surface-bar: rgba(14, 15, 23, 0.72);
+  --surface-bar-soft: rgba(14, 15, 23, 0.55);
+  --surface-bar-strong: rgba(14, 15, 23, 0.82);
+  --surface-menu: rgba(18, 17, 29, 0.96);
+  --surface-popover: rgba(16, 14, 34, 0.94);
+  --surface-pill: rgba(20, 22, 34, 0.86);
+  --surface-pill-group: rgba(18, 20, 32, 0.9);
+  --surface-code: #08070c;
+  --surface-hud: rgba(14, 15, 24, 0.78);
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --danger-ink: #ff9aa6;
   --font: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Consolas, monospace;
   color-scheme: dark;
@@ -55,6 +70,21 @@
   --info: #0284c7;
   --info-soft: rgba(2, 132, 199, 0.12);
   --shadow: 0 10px 28px rgba(32, 24, 68, 0.08);
+  --surface-topbar: #ffffff;
+  --surface-topbar-glass: rgba(255, 255, 255, 0.9);
+  --surface-sidebar: #f8f7fc;
+  --surface-stage: #eef0fa;
+  --surface-bar: rgba(255, 255, 255, 0.88);
+  --surface-bar-soft: rgba(248, 247, 253, 0.86);
+  --surface-bar-strong: rgba(255, 255, 255, 0.94);
+  --surface-menu: rgba(255, 255, 255, 0.98);
+  --surface-popover: rgba(255, 255, 255, 0.98);
+  --surface-pill: rgba(244, 243, 250, 0.95);
+  --surface-pill-group: rgba(238, 236, 248, 0.95);
+  --surface-code: #f3f2f9;
+  --surface-hud: rgba(255, 255, 255, 0.86);
+  --border-subtle: rgba(23, 20, 36, 0.08);
+  --danger-ink: #dc2626;
   color-scheme: light;
 }
 

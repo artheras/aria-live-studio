@@ -32,7 +32,7 @@ body > #root > .screen-center {
   align-items: center;
   gap: 14px;
   padding: 10px 20px;
-  background: rgba(12, 11, 17, 0.86);
+  background: var(--surface-topbar-glass);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border);
 }
@@ -708,7 +708,7 @@ input[type="checkbox"] {
   padding: 10px 0;
   height: 260px;
   overflow-y: auto;
-  background: #08070c;
+  background: var(--surface-code);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   font-family: var(--mono);
@@ -1166,7 +1166,7 @@ input[type="checkbox"] {
 .snippet__code {
   margin: 0;
   padding: 12px;
-  background: #08070c;
+  background: var(--surface-code);
   overflow-x: auto;
   font-size: 12.5px;
   line-height: 1.55;
@@ -1848,9 +1848,9 @@ input[type="checkbox"] {
   margin: 0;
   padding: 10px 12px;
   border-radius: 8px;
-  background: rgba(9, 10, 16, 0.78);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #d6d3e6;
+  background: var(--surface-code);
+  border: 1px solid var(--border);
+  color: var(--text-2);
   font-family: var(--mono);
   font-size: 11px;
   line-height: 1.45;
@@ -2055,7 +2055,7 @@ input[type="checkbox"] {
   max-width: 42%;
   padding: 3px 8px;
   border-radius: 999px;
-  background: rgba(12, 11, 17, 0.72);
+  background: var(--surface-hud);
   color: var(--text, #ecebf4);
   font-size: 12px;
   pointer-events: none;
@@ -2078,9 +2078,9 @@ input[type="checkbox"] {
   font-size: 11px;
   padding: 4px 10px;
   border-radius: 999px;
-  background: rgba(12, 11, 22, 0.62);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  color: rgba(255, 255, 255, 0.78);
+  background: var(--surface-hud);
+  border: 1px solid var(--border);
+  color: var(--text-2);
   backdrop-filter: blur(8px);
 }
 .workshop-hud {
@@ -2099,9 +2099,9 @@ input[type="checkbox"] {
   letter-spacing: 0.08em;
   padding: 3px 8px;
   border-radius: 5px;
-  background: rgba(14, 15, 24, 0.78);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  color: rgba(255, 255, 255, 0.8);
+  background: var(--surface-hud);
+  border: 1px solid var(--border);
+  color: var(--text-2);
 }
 .workshop-bubble--3d {
   transform: translate(-50%, -100%);
@@ -2166,7 +2166,7 @@ input[type="checkbox"] {
   height: 62px;
   padding: 0 22px;
   justify-content: space-between;
-  background: #0d0e16;
+  background: var(--surface-topbar);
 }
 .logo__stack {
   display: flex;
@@ -2215,7 +2215,7 @@ input[type="checkbox"] {
   height: 9px;
   border-radius: 50%;
   background: var(--muted);
-  border: 2px solid #0d0e16;
+  border: 2px solid var(--surface-topbar);
 }
 .user-pill__dot.is-online {
   background: var(--good);
@@ -2232,10 +2232,10 @@ input[type="checkbox"] {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  background: rgba(18, 17, 29, 0.96);
+  background: var(--surface-menu);
   backdrop-filter: blur(14px);
   border-color: rgba(145, 70, 255, 0.32);
-  box-shadow: 0 20px 52px rgba(0, 0, 0, 0.62);
+  box-shadow: var(--shadow);
 }
 .user-menu__status {
   display: flex;
@@ -2296,10 +2296,10 @@ input[type="checkbox"] {
   padding-top: 10px;
   border-top: 1px solid var(--border);
   border-radius: 0 0 8px 8px;
-  color: #ff9aa6;
+  color: var(--danger-ink);
 }
 .user-menu__item--danger svg {
-  color: #ff9aa6;
+  color: var(--danger-ink);
 }
 .user-menu__item--danger:hover {
   background: rgba(255, 92, 108, 0.12);
@@ -2312,7 +2312,7 @@ input[type="checkbox"] {
 }
 .grid--workshop .grid__main {
   padding: 16px 20px 18px;
-  background: #0e0f17;
+  background: var(--surface-sidebar);
   border-right: 1px solid var(--border);
   gap: 14px;
 }
@@ -2413,8 +2413,8 @@ input[type="checkbox"] {
   color: var(--text);
 }
 .feed-filter.is-active {
-  color: #e9d5ff;
-  background: rgba(145, 70, 255, 0.22);
+  color: var(--accent-2);
+  background: var(--accent-soft);
   border-color: rgba(167, 139, 250, 0.45);
 }
 .idea__actions {
@@ -2454,7 +2454,7 @@ input[type="checkbox"] {
   position: relative;
 }
 .grid--workshop .round-title h2 {
-  color: #cbb5ff;
+  color: var(--accent-2);
   font-size: 24px;
   letter-spacing: -0.02em;
 }
@@ -2466,12 +2466,12 @@ input[type="checkbox"] {
   border: 0;
   border-radius: 0;
   box-shadow: none;
-  background: #0a0618;
+  background: var(--surface-stage);
 }
 .grid--workshop .panel--ideas > .panel__head {
   padding: 10px 18px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(14, 15, 23, 0.72);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-bar);
 }
 .grid--workshop .panel--ideas > .panel__body {
   padding: 0;
@@ -2494,8 +2494,8 @@ input[type="checkbox"] {
 }
 .grid--workshop .panel--ideas .monitor-bezel__bar {
   padding: 10px 18px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(14, 15, 23, 0.55);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-bar-soft);
   flex-wrap: wrap;
   row-gap: 8px;
 }
@@ -2517,8 +2517,8 @@ input[type="checkbox"] {
 }
 .grid--workshop .panel--ideas .workshop-bar {
   padding: 10px 18px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(14, 15, 23, 0.82);
+  border-top: 1px solid var(--border-subtle);
+  background: var(--surface-bar-strong);
 }
 .service-pill {
   appearance: none;
@@ -2528,7 +2528,7 @@ input[type="checkbox"] {
   padding: 5px 11px;
   border-radius: 999px;
   border: 1px solid var(--border-strong);
-  background: rgba(20, 22, 34, 0.86);
+  background: var(--surface-pill);
   color: var(--text-2);
   font-family: inherit;
   font-size: 12px;
@@ -2540,7 +2540,7 @@ input[type="checkbox"] {
 }
 .service-pill:hover {
   border-color: rgba(167, 139, 250, 0.55);
-  color: #fff;
+  color: var(--text);
 }
 .service-pill__dot {
   width: 7px;
@@ -2589,7 +2589,7 @@ input[type="checkbox"] {
   gap: 2px;
   padding: 2px;
   border-radius: 8px;
-  background: rgba(18, 20, 32, 0.9);
+  background: var(--surface-pill-group);
   border: 1px solid var(--border);
 }
 .monitor-pill {
@@ -2608,7 +2608,7 @@ input[type="checkbox"] {
 }
 .monitor-pill.is-on {
   background: rgba(145, 70, 255, 0.28);
-  color: #f4ecff;
+  color: var(--text);
 }
 .monitor-popover-anchor {
   position: relative;
@@ -2621,10 +2621,10 @@ input[type="checkbox"] {
   min-width: 340px;
   padding: 14px 16px;
   border-radius: 14px;
-  background: rgba(16, 14, 34, 0.94);
+  background: var(--surface-popover);
   backdrop-filter: blur(18px);
   border: 1px solid rgba(167, 139, 250, 0.24);
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -2766,9 +2766,9 @@ input[type="checkbox"] {
   gap: 4px;
   padding: 14px 16px;
   border-radius: 12px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.045) 0%, rgba(255, 255, 255, 0.02) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
 }
 .analytics-stat__label {
   font-size: 11px;
@@ -2796,7 +2796,7 @@ input[type="checkbox"] {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
-  color: #f8f7ff;
+  color: var(--text);
 }
 .history-filters {
   display: flex;
@@ -2811,8 +2811,8 @@ input[type="checkbox"] {
   max-width: 360px;
   padding: 8px 14px;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--panel);
+  border: 1px solid var(--border);
   color: var(--text);
   font-size: 13px;
 }
@@ -2838,13 +2838,13 @@ input[type="checkbox"] {
   margin-top: 10px;
   padding: 10px 14px;
   border-radius: 12px;
-  background: rgba(145, 70, 255, 0.08);
-  border: 1px solid rgba(167, 139, 250, 0.25);
+  background: var(--accent-soft);
+  border: 1px solid rgba(167, 139, 250, 0.28);
   font-size: 12px;
 }
 .onboarding-strip__title {
   font-weight: 700;
-  color: #d8b4fe;
+  color: var(--accent-2);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   font-size: 11px;
@@ -2853,15 +2853,15 @@ input[type="checkbox"] {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: #e4ddf5;
+  color: var(--text-2);
 }
 .onboarding-step.is-done {
-  color: #86efac;
+  color: var(--good);
 }
 .onboarding-link {
   border: 0;
-  background: rgba(255, 255, 255, 0.08);
-  color: #f3ecff;
+  background: var(--panel-2);
+  color: var(--text);
   font-size: 11px;
   font-weight: 600;
   padding: 2px 8px;
@@ -2869,18 +2869,59 @@ input[type="checkbox"] {
   cursor: pointer;
 }
 .onboarding-link:hover {
-  background: rgba(145, 70, 255, 0.35);
+  background: var(--accent-soft);
 }
 .onboarding-dismiss {
   margin-left: auto;
   border: 0;
   background: transparent;
-  color: #a1a1b5;
+  color: var(--muted);
   font-size: 16px;
   line-height: 1;
   cursor: pointer;
   padding: 2px 6px;
 }
 .onboarding-dismiss:hover {
-  color: #fff;
+  color: var(--text);
 }
+
+/* ── Light Theme Contrast Polish ───────────────────────────────────────── */
+:root[data-theme="light"] .monitor-phase-badge {
+  color: var(--accent-2);
+}
+:root[data-theme="light"] .monitor-phase-badge[data-phase="voting"] {
+  color: var(--info);
+}
+:root[data-theme="light"] .monitor-phase-badge[data-phase="executing"] {
+  color: var(--warn);
+}
+:root[data-theme="light"] .monitor-phase-badge[data-phase="done"] {
+  color: var(--good);
+}
+:root[data-theme="light"] .monitor-pill.is-on {
+  background: rgba(124, 58, 237, 0.16);
+  color: var(--accent-2);
+}
+:root[data-theme="light"] .workshop-bubble {
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--text);
+  box-shadow: 0 8px 22px rgba(32, 24, 68, 0.14);
+}
+:root[data-theme="light"] .workshop-bubble__user {
+  color: var(--accent-2);
+}
+:root[data-theme="light"] .workshop-bubble__boost {
+  color: var(--warn);
+}
+:root[data-theme="light"] .workshop-pin {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: var(--border);
+  color: var(--text);
+}
+:root[data-theme="light"] .feed__icon--idea { color: var(--accent-2); }
+:root[data-theme="light"] .feed__icon--vote { color: var(--good); }
+:root[data-theme="light"] .feed__icon--round { color: var(--warn); }
+:root[data-theme="light"] .feed__icon--task,
+:root[data-theme="light"] .feed__icon--execution { color: var(--info); }
+:root[data-theme="light"] .feed__icon--rejected { color: var(--bad); }
+:root[data-theme="light"] .is-muted-user { color: var(--bad); }
