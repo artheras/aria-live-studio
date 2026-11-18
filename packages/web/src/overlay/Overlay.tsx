@@ -84,7 +84,7 @@ function Header({ round, label, only }: { round: Round; label: string; only?: El
   );
 }
 
-function OverlayCard({ state, now }: { state: LiveState; now: number }) {
+function OverlayCard({ state, now, muted = false }: { state: LiveState; now: number; muted?: boolean }) {
   const round = state.round;
   const phase = round?.phase ?? "idle";
   const prevLeaderRef = useRef<string | null>(null);
@@ -104,20 +104,20 @@ function OverlayCard({ state, now }: { state: LiveState; now: number }) {
     }
     if (votingLeaderId && prevLeaderRef.current && prevLeaderRef.current !== votingLeaderId) {
       setLeadChange(true);
-      playCue("lead_change");
+      if (!muted) playCue("lead_change");
       const timer = setTimeout(() => setLeadChange(false), 3500);
       prevLeaderRef.current = votingLeaderId;
       return () => clearTimeout(timer);
     }
     if (votingLeaderId) prevLeaderRef.current = votingLeaderId;
-  }, [phase, votingLeaderId]);
+  }, [phase, votingLeaderId, muted]);
 
   useEffect(() => {
     if (phase === "done" && prevPhaseRef.current !== "done" && round?.execution?.status === "succeeded") {
-      playCue("shipped");
+      if (!muted) playCue("shipped");
     }
     prevPhaseRef.current = phase;
-  }, [phase, round?.execution?.status]);
+  }, [phase, round?.execution?.status, muted]);
 
   if (!round || phase === "idle") {
     return (
@@ -542,6 +542,7 @@ export function OverlayView({
   clockOffset = 0,
   stageMode = false,
   showcaseMode = false,
+  muted = false,
   pos = "bl",
   layout = "standard",
   card3d = false,
@@ -551,6 +552,7 @@ export function OverlayView({
   clockOffset?: number;
   stageMode?: boolean;
   showcaseMode?: boolean;
+  muted?: boolean;
   pos?: OverlayPos;
   layout?: OverlayLayout;
   card3d?: boolean;
@@ -634,7 +636,7 @@ export function OverlayView({
         {useCompactCard ? (
           <CompactStageCard state={state} now={now} layout={layout} card3d={card3d} />
         ) : (
-          <OverlayCard state={state} now={now} />
+          <OverlayCard state={state} now={now} muted={muted} />
         )}
       </div>
       {!connected && <span className="ov-offline" title="Reconnecting" aria-hidden="true" />}
@@ -649,6 +651,7 @@ export function OverlayPage() {
   const stageMode = modeParam === "stage";
   const card3d = modeParam === "card3d";
   const showcaseMode = modeParam === "showcase";
+  const muted = params.get("mute") === "1";
   const posParam = params.get("pos") === "br" ? "br" : "bl";
   const layoutRaw = params.get("layout");
   const layout: OverlayLayout =
@@ -673,6 +676,7 @@ export function OverlayPage() {
       clockOffset={live.clockOffset}
       stageMode={stageMode}
       showcaseMode={showcaseMode}
+      muted={muted}
       pos={posParam}
       layout={layout}
       card3d={card3d}

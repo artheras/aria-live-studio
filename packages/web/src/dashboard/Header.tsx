@@ -218,6 +218,7 @@ export function Header({
   const { run, toast } = useActions();
   const channel = connection.channel ?? me.user;
   const name = channel?.displayName || channel?.login || "—";
+
   return (
     <header className="topbar topbar--studio">
       <Logo />
@@ -227,6 +228,27 @@ export function Header({
             Server {live === "connecting" ? "connecting…" : "reconnecting…"}
           </span>
         )}
+        <button
+          type="button"
+          className={`service-pill ${agentOnline ? "is-ok" : ""}`}
+          onClick={onAgent}
+          title={agentOnline ? `Connected: ${agentStatus?.name ?? "Agent"}` : "Click to connect a coding agent"}
+        >
+          <span className="service-pill__dot" aria-hidden="true" />
+          <span>{agentOnline ? `Agent · ${agentStatus?.name || "Online"}` : "Agent Offline"}</span>
+        </button>
+        <button
+          type="button"
+          className={`service-pill ${connection.state === "connected" ? "is-ok" : "is-warn"}`}
+          onClick={onSettings}
+          title={`Twitch: ${TWITCH_LABEL[connection.state]} · Click to manage Settings`}
+        >
+          <span className="service-pill__dot" aria-hidden="true" />
+          <span>{connection.state === "connected" ? "Twitch Connected" : "Twitch Offline"}</span>
+        </button>
+        <a className="service-pill" href="/history" title="View past rounds & VOD markers">
+          <span>History</span>
+        </a>
         <div className="popover-anchor">
           <button
             type="button"

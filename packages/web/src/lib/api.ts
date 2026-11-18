@@ -143,7 +143,15 @@ export function createApi(getCsrf: () => string | null) {
     startExecution: () => post("/api/execution/start"),
     cancelExecution: () => post("/api/execution/cancel"),
     logout: () => post("/auth/logout"),
+    preflight: () => request<PreflightStatus>("GET", "/api/preflight"),
   };
+}
+
+export interface PreflightStatus {
+  ready: boolean;
+  twitch: { configured: boolean; status: string; missingScopes: string[] };
+  planner: { kind: string; model: string | null; apiKeyConfigured: boolean };
+  executor: { kind: string; ok: boolean; reason: string | null; targetRepoConfigured: boolean };
 }
 
 export type AriaApi = ReturnType<typeof createApi>;

@@ -884,23 +884,23 @@
 .ov-showcase-banner {
   position: absolute;
   left: 50%;
-  bottom: 36px;
+  bottom: 20px;
   transform: translateX(-50%);
-  width: min(760px, calc(100vw - 80px));
+  width: min(680px, calc(100vw - 80px));
   display: flex;
   align-items: center;
-  gap: 18px;
-  padding: 16px 22px;
-  border-radius: 20px;
+  gap: 14px;
+  padding: 12px 18px;
+  border-radius: 18px;
   background: rgba(15, 9, 34, 0.86);
   backdrop-filter: blur(14px);
   border: 1.5px solid rgba(167, 139, 250, 0.36);
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.65), 0 0 32px rgba(168, 85, 247, 0.25);
 }
 .ov-showcase-avatar {
-  width: 68px;
-  height: 68px;
-  border-radius: 16px;
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
   border: 2px solid #a855f7;
   object-fit: cover;
   flex-shrink: 0;
