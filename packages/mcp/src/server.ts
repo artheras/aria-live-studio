@@ -8,6 +8,8 @@
  * reporting milestones (they appear on the stream overlay) → complete it.
  * Approval is never the agent's: there is no tool for it.
  */
+import { readFileSync, statSync } from "node:fs";
+import { basename } from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
@@ -271,6 +273,34 @@ function createAgentServer(client: AgentApi, clientName: string | undefined): Mc
           mediaKind: media_kind,
         });
         return text(`Task ${task_id} marked ${status}. The stream shows the result.`);
+      } catch (err) {
+        return failure(err);
+      }
+    },
+  );
+
+  server.registerTool(
+    "live_upload_media",
+    {
+      title: "Upload generated media for OBS overlay",
+      description:
+        "Uploads a local video (.mp4/.webm/.mov) or image (.png/.jpg/.webp) up to 8 MB to the Aria Live server and returns { url, mediaKind } to pass into live_complete_task.",
+      inputSchema: {
+        file_path: z.string().min(1).max(400).describe("Absolute path to the generated video or image file."),
+      },
+    },
+    async ({ file_path }) => {
+      try {
+        const st = statSync(file_path);
+        if (!st.isFile() || st.size <= 0 || st.size > 8 * 1024 * 1024) {
+          return text("File must exist and be 1B–8MB.");
+        }
+        const buf = readFileSync(file_path);
+        const uploaded = await client.uploadMedia({
+          filename: basename(file_path),
+          dataBase64: buf.toString("base64"),
+        });
+        return text(`Uploaded (${uploaded.mediaKind}): ${uploaded.url}`, uploaded);
       } catch (err) {
         return failure(err);
       }

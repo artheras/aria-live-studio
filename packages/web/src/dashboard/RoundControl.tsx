@@ -34,8 +34,8 @@ export function PhaseStepper({ round }: { round: Round | null }) {
   );
 }
 
-const THEME_PRESETS = ["Boss fight mechanic", "UI & animations", "Sound effects", "Mini-game"];
-const ROUND_MODIFIERS = ["Speedrun MVP", "Extra Juice", "Retro Pixel", "Sound & VFX"];
+const THEME_PRESETS = ["Boss fight mechanic", "UI & animations", "Physics Sandbox", "Robot Control", "Mini-game"];
+const ROUND_MODIFIERS = ["Speedrun MVP", "Low-G Moon", "Storm Wind", "Extra Juice", "Retro Pixel"];
 
 function PromptForm({
   label,

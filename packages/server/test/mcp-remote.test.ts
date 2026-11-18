@@ -134,6 +134,7 @@ describe("remote MCP tools", () => {
       "live_complete_task",
       "live_report_progress",
       "live_status",
+      "live_upload_media",
       "live_wait_for_task",
     ]);
     const c = await cohost(h);

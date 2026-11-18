@@ -134,4 +134,18 @@ export class LiveClient {
   }): Promise<void> {
     await this.request("POST", "/api/agent/complete", input, 10_000);
   }
+
+  async uploadMedia(input: {
+    filename: string;
+    dataBase64: string;
+  }): Promise<{ url: string; mediaKind: "video" | "image" }> {
+    const data = await this.request<{ url: string; mediaKind: "video" | "image" }>(
+      "POST",
+      "/api/agent/media",
+      input,
+      30_000,
+    );
+    if (!data?.url) throw new LiveError("Empty media upload response", 502, "bad_response");
+    return data;
+  }
 }

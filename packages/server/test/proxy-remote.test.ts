@@ -37,6 +37,7 @@ describe("stdio proxy → remote MCP", () => {
       "live_complete_task",
       "live_report_progress",
       "live_status",
+      "live_upload_media",
       "live_wait_for_task",
     ]);
     expect(tools.find((t) => t.name === "live_status")?.annotations?.readOnlyHint).toBe(true);

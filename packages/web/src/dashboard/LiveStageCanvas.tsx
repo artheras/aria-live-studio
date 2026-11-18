@@ -1595,15 +1595,22 @@ export function LiveStageCanvas({
       underLightL.intensity = 3.5 + Math.sin(t * 1.8) * 0.45;
       underLightR.intensity = 3.5 + Math.cos(t * 1.8) * 0.45;
 
+      const modTxt = `${round?.prompt ?? ""} ${(round?.modifiers ?? []).join(" ")}`.toLowerCase();
+      const isLowG = /(moon|lunar|low-g|zero-g|gravity|space)/.test(modTxt);
+      const isWindy = /(storm|wind|gale)/.test(modTxt);
+      const sparkGravity = isLowG ? 0.0014 : 0.004;
+      const sparkBounce = isLowG ? 0.72 : 0.45;
+      const windPush = isWindy ? Math.sin(t * 2.4) * 0.006 + 0.004 : 0;
+
       for (let i = bursts.length - 1; i >= 0; i--) {
         const b = bursts[i]!;
-        b.mesh.position.x += b.vx;
+        b.mesh.position.x += b.vx + windPush;
         b.mesh.position.y += b.vy;
         b.mesh.position.z += b.vz;
-        b.vy -= 0.004;
+        b.vy -= sparkGravity;
         if (b.mesh.position.y < 0.35 && b.vy < 0) {
           b.mesh.position.y = 0.35;
-          b.vy = -b.vy * 0.45;
+          b.vy = -b.vy * sparkBounce;
           b.vx *= 0.82;
           b.vz *= 0.82;
         }
