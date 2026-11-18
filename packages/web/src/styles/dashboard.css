@@ -2517,7 +2517,7 @@ input[type="checkbox"] {
   aspect-ratio: auto;
   min-height: 520px;
 }
-.grid--workshop .panel--ideas .workshop-scene {
+.grid--workshop .panel--ideas .monitor-stage--workshop > .workshop-scene {
   position: absolute;
   inset: 0;
 }
@@ -2943,8 +2943,15 @@ input[type="checkbox"] {
 }
 :root[data-theme="light"] .monitor-stage--code {
   background:
-    radial-gradient(circle at 75% 25%, rgba(2, 132, 199, 0.08), transparent 45%),
-    linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+    linear-gradient(rgba(23, 20, 36, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(23, 20, 36, 0.035) 1px, transparent 1px),
+    radial-gradient(circle at 78% 24%, rgba(2, 132, 199, 0.1), transparent 46%),
+    radial-gradient(circle at 22% 78%, rgba(124, 58, 237, 0.08), transparent 48%),
+    linear-gradient(180deg, #f7f8fc 0%, #eceff8 100%);
+  background-size: 28px 28px, 28px 28px, auto, auto, auto;
+}
+:root[data-theme="light"] .idle-preview__frame--inline .ov-card {
+  box-shadow: 0 14px 36px rgba(32, 24, 68, 0.22), 0 0 24px rgba(124, 58, 237, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.14);
 }
 :root[data-theme="light"] .monitor-mock-code {
   color: rgba(30, 41, 59, 0.78);

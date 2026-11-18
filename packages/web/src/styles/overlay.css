@@ -748,6 +748,7 @@
   align-items: center;
 }
 .ov-card3d__stage {
+  position: relative;
   width: 200px;
   height: 170px;
   border-radius: 14px;
