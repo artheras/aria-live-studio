@@ -165,13 +165,23 @@ function BroadcastMonitor({
   const [pos, setPos] = useState<OverlayPos>("bl");
   const [ovTheme, setOvTheme] = useState<OverlayTheme>("auto");
   const [backdrop, setBackdrop] = useState<MonitorBackdrop>("code");
+  const customBgKey = state?.connection.channel?.id
+    ? `aria.obs.customBackdrop:${state.connection.channel.id}`
+    : "aria.obs.customBackdrop";
   const [customBg, setCustomBg] = useState<string | null>(() => {
     try {
-      return window.localStorage.getItem("aria.obs.customBackdrop");
+      return window.localStorage.getItem(customBgKey);
     } catch {
       return null;
     }
   });
+  useEffect(() => {
+    try {
+      setCustomBg(window.localStorage.getItem(customBgKey));
+    } catch {
+      setCustomBg(null);
+    }
+  }, [customBgKey]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [obsMuted, setObsMuted] = useState(false);
   const [customizeOpen, setCustomizeOpen] = useState(false);
@@ -443,7 +453,7 @@ function BroadcastMonitor({
                           setCustomBg(reader.result);
                           setBackdrop("custom");
                           try {
-                            window.localStorage.setItem("aria.obs.customBackdrop", reader.result);
+                            window.localStorage.setItem(customBgKey, reader.result);
                           } catch { /* ignore quota */ }
                         }
                       };
@@ -481,7 +491,10 @@ function BroadcastMonitor({
           {backdrop === "code" && !livePreviewUrl && (
             <div className="monitor-mock-code" aria-hidden="true">
               <div className="mock-code-tab">
-                {round?.execution?.changedFiles?.[0] ?? (state?.agentStatus?.name ? `${state.agentStatus.name} · Live Workspace` : "Aria Live Studio · Workspace")}
+                {round?.execution?.changedFiles?.[0] ??
+                  (state?.agentStatus?.name
+                    ? `${state.agentStatus.name} · ${state.connection.channel?.displayName ?? "Workspace"}`
+                    : `${state?.connection.channel?.displayName ?? "Studio"} · Live Workspace`)}
               </div>
               <div className="mock-code-line">
                 <span className="mc-ln">01</span>
@@ -489,49 +502,32 @@ function BroadcastMonitor({
               </div>
               <div className="mock-code-line">
                 <span className="mc-ln">02</span>
-                <span className="mc-kw">const</span>
-                <span> stage = </span>
-                <span className="mc-fn">createStudio</span>
-                <span>{"({ "}</span>
                 <span className="mc-ty">phase</span>
                 <span>: </span>
                 <span className="mc-str">{`'${phase}'`}</span>
-                <span>{round?.prompt ? `, theme: "${round.prompt}"` : ""}</span>
-                <span>{" });"}</span>
+                <span>{round?.prompt ? ` · theme: "${round.prompt}"` : ""}</span>
               </div>
-              {!round && (
-                <>
-                  <div className="mock-code-line">
-                    <span className="mc-ln">03</span>
-                    <span className="mc-kw">const</span>
-                    <span> overlay = </span>
-                    <span className="mc-fn">mountOverlay</span>
-                    <span>{"({ "}</span>
-                    <span className="mc-ty">mode</span>
-                    <span>: </span>
-                    <span className="mc-str">{`'${mode}'`}</span>
-                    <span>{", "}</span>
-                    <span className="mc-ty">corner</span>
-                    <span>: </span>
-                    <span className="mc-str">{`'${pos}'`}</span>
-                    <span>{" });"}</span>
-                  </div>
-                  <div className="mock-code-line">
-                    <span className="mc-ln">04</span>
-                    <span className="mc-cm">{"// Tip: open a round to collect !idea & !vote from Twitch chat"}</span>
-                  </div>
-                </>
-              )}
+              <div className="mock-code-line">
+                <span className="mc-ln">03</span>
+                <span className="mc-ty">session</span>
+                <span>: </span>
+                <span className="mc-num">{state?.stats.rounds ?? 0}</span>
+                <span> rounds · </span>
+                <span className="mc-num">{state?.stats.ideas ?? 0}</span>
+                <span> ideas · </span>
+                <span className="mc-num">{state?.stats.participants ?? 0}</span>
+                <span> participants</span>
+              </div>
               {round?.task && (
                 <div className="mock-code-line">
-                  <span className="mc-ln">03</span>
+                  <span className="mc-ln">04</span>
                   <span className="mc-ty">task</span>
                   <span>{`: "${round.task.title}"`}</span>
                 </div>
               )}
-              {(round?.execution?.steps.slice(-3) ?? []).map((step, i) => (
+              {(round?.execution?.steps.slice(-4) ?? []).map((step, i) => (
                 <div key={step.at + i} className="mock-code-line">
-                  <span className="mc-ln">{String(4 + i).padStart(2, "0")}</span>
+                  <span className="mc-ln">{String((round?.task ? 5 : 4) + i).padStart(2, "0")}</span>
                   <span className="mc-fn">{step.kind}</span>
                   <span>{` ${step.text}`}</span>
                 </div>
