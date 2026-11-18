@@ -955,7 +955,7 @@
 }
 .ov-stage[data-ov-theme="light"] .ov-card,
 .ov-stage[data-ov-theme="light"] .ov-topbar,
-.ov-stage[data-ov-theme="light"] .ov-showcase-card {
+.ov-stage[data-ov-theme="light"] .ov-showcase-banner {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(244, 242, 252, 0.94));
   border-color: rgba(124, 58, 237, 0.28);
   box-shadow: 0 16px 40px rgba(32, 24, 68, 0.16), 0 0 24px rgba(124, 58, 237, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.8);

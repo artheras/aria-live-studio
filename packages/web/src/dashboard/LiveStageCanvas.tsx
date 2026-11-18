@@ -1053,7 +1053,9 @@ export function LiveStageCanvas({
       const t = elapsedSec;
 
       if (!transparent) {
-        const isDay = document.documentElement.dataset.theme === "light";
+        const isDay =
+          Boolean(container.closest('[data-ov-theme="light"]')) ||
+          (!container.closest('[data-ov-theme="dark"]') && document.documentElement.dataset.theme === "light");
         skyTopTarget.setHex(isDay ? 0x93c5fd : 0x0b0521);
         skyMidTarget.setHex(isDay ? 0xc7d2fe : 0x1c1046);
         skyHorTarget.setHex(isDay ? 0xf3e8ff : 0x371f6e);
