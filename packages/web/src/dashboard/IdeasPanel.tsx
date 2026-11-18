@@ -142,16 +142,20 @@ function IdeaList({ round, api }: { round: Round; api: AriaApi }) {
 
 import type { OverlayLayout, OverlayPos, OverlayStageMode } from "../overlay/Overlay";
 
-type MonitorBackdrop = "grid" | "code" | "game";
+type MonitorBackdrop = "grid" | "code" | "custom";
 
 function BroadcastMonitor({
   api,
   livePreviewUrl,
   phase = "idle",
+  state,
+  round,
 }: {
   api: AriaApi;
   livePreviewUrl?: string | null;
   phase?: Round["phase"];
+  state?: LiveState;
+  round?: Round | null;
 }) {
   const { toast } = useActions();
   const [url, setUrl] = useState<string | null>(null);
@@ -159,6 +163,14 @@ function BroadcastMonitor({
   const [layout, setLayout] = useState<OverlayLayout>("standard");
   const [pos, setPos] = useState<OverlayPos>("bl");
   const [backdrop, setBackdrop] = useState<MonitorBackdrop>("code");
+  const [customBg, setCustomBg] = useState<string | null>(() => {
+    try {
+      return window.localStorage.getItem("aria.obs.customBackdrop");
+    } catch {
+      return null;
+    }
+  });
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [obsMuted, setObsMuted] = useState(false);
   const stageRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.38);
@@ -277,24 +289,61 @@ function BroadcastMonitor({
                           {pos.toUpperCase()}
                         </button>
                       </div>
-                      <div className="monitor-pill-group" role="group" aria-label="Simulated Stream Backdrop">
+                      <div className="monitor-pill-group" role="group" aria-label="OBS Monitor Backdrop">
                         {(
                           [
                             ["grid", "Grid"],
-                            ["code", "IDE"],
-                            ["game", "Game"],
+                            ["code", "Workspace"],
+                            ["custom", "Custom BG"],
                           ] as const
                         ).map(([v, label]) => (
                           <button
                             key={v}
                             type="button"
                             className={`monitor-pill ${backdrop === v ? "is-on" : ""}`}
-                            onClick={() => setBackdrop(v)}
+                            onClick={() => {
+                              setBackdrop(v);
+                              if (v === "custom" && !customBg) {
+                                fileInputRef.current?.click();
+                              }
+                            }}
                           >
                             {label}
                           </button>
                         ))}
+                        {backdrop === "custom" && (
+                          <button
+                            type="button"
+                            className="monitor-pill"
+                            title="Upload a real screenshot of your IDE or game"
+                            onClick={() => fileInputRef.current?.click()}
+                          >
+                            {customBg ? "Change" : "Upload"}
+                          </button>
+                        )}
                       </div>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        style={{ display: "none" }}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          const reader = new FileReader();
+                          reader.onload = () => {
+                            if (typeof reader.result === "string") {
+                              setCustomBg(reader.result);
+                              setBackdrop("custom");
+                              try {
+                                window.localStorage.setItem("aria.obs.customBackdrop", reader.result);
+                              } catch { /* ignore quota */ }
+                            }
+                          };
+                          reader.readAsDataURL(file);
+                          e.target.value = "";
+                        }}
+                      />
                     </>
                   )}
                   <button
@@ -323,24 +372,51 @@ function BroadcastMonitor({
             </div>
           )}
         </div>
-        <div className={`idle-preview__stage monitor-stage monitor-stage--${backdrop}`} ref={stageRef}>
+        <div
+          className={`idle-preview__stage monitor-stage monitor-stage--${backdrop}`}
+          ref={stageRef}
+          style={
+            backdrop === "custom" && customBg
+              ? { backgroundImage: `url(${customBg})`, backgroundSize: "cover", backgroundPosition: "center" }
+              : undefined
+          }
+        >
           {backdrop === "code" && !livePreviewUrl && (
             <div className="monitor-mock-code" aria-hidden="true">
-              <div className="mock-code-tab">DragonBoss.ts — aria-live-studio</div>
-              <div className="mock-code-line"><span className="mc-ln">14</span><span className="mc-cm">{"// Wave 5 telegraphed fire-breath phase"}</span></div>
-              <div className="mock-code-line"><span className="mc-ln">15</span><span className="mc-kw">export class </span><span className="mc-ty">DragonBoss</span><span className="mc-kw"> extends </span><span className="mc-ty">Entity</span>{" {"}</div>
-              <div className="mock-code-line"><span className="mc-ln">16</span>{"  hp = "}<span className="mc-num">2400</span>{"; phase: "}<span className="mc-ty">BossPhase</span>{" = "}<span className="mc-str">'enraged'</span>{";"}</div>
-              <div className="mock-code-line"><span className="mc-ln">17</span>{"  "}<span className="mc-fn">breatheFire</span>{"(target: "}<span className="mc-ty">Vec2</span>{") { "}<span className="mc-fn">spawnFlameArc</span>{"(this.pos, target); }"}</div>
-              <div className="mock-code-line"><span className="mc-ln">18</span>{"}"}</div>
+              <div className="mock-code-tab">
+                {round?.execution?.changedFiles?.[0] ?? (state?.agentStatus?.name ? `${state.agentStatus.name} · Live Workspace` : "Aria Live Studio · Workspace")}
+              </div>
+              <div className="mock-code-line">
+                <span className="mc-ln">01</span>
+                <span className="mc-cm">{`// channel: ${state?.connection.channel?.displayName ?? "offline"} · agent: ${state?.agentStatus?.name ?? "not connected"}`}</span>
+              </div>
+              <div className="mock-code-line">
+                <span className="mc-ln">02</span>
+                <span className="mc-kw">phase</span>
+                <span>: </span>
+                <span className="mc-str">{`'${phase}'`}</span>
+                <span>{round?.prompt ? ` · theme: "${round.prompt}"` : ""}</span>
+              </div>
+              {round?.task && (
+                <div className="mock-code-line">
+                  <span className="mc-ln">03</span>
+                  <span className="mc-ty">task</span>
+                  <span>{`: "${round.task.title}"`}</span>
+                </div>
+              )}
+              {(round?.execution?.steps.slice(-3) ?? []).map((step, i) => (
+                <div key={step.at + i} className="mock-code-line">
+                  <span className="mc-ln">{String(4 + i).padStart(2, "0")}</span>
+                  <span className="mc-fn">{step.kind}</span>
+                  <span>{` ${step.text}`}</span>
+                </div>
+              ))}
             </div>
           )}
-          {backdrop === "game" && !livePreviewUrl && (
-            <div className="monitor-mock-game" aria-hidden="true">
-              <div className="mock-game-hud">
-                <span className="mock-game-wave">WAVE 05 · BOSS</span>
-                <div className="mock-game-hp"><i style={{ width: "68%" }} /></div>
-                <span className="mock-game-score">SCORE 48,920</span>
-              </div>
+          {backdrop === "custom" && !customBg && !livePreviewUrl && (
+            <div className="monitor-standby">
+              <span className="monitor-standby__code">CUSTOM BACKDROP</span>
+              <span className="muted">Click Upload to preview over your real IDE or game screenshot</span>
             </div>
           )}
           <span className="reticle reticle--tl" aria-hidden="true" />
@@ -578,7 +654,7 @@ export function IdeasPanel({
             )}
           </div>
         ) : activeView === "overlay" ? (
-          <BroadcastMonitor api={api} phase={phase} />
+          <BroadcastMonitor api={api} phase={phase} state={state} round={round} />
         ) : activeView === "build" && previewUrl ? (
           <BroadcastMonitor api={api} livePreviewUrl={previewUrl} />
         ) : (
