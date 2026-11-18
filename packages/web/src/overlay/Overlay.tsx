@@ -122,6 +122,7 @@ function OverlayCard({ state, now }: { state: LiveState; now: number }) {
   if (!round || phase === "idle") {
     return (
       <div className="ov-card ov-card--small ov-card--stage" data-phase="idle">
+        <img className="ov-stage-avatar" src="/art/engineer-3-builder.png" width={30} height={30} alt="" aria-hidden="true" />
         <span className="ov-stage-title">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
             <path d="M12 2l2.1 6.9L21 11l-6.9 2.1L12 20l-2.1-6.9L3 11l6.9-2.1L12 2z" />
@@ -641,10 +642,101 @@ export function OverlayView({
   );
 }
 
+function buildDemoState(base: LiveState, demoPhase: string, now: number): LiveState {
+  if (demoPhase === "idle") return { ...base, round: null };
+  const authorA = { id: "demo-1", login: "pixel_fox", displayName: "pixel_fox" };
+  const authorB = { id: "demo-2", login: "sky_weaver", displayName: "sky_weaver" };
+  const authorC = { id: "demo-3", login: "voxel_knight", displayName: "voxel_knight" };
+  const ideas = [
+    { id: "i1", number: 1, text: "Add a fire-breathing dragon boss", author: authorA, createdAt: now - 40_000, hidden: false, seconds: 3, boosts: 2 },
+    { id: "i2", number: 2, text: "Double jump with stardust trail", author: authorB, createdAt: now - 30_000, hidden: false, seconds: 1, boosts: 0 },
+    { id: "i3", number: 3, text: "Live combo multiplier & leaderboard", author: authorC, createdAt: now - 20_000, hidden: false, seconds: 1, boosts: 1 },
+  ];
+  const tallies = [
+    { ideaId: "i1", number: 1, votes: 14 },
+    { ideaId: "i2", number: 2, votes: 9 },
+    { ideaId: "i3", number: 3, votes: 6 },
+  ];
+  const task = {
+    id: "t-demo",
+    ideaId: "i1",
+    title: "Add a fire-breathing dragon boss",
+    summary: "Spawn a fire-breathing boss dragon at Wave 5 with telegraphed breath attacks.",
+    userStory: "As a player, face a boss dragon at wave 5",
+    acceptanceCriteria: ["Dragon spawns with health bar"],
+    steps: ["Create DragonBoss entity", "Add fireball projectile"],
+    risks: [],
+    size: "M" as const,
+    source: "model" as const,
+    model: "claude-opus-5-5",
+    status: (demoPhase === "planning" ? "draft" : "approved") as "draft" | "approved",
+    createdAt: now - 60_000,
+    decidedAt: now - 50_000,
+    decidedBy: "streamer",
+    note: null,
+  };
+  const execution =
+    demoPhase === "executing"
+      ? {
+          id: "ex-demo",
+          taskId: "t-demo",
+          executor: "claude-code",
+          status: "running" as const,
+          startedAt: now - 42_000,
+          endedAt: null,
+          branch: "aria/dragon-boss",
+          workdir: null,
+          changedFiles: ["src/boss/DragonBoss.ts"],
+          steps: [
+            { at: now - 25_000, kind: "status" as const, text: "Read src/game/WaveManager.ts" },
+            { at: now - 12_000, kind: "status" as const, text: "Edited src/boss/DragonBoss.ts" },
+            { at: now - 3_000, kind: "status" as const, text: "Running vitest boss-fight suite…" },
+          ],
+          summary: null,
+          error: null,
+        }
+      : demoPhase === "done"
+        ? {
+            id: "ex-demo",
+            taskId: "t-demo",
+            executor: "claude-code",
+            status: "succeeded" as const,
+            startedAt: now - 75_000,
+            endedAt: now - 2_000,
+            branch: "aria/dragon-boss",
+            workdir: null,
+            changedFiles: ["src/boss/DragonBoss.ts", "src/game/WaveManager.ts", "test/boss.test.ts"],
+            steps: [],
+            summary: "Added Wave 5 Dragon Boss with telegraphed fire breath and boss HUD.",
+            error: null,
+          }
+        : null;
+  const round: Round = {
+    id: "demo-round",
+    index: (base.round?.index ?? 0) + 1,
+    phase: demoPhase as Round["phase"],
+    prompt: "Boss & combat mechanics",
+    modifiers: ["pixel-art", "co-op"],
+    openedAt: now - 90_000,
+    votingEndsAt: demoPhase === "voting" ? now + 38_000 : null,
+    ideas,
+    candidates: ["i1", "i2", "i3"],
+    tallies,
+    voters: 29,
+    ineligible: 0,
+    winnerId: demoPhase === "voting" || demoPhase === "collecting" ? null : "i1",
+    task: demoPhase === "collecting" || demoPhase === "voting" ? null : task,
+    execution,
+    markers: [],
+  };
+  return { ...base, round };
+}
+
 export function OverlayPage() {
   const params = useMemo(() => new URLSearchParams(window.location.search), []);
   const key = params.get("key");
   const modeParam = params.get("mode");
+  const demoParam = params.get("demo");
   const stageMode = modeParam === "stage";
   const card3d = modeParam === "card3d";
   const showcaseMode = modeParam === "showcase";
@@ -664,10 +756,17 @@ export function OverlayPage() {
     onNeverConnected: () =>
       console.warn("[aria-overlay] Can't connect — is the server running and the overlay key correct?"),
   });
+  const effectiveState = useMemo(() => {
+    if (!live.state || !demoParam) return live.state;
+    if (["idle", "collecting", "voting", "executing", "done"].includes(demoParam)) {
+      return buildDemoState(live.state, demoParam, Date.now());
+    }
+    return live.state;
+  }, [live.state, demoParam]);
   if (!key) return null;
   return (
     <OverlayView
-      state={live.state}
+      state={effectiveState}
       connected={live.status === "open"}
       clockOffset={live.clockOffset}
       stageMode={stageMode}

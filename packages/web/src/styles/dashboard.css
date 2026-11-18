@@ -2482,6 +2482,14 @@ input[type="checkbox"] {
   padding: 10px 18px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   background: rgba(14, 15, 23, 0.55);
+  flex-wrap: wrap;
+  row-gap: 8px;
+}
+.grid--workshop .panel--ideas .monitor-bezel__tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
 }
 .grid--workshop .panel--ideas .monitor-stage--workshop {
   position: relative;
@@ -2497,6 +2505,57 @@ input[type="checkbox"] {
   padding: 10px 18px;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   background: rgba(14, 15, 23, 0.82);
+}
+.monitor-pill-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 8px;
+  background: rgba(18, 20, 32, 0.9);
+  border: 1px solid var(--border);
+}
+.monitor-pill {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 7px;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.monitor-pill:hover {
+  color: var(--text);
+}
+.monitor-pill.is-on {
+  background: rgba(145, 70, 255, 0.28);
+  color: #f4ecff;
+}
+.monitor-stage--code {
+  background:
+    radial-gradient(circle at 75% 25%, rgba(56, 189, 248, 0.08), transparent 45%),
+    linear-gradient(180deg, #0d101b 0%, #090b13 100%);
+}
+.monitor-stage--game {
+  background:
+    radial-gradient(circle at 50% 35%, rgba(245, 158, 11, 0.16), transparent 52%),
+    radial-gradient(circle at 25% 70%, rgba(168, 85, 247, 0.2), transparent 55%),
+    linear-gradient(180deg, #160c2e 0%, #24133e 60%, #110822 100%);
+}
+.monitor-mock-code {
+  position: absolute;
+  top: 24px;
+  left: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: rgba(165, 180, 212, 0.34);
+  pointer-events: none;
+  user-select: none;
 }
 
 /* ── History Session Analytics Strip ───────────────────────────────────── */
