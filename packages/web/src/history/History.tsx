@@ -5,6 +5,7 @@ import { dateTime } from "../lib/time";
 import { Spinner } from "../dashboard/actions";
 import { Logo } from "../dashboard/Header";
 import { SizeBadge, SourceBadge } from "../dashboard/TaskCard";
+import { playCue } from "../lib/sound";
 
 const api = createApi(() => null);
 
@@ -184,6 +185,8 @@ export function HistoryPage() {
   const [rounds, setRounds] = useState<RoundSummary[] | null>(null);
   const [error, setError] = useState<{ message: string; auth: boolean } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "succeeded" | "failed" | "rejected">("all");
 
   useEffect(() => {
     api.history().then(
@@ -195,6 +198,20 @@ export function HistoryPage() {
         }),
     );
   }, []);
+
+  const filtered = (rounds ?? []).filter((r) => {
+    if (statusFilter === "succeeded" && r.execution?.status !== "succeeded") return false;
+    if (statusFilter === "failed" && r.execution?.status !== "failed" && r.execution?.status !== "cancelled") return false;
+    if (statusFilter === "rejected" && r.task?.status !== "rejected") return false;
+    const q = query.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      (r.prompt ?? "").toLowerCase().includes(q) ||
+      (r.winner?.text ?? "").toLowerCase().includes(q) ||
+      (r.task?.title ?? "").toLowerCase().includes(q) ||
+      (r.execution?.branch ?? "").toLowerCase().includes(q)
+    );
+  });
 
   return (
     <div className="studio studio--history">
@@ -241,11 +258,49 @@ export function HistoryPage() {
         ) : (
           <>
             <HistoryAnalytics rounds={rounds} />
-            <div className="history__grid">
-              {rounds.map((r) => (
-                <HistoryCard key={r.id} r={r} />
-              ))}
+            <div className="history-filters" role="region" aria-label="Filter rounds">
+              <input
+                type="search"
+                className="history-search"
+                placeholder="Search theme, winner, or branch..."
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+              <div className="history-filter-pills">
+                {(
+                  [
+                    ["all", "All"],
+                    ["succeeded", "Succeeded"],
+                    ["failed", "Failed"],
+                    ["rejected", "Rejected"],
+                  ] as const
+                ).map(([v, label]) => (
+                  <button
+                    key={v}
+                    type="button"
+                    className={`filter-pill ${statusFilter === v ? "is-on" : ""}`}
+                    onClick={() => {
+                      playCue("click");
+                      setStatusFilter(v);
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <span className="muted num history-count">
+                {filtered.length}/{rounds.length}
+              </span>
             </div>
+            {filtered.length === 0 ? (
+              <p className="empty">No rounds match your current filter.</p>
+            ) : (
+              <div className="history__grid">
+                {filtered.map((r) => (
+                  <HistoryCard key={r.id} r={r} />
+                ))}
+              </div>
+            )}
           </>
         )}
       </main>

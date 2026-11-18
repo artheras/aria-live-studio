@@ -10,6 +10,7 @@ import { createStageDraft } from "./stage/draft";
 import { fillIslandBase } from "./stage/islandBase";
 import { computeBallot } from "../lib/round";
 import { villageLoop } from "./stage/routes";
+import { playCue } from "../lib/sound";
 
 interface BurstCube {
   mesh: THREE.Mesh;
@@ -990,24 +991,29 @@ export function LiveStageCanvas({
       if (person) {
         person.hopUntil = nowMs + 720;
         spark(0xffb44c, at, 8);
+        playCue("hop");
         return;
       }
       if (isChildOf(hit.object, fox)) {
         foxHopUntil = nowMs + 860;
         spark(0xe8893a, at, 10);
+        playCue("hop");
         return;
       }
       if (isChildOf(hit.object, hen)) {
         henHopUntil = nowMs + 640;
         spark(0xfff4e4, at, 8);
+        playCue("hop");
         return;
       }
       if (isChildOf(hit.object, bird)) {
         birdFlyUntil = nowMs + 1400;
         spark(0xd7e4f5, at, 8);
+        playCue("hop");
         return;
       }
       spark(0xffe49e, at, 12);
+      playCue("spark");
     };
     renderer.domElement.addEventListener("pointerdown", onPointerDown);
     renderer.domElement.addEventListener("pointermove", onPointerMove);

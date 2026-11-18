@@ -2783,6 +2783,36 @@ input[type="checkbox"] {
   letter-spacing: -0.02em;
   color: #f8f7ff;
 }
+.history-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.history-search {
+  flex: 1;
+  min-width: 220px;
+  max-width: 360px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text);
+  font-size: 13px;
+}
+.history-search:focus {
+  outline: none;
+  border-color: rgba(168, 85, 247, 0.55);
+}
+.history-filter-pills {
+  display: inline-flex;
+  gap: 6px;
+}
+.history-count {
+  margin-left: auto;
+  font-size: 12px;
+}
 
 /* ── Quick Start Onboarding Strip ──────────────────────────────────────── */
 .onboarding-strip {

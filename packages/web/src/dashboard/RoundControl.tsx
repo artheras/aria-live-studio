@@ -504,7 +504,15 @@ export function RoundControl({ round, settings, me, api, clockOffset, onConnectA
           </form>
         ) : (
           <div className="actions">
-            <Btn variant="success" size="lg" pending={pending} onClick={() => act(() => api.approveTask())}>
+            <Btn
+              variant="success"
+              size="lg"
+              pending={pending}
+              onClick={() => {
+                playCue("approve");
+                void act(() => api.approveTask());
+              }}
+            >
               Approve
             </Btn>
             <Btn variant="secondary" disabled={pending} onClick={() => setEditing(true)}>

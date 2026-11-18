@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
 import { errorMessage } from "../lib/api";
+import { playCue } from "../lib/sound";
 
 export interface Toast {
   id: number;
@@ -112,7 +113,10 @@ export function Btn({
     <button
       type={type}
       className={`btn btn--${variant} btn--${size} ${pending ? "is-pending" : ""} ${className}`}
-      onClick={onClick}
+      onClick={() => {
+        playCue("click");
+        onClick?.();
+      }}
       disabled={disabled || pending}
       aria-busy={pending || undefined}
       title={title}
