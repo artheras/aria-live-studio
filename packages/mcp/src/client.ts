@@ -128,6 +128,9 @@ export class LiveClient {
     branch?: string;
     error?: string;
     previewUrl?: string;
+    diffSnippet?: string;
+    mediaUrl?: string;
+    mediaKind?: "video" | "image";
   }): Promise<void> {
     await this.request("POST", "/api/agent/complete", input, 10_000);
   }

@@ -595,7 +595,18 @@ export function createApp(deps: AppDeps): App {
       return sendError(res, 400, "bad_url", "Bad URL");
     }
     const handle = async () => {
-      if (url.pathname === "/healthz") return sendJson(res, 200, { ok: true, version: engine.state.version });
+      if (url.pathname === "/healthz") {
+        const st = engine.state;
+        return sendJson(res, 200, {
+          ok: true,
+          version: st.version,
+          twitch: st.connection.state,
+          isLive: Boolean(st.connection.isLive),
+          roundPhase: st.round?.phase ?? "idle",
+          activeAgents: (st.connectedAgents ?? []).length,
+          hasActiveLease: Boolean(st.activeLease),
+        });
+      }
       if (url.pathname.startsWith("/api/")) return handleApi(req, res, url);
       if (await mcp.handle(req, res, url)) return;
       if (url.pathname.startsWith("/auth/")) return handleAuth(req, res, url);

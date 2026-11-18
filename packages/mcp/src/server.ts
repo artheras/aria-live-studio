@@ -251,9 +251,12 @@ function createAgentServer(client: AgentApi, clientName: string | undefined): Mc
         branch: z.string().max(200).optional(),
         error: z.string().max(500).optional(),
         preview_url: z.string().max(300).optional().describe("Optional live preview URL for the OBS overlay."),
+        diff_snippet: z.string().max(4000).optional().describe("Optional stream-safe git diff excerpt to display in the Studio Workspace."),
+        media_url: z.string().max(500).optional().describe("Optional Agent-generated video or image URL rendered on the OBS overlay."),
+        media_kind: z.enum(["video", "image"]).optional().describe("Explicit media type for media_url."),
       },
     },
-    async ({ task_id, status, summary, changed_files, branch, error, preview_url }) => {
+    async ({ task_id, status, summary, changed_files, branch, error, preview_url, diff_snippet, media_url, media_kind }) => {
       try {
         await client.complete({
           taskId: task_id,
@@ -263,6 +266,9 @@ function createAgentServer(client: AgentApi, clientName: string | undefined): Mc
           branch,
           error,
           previewUrl: preview_url,
+          diffSnippet: diff_snippet,
+          mediaUrl: media_url,
+          mediaKind: media_kind,
         });
         return text(`Task ${task_id} marked ${status}. The stream shows the result.`);
       } catch (err) {
