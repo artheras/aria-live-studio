@@ -326,11 +326,21 @@ function BroadcastMonitor({
         <div className={`idle-preview__stage monitor-stage monitor-stage--${backdrop}`} ref={stageRef}>
           {backdrop === "code" && !livePreviewUrl && (
             <div className="monitor-mock-code" aria-hidden="true">
-              <span>{"// src/boss/DragonBoss.ts — Live Stream IDE"}</span>
-              <span>{"export class DragonBoss extends Entity {"}</span>
-              <span>{"  hp = 2400; phase = 'enraged';"}</span>
-              <span>{"  breatheFire(target: Vec2) { spawnFlameArc(this.pos, target); }"}</span>
-              <span>{"}"}</span>
+              <div className="mock-code-tab">DragonBoss.ts — aria-live-studio</div>
+              <div className="mock-code-line"><span className="mc-ln">14</span><span className="mc-cm">{"// Wave 5 telegraphed fire-breath phase"}</span></div>
+              <div className="mock-code-line"><span className="mc-ln">15</span><span className="mc-kw">export class </span><span className="mc-ty">DragonBoss</span><span className="mc-kw"> extends </span><span className="mc-ty">Entity</span>{" {"}</div>
+              <div className="mock-code-line"><span className="mc-ln">16</span>{"  hp = "}<span className="mc-num">2400</span>{"; phase: "}<span className="mc-ty">BossPhase</span>{" = "}<span className="mc-str">'enraged'</span>{";"}</div>
+              <div className="mock-code-line"><span className="mc-ln">17</span>{"  "}<span className="mc-fn">breatheFire</span>{"(target: "}<span className="mc-ty">Vec2</span>{") { "}<span className="mc-fn">spawnFlameArc</span>{"(this.pos, target); }"}</div>
+              <div className="mock-code-line"><span className="mc-ln">18</span>{"}"}</div>
+            </div>
+          )}
+          {backdrop === "game" && !livePreviewUrl && (
+            <div className="monitor-mock-game" aria-hidden="true">
+              <div className="mock-game-hud">
+                <span className="mock-game-wave">WAVE 05 · BOSS</span>
+                <div className="mock-game-hp"><i style={{ width: "68%" }} /></div>
+                <span className="mock-game-score">SCORE 48,920</span>
+              </div>
             </div>
           )}
           <span className="reticle reticle--tl" aria-hidden="true" />

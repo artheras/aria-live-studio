@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Connection, LiveState } from "@aria-live/shared";
 import type { AriaApi, Me } from "../lib/api";
 import type { LiveStatus } from "../lib/useLive";
@@ -215,6 +215,17 @@ export function Header({
   const now = useNow(10_000);
   const agentOnline = Boolean(agentStatus && now - agentStatus.lastSeenAt < 90_000);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [showReconnect, setShowReconnect] = useState(false);
+
+  useEffect(() => {
+    if (live === "open") {
+      setShowReconnect(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setShowReconnect(true), 1800);
+    return () => window.clearTimeout(timer);
+  }, [live]);
+
   const { run, toast } = useActions();
   const channel = connection.channel ?? me.user;
   const name = channel?.displayName || channel?.login || "—";
@@ -223,7 +234,7 @@ export function Header({
     <header className="topbar topbar--studio">
       <Logo />
       <div className="topbar__right">
-        {live !== "open" && (
+        {showReconnect && (
           <span className="chip chip--warn" role="status">
             Server {live === "connecting" ? "connecting…" : "reconnecting…"}
           </span>

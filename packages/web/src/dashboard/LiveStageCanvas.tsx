@@ -57,10 +57,24 @@ export function LiveStageCanvas({
   const lastCelebrationIdRef = useRef<string | null>(null);
   const burstFnRef = useRef<((colorHex: number, origin?: { x: number; y: number; z: number }) => void) | null>(null);
   const petUntilRef = useRef<number>(0);
+  const cameraGoalRef = useRef<{ pos: [number, number, number]; target: [number, number, number] } | null>(null);
 
   useEffect(() => {
-    prevPhaseRef.current = state.round?.phase ?? "idle";
-  }, [state.round?.phase]);
+    const nextPhase = state.round?.phase ?? "idle";
+    if (!compact && nextPhase !== prevPhaseRef.current) {
+      const presets: Record<string, { pos: [number, number, number]; target: [number, number, number] }> = {
+        idle: { pos: [27.6, 11.2, 28.4], target: [0.0, -2.2, 0.2] },
+        collecting: { pos: [22.5, 9.6, 25.2], target: [-1.8, -1.5, 2.2] },
+        voting: { pos: [24.2, 13.8, 24.6], target: [0.4, -2.0, 0.8] },
+        planning: { pos: [21.0, 10.2, 22.8], target: [1.6, -1.2, -1.0] },
+        awaiting_approval: { pos: [21.0, 10.2, 22.8], target: [1.6, -1.2, -1.0] },
+        executing: { pos: [19.4, 9.0, 21.5], target: [1.2, -0.8, -1.4] },
+        done: { pos: [28.4, 11.8, 29.2], target: [0.0, -2.0, 0.0] },
+      };
+      cameraGoalRef.current = presets[nextPhase] ?? presets.idle!;
+    }
+    prevPhaseRef.current = nextPhase;
+  }, [state.round?.phase, compact]);
 
   useEffect(() => {
     const latest = state.celebrations?.at(-1);
@@ -106,6 +120,10 @@ export function LiveStageCanvas({
     controls.maxDistance = 48;
     controls.maxPolarAngle = Math.PI * 0.48;
     controls.target.set(0.0, compact ? -1.8 : -2.2, 0.2);
+    const onControlStart = () => {
+      cameraGoalRef.current = null;
+    };
+    controls.addEventListener("start", onControlStart);
 
     // Deep Indigo-to-Royal-Violet Night Sky Dome matching the reference starfield atmosphere
     const skyGeo = new THREE.SphereGeometry(92, 24, 16);
@@ -1325,6 +1343,17 @@ export function LiveStageCanvas({
         }
       }
 
+      if (cameraGoalRef.current) {
+        const goal = cameraGoalRef.current;
+        const goalPos = new THREE.Vector3(...goal.pos);
+        const goalTarget = new THREE.Vector3(...goal.target);
+        camera.position.lerp(goalPos, 0.045);
+        controls.target.lerp(goalTarget, 0.045);
+        if (camera.position.distanceTo(goalPos) < 0.08 && controls.target.distanceTo(goalTarget) < 0.05) {
+          cameraGoalRef.current = null;
+        }
+      }
+
       controls.update();
       const eco = ecoModeRef.current;
       if (renderer.shadowMap.enabled !== !eco) {
@@ -1345,6 +1374,7 @@ export function LiveStageCanvas({
       renderer.domElement.removeEventListener("pointerdown", onPointerDown);
       renderer.domElement.removeEventListener("pointermove", onPointerMove);
       renderer.domElement.removeEventListener("pointerup", onPointerUp);
+      controls.removeEventListener("start", onControlStart);
       controls.dispose();
       renderer.dispose();
       if (renderer.domElement.parentNode === container) {
