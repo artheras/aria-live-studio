@@ -624,6 +624,18 @@ export function RoundControl({ round, settings, me, api, clockOffset, onConnectA
             {diffText !== null && <pre className="diff-preview">{diffText}</pre>}
           </div>
         )}
+        {execution?.status === "failed" && task && (
+          <div className="actions">
+            <Btn
+              variant="primary"
+              size="sm"
+              pending={pending}
+              onClick={() => act(() => api.startExecution(), "Retrying build")}
+            >
+              Retry execution
+            </Btn>
+          </div>
+        )}
         {task && <TaskCard task={task} compact />}
         <PromptForm label="Next round" onSubmit={openRound} pending={pending} />
       </>

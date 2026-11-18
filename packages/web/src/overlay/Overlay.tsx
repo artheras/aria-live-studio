@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { Eligibility, LiveState, Round } from "@aria-live/shared";
 import { COMMANDS } from "@aria-live/shared";
 import { executorInfo } from "../lib/agents";
@@ -536,6 +536,14 @@ function CompactStageCard({
 }
 
 /** Pure overlay render for a snapshot (tests use this directly). */
+function resolveOverlayAccent(prompt?: string | null, modifiers?: string[]): [string, string] {
+  const txt = `${prompt ?? ""} ${(modifiers ?? []).join(" ")}`.toLowerCase();
+  if (/(forest|nature|garden|emerald|leaf|plant|green)/.test(txt)) return ["#059669", "#34d399"];
+  if (/(boss|fire|dragon|lava|dungeon|amber|gold|forge)/.test(txt)) return ["#d97706", "#fbbf24"];
+  if (/(cyber|space|ice|snow|neon|frost|sky|retro|pixel)/.test(txt)) return ["#0284c7", "#38bdf8"];
+  return ["#9146ff", "#c084fc"];
+}
+
 export function OverlayView({
   state,
   connected,
@@ -568,12 +576,14 @@ export function OverlayView({
     .at(-1);
   const effectivePos = layout === "topbar" && pos === "bl" ? "br" : pos;
   const useCompactCard = layout === "compact" || layout === "minimal" || card3d || layout === "topbar";
+  const [accent, accent2] = resolveOverlayAccent(round?.prompt, round?.modifiers);
+  const themeStyle = { "--ov-accent": accent, "--ov-accent-2": accent2 } as CSSProperties;
 
   if (showcaseMode) {
     const eng = phaseEngineer(phase);
     const pct = buildProgressPercent(state);
     return (
-      <div className="ov-stage ov-stage--showcase" data-phase={phase}>
+      <div className="ov-stage ov-stage--showcase" data-phase={phase} style={themeStyle}>
         <div className="ov-showcase-canvas" aria-hidden="true">
           <LiveStageCanvas state={state} transparent={false} />
         </div>
@@ -608,7 +618,7 @@ export function OverlayView({
   }
 
   return (
-    <div className={`ov-stage ov-stage--pos-${effectivePos} ov-stage--layout-${layout}`}>
+    <div className={`ov-stage ov-stage--pos-${effectivePos} ov-stage--layout-${layout}`} style={themeStyle}>
       {layout === "topbar" && (
         <div className="ov-topbar">
           <span className="ov-topbar__brand">ARIA LIVE</span>

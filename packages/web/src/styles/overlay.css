@@ -647,7 +647,7 @@
   position: relative;
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, #9146ff, #c084fc);
+  background: linear-gradient(90deg, var(--ov-accent, #9146ff), var(--ov-accent-2, #c084fc));
   transition: width 0.35s ease;
   overflow: hidden;
 }

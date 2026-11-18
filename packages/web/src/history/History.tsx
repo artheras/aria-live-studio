@@ -219,19 +219,24 @@ export function HistoryPage() {
         <Logo />
         <h1 className="topbar__page">History</h1>
         <nav className="topbar__actions">
-          {rounds && rounds.length > 0 && (
+          {rounds && filtered.length > 0 && (
             <button
               type="button"
               className="btn btn--ghost btn--sm"
               onClick={async () => {
-                const ok = await copyText(formatHistoryRecap(rounds));
+                playCue("click");
+                const ok = await copyText(formatHistoryRecap(filtered));
                 if (ok) {
                   setCopied(true);
                   setTimeout(() => setCopied(false), 2000);
                 }
               }}
             >
-              {copied ? "Copied Recap" : "Export Recap (MD)"}
+              {copied
+                ? "Copied Recap"
+                : filtered.length < rounds.length
+                  ? `Export Filtered (${filtered.length})`
+                  : "Export Recap (MD)"}
             </button>
           )}
           <a className="btn btn--secondary btn--sm" href="/">
