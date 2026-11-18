@@ -272,6 +272,47 @@ export function LiveStageCanvas({
     const workshopGears: THREE.Object3D[] = [];
     placeGlb("/models/workshop.glb?v=13", 0.15, 1.62, -1.4, 0, 1.75);
 
+    // 2D circular obstacle colliders for all 7 buildings + foreground structures so engineers steer around walls
+    const buildingColliders: ReadonlyArray<{ x: number; z: number; r: number }> = [
+      { x: -6.2, z: 7.0, r: 2.55 },   // cottage-garden
+      { x: 6.8, z: 6.6, r: 2.55 },    // cottage-timber
+      { x: -10.0, z: -0.2, r: 2.55 }, // cottage-lantern
+      { x: 10.6, z: 0.2, r: 2.55 },   // cottage-stone
+      { x: -3.8, z: -9.0, r: 2.55 },  // cottage-violet
+      { x: 5.8, z: -9.0, r: 2.55 },   // cottage-hearth
+      { x: 0.15, z: -1.4, r: 3.45 },  // central workshop
+      { x: -2.1, z: 12.3, r: 1.15 },  // ballot obelisk
+      { x: 4.45, z: 10.2, r: 1.15 },  // blueprint gazebo
+    ];
+
+    // Chimney voxel smoke particle pool for Central Workshop & Hearth Cottage
+    type SmokePuff = { mesh: THREE.Mesh; mat: THREE.MeshStandardMaterial; vx: number; vy: number; vz: number; life: number; maxLife: number };
+    const smokePuffs: SmokePuff[] = [];
+    const spawnSmoke = (ox: number, oy: number, oz: number) => {
+      if (smokePuffs.length > 26) return;
+      const mat = new THREE.MeshStandardMaterial({
+        color: 0xd8ccf2,
+        emissive: 0x6d4aa8,
+        emissiveIntensity: 0.25,
+        transparent: true,
+        opacity: 0.5,
+        roughness: 0.9,
+      });
+      const mesh = new THREE.Mesh(voxelGeo, mat);
+      mesh.position.set(ox + (Math.random() - 0.5) * 0.22, oy, oz + (Math.random() - 0.5) * 0.22);
+      mesh.scale.setScalar(0.32);
+      islandGroup.add(mesh);
+      smokePuffs.push({
+        mesh,
+        mat,
+        vx: (Math.random() - 0.5) * 0.22 + 0.14,
+        vy: 0.72 + Math.random() * 0.28,
+        vz: (Math.random() - 0.5) * 0.18,
+        life: 0,
+        maxLife: 2.6 + Math.random() * 0.9,
+      });
+    };
+
     // Dynamic MCP Relay Beacon crystal + rising pulse ring
     const mcpCrystalMat = new THREE.MeshStandardMaterial({
       color: 0xa855f7,
@@ -1218,8 +1259,44 @@ export function LiveStageCanvas({
           }
         }
 
+        // Building obstacle avoidance (smooth tangential steering + hard push-out so engineers never clip through houses)
+        for (const obs of buildingColliders) {
+          const toOx = obs.x - v.group.position.x;
+          const toOz = obs.z - v.group.position.z;
+          const distO = Math.hypot(toOx, toOz);
+          const avoidR = obs.r + 1.15;
+          if (distO < avoidR && distO > 0.001) {
+            const nx = toOx / distO;
+            const nz = toOz / distO;
+            const dot = v.vx * nx + v.vz * nz;
+            if (dot > 0) {
+              // Steer tangentially around the building along the side aligned with current velocity
+              const tx1 = -nz;
+              const tz1 = nx;
+              const side = v.vx * tx1 + v.vz * tz1 >= 0 ? 1 : -1;
+              const strength = ((avoidR - distO) / 1.15) * 1.45;
+              v.vx -= nx * dot * 0.85;
+              v.vz -= nz * dot * 0.85;
+              v.vx += tx1 * side * strength;
+              v.vz += tz1 * side * strength;
+            }
+          }
+        }
+
         v.group.position.x += v.vx * dt;
         v.group.position.z += v.vz * dt;
+
+        // Hard boundary push-out guarantee
+        for (const obs of buildingColliders) {
+          const fx = v.group.position.x - obs.x;
+          const fz = v.group.position.z - obs.z;
+          const fd = Math.hypot(fx, fz);
+          if (fd < obs.r && fd > 0.001) {
+            v.group.position.x = obs.x + (fx / fd) * obs.r;
+            v.group.position.z = obs.z + (fz / fd) * obs.r;
+          }
+        }
+
         const speed = Math.hypot(v.vx, v.vz);
 
         // Shortest-arc yaw alignment
@@ -1413,6 +1490,30 @@ export function LiveStageCanvas({
         controls.target.lerp(goalTarget, 0.045);
         if (camera.position.distanceTo(goalPos) < 0.08 && controls.target.distanceTo(goalTarget) < 0.05) {
           cameraGoalRef.current = null;
+        }
+      }
+
+      if (frame % (phase === "executing" ? 16 : 34) === 0) {
+        spawnSmoke(1.65, 5.65, -2.0);
+        if (frame % (phase === "executing" ? 32 : 68) === 0) {
+          spawnSmoke(6.4, 3.85, -9.2);
+        }
+      }
+      for (let i = smokePuffs.length - 1; i >= 0; i--) {
+        const sp = smokePuffs[i]!;
+        sp.life += dt;
+        const p = sp.life / sp.maxLife;
+        if (p >= 1) {
+          islandGroup.remove(sp.mesh);
+          sp.mat.dispose();
+          smokePuffs.splice(i, 1);
+        } else {
+          sp.mesh.position.x += sp.vx * dt;
+          sp.mesh.position.y += sp.vy * dt;
+          sp.mesh.position.z += sp.vz * dt;
+          sp.mesh.rotation.y += dt * 0.6;
+          sp.mesh.scale.setScalar(0.32 + p * 0.58);
+          sp.mat.opacity = 0.46 * (1 - p);
         }
       }
 
