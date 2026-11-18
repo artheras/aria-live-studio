@@ -15,10 +15,10 @@
 
 .ov-3d-corner {
   position: absolute;
-  right: 40px;
-  bottom: 40px;
-  width: 520px;
-  height: 320px;
+  right: 24px;
+  bottom: 48px;
+  width: 400px;
+  height: 270px;
   pointer-events: none;
 }
 
@@ -969,19 +969,60 @@
 .ov-stage[data-ov-theme="light"] .ov-card3d__kicker,
 .ov-stage[data-ov-theme="light"] .ov-card3d__prog-row,
 .ov-stage[data-ov-theme="light"] .ov-showcase-kicker,
-.ov-stage[data-ov-theme="light"] .ov-cmp-brand {
+.ov-stage[data-ov-theme="light"] .ov-cmp-brand,
+.ov-stage[data-ov-theme="light"] .ov-cmp-time,
+.ov-stage[data-ov-theme="light"] .ov-topbar__brand,
+.ov-stage[data-ov-theme="light"] .ov-topbar__phase,
+.ov-stage[data-ov-theme="light"] .ov-stage-title svg {
   color: #6d28d9;
 }
 .ov-stage[data-ov-theme="light"] .ov-sub,
+.ov-stage[data-ov-theme="light"] .ov-small,
 .ov-stage[data-ov-theme="light"] .ov-card3d__step,
 .ov-stage[data-ov-theme="light"] .ov-min-sub,
-.ov-stage[data-ov-theme="light"] .ov-done-mini__sub {
+.ov-stage[data-ov-theme="light"] .ov-done-mini__sub,
+.ov-stage[data-ov-theme="light"] .ov-cmp-step,
+.ov-stage[data-ov-theme="light"] .ov-cta__alt,
+.ov-stage[data-ov-theme="light"] .ov-idea__by,
+.ov-stage[data-ov-theme="light"] .ov-counter,
+.ov-stage[data-ov-theme="light"] .ov-step {
   color: #4b4663;
 }
+.ov-stage[data-ov-theme="light"] .ov-stage-title,
+.ov-stage[data-ov-theme="light"] .ov-title,
+.ov-stage[data-ov-theme="light"] .ov-cmp-title,
+.ov-stage[data-ov-theme="light"] .ov-done-mini__title,
 .ov-stage[data-ov-theme="light"] .ov-showcase-title,
 .ov-stage[data-ov-theme="light"] .ov-topbar__title,
-.ov-stage[data-ov-theme="light"] .ov-card3d__title {
+.ov-stage[data-ov-theme="light"] .ov-card3d__title,
+.ov-stage[data-ov-theme="light"] .ov-counter b,
+.ov-stage[data-ov-theme="light"] .ov-step:last-child {
   color: #171424;
+}
+.ov-stage[data-ov-theme="light"] .ov-shimmer {
+  background: none;
+  -webkit-text-fill-color: #171424;
+  color: #171424;
+}
+.ov-stage[data-ov-theme="light"] .ov-small code,
+.ov-stage[data-ov-theme="light"] .ov-small strong {
+  color: #6d28d9;
+}
+.ov-stage[data-ov-theme="light"] .ov-sep {
+  background: rgba(23, 20, 36, 0.22);
+}
+.ov-stage[data-ov-theme="light"] .ov-cmp-foot {
+  border-top-color: rgba(23, 20, 36, 0.1);
+}
+.ov-stage[data-ov-theme="light"] .ov-badge--agent {
+  background: rgba(2, 132, 199, 0.14);
+  border-color: rgba(2, 132, 199, 0.4);
+  color: #0369a1;
+}
+.ov-stage[data-ov-theme="light"] .ov-badge--only {
+  background: rgba(217, 119, 6, 0.14);
+  border-color: rgba(217, 119, 6, 0.4);
+  color: #b45309;
 }
 .ov-stage[data-ov-theme="light"] .ov-eng-pill {
   background: rgba(255, 255, 255, 0.85);
