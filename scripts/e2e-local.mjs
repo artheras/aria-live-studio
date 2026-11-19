@@ -1293,11 +1293,13 @@ async function setupShots() {
   const { chromium } = pw;
   const exe = process.env.CHROMIUM_PATH || undefined;
   const browser = await chromium.launch({ executablePath: exe }).catch(async (err) => {
-    // Fall back to any chromium in PLAYWRIGHT_BROWSERS_PATH.
+    // Fall back to any chromium in PLAYWRIGHT_BROWSERS_PATH or system Chrome.
     const root = process.env.PLAYWRIGHT_BROWSERS_PATH || "/opt/pw-browsers";
     const dir = existsSync(root) ? execFileSync("sh", ["-c", `ls -d ${root}/chromium-*/chrome-linux/chrome 2>/dev/null | head -1`], { encoding: "utf8" }).trim() : "";
-    if (!dir) throw err;
-    return chromium.launch({ executablePath: dir });
+    if (dir) return chromium.launch({ executablePath: dir });
+    return chromium.launch({ channel: "chrome" }).catch(() => {
+      throw err;
+    });
   });
   closers.push(() => browser.close());
   mkdirSync(SHOTS, { recursive: true });
@@ -1337,7 +1339,7 @@ async function setupShots() {
       const page = await ctx.newPage();
       watchConsole(page, "not-configured");
       await page.goto(base);
-      await page.getByText("Twitch isn't configured").waitFor();
+      await page.getByText("This Aria server has no Twitch app yet").waitFor();
       await save(page, "login-not-configured");
       await ctx.close();
     },

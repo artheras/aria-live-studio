@@ -25,6 +25,7 @@ import { extname, join, normalize, resolve, sep } from "node:path";
 import type { AddressInfo } from "node:net";
 import type { ApiError, ClientRole } from "@aria-live/shared";
 import { REPO_ROOT, type Config } from "../config.ts";
+import { assessDiffRisk } from "../executor/risk.ts";
 import { AGENT_EXECUTOR_PREFIX, AgentError } from "../live/agent.ts";
 import { choosePlanner } from "../planner/index.ts";
 import { EngineError } from "../live/engine.ts";
@@ -339,11 +340,13 @@ export function createApp(deps: AppDeps): App {
   route("GET /api/round/diff", "session", async () => {
     const { branch, cwd } = requireRoundBranch();
     try {
-      const [{ stdout: stat }, { stdout: diff }] = await Promise.all([
+      const [{ stdout: stat }, { stdout: names }, { stdout: diff }] = await Promise.all([
         execFileAsync("git", ["diff", `HEAD...${branch}`, "--stat"], { cwd }),
+        execFileAsync("git", ["diff", `HEAD...${branch}`, "--name-only"], { cwd }),
         execFileAsync("git", ["diff", `HEAD...${branch}`], { cwd }),
       ]);
-      return { branch, stat: stat.trim(), diff: diff.slice(0, 8000) };
+      const risks = assessDiffRisk(names.split(/\r?\n/));
+      return { branch, stat: stat.trim(), diff: diff.slice(0, 8000), risks };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       throw new HttpError(500, "diff_failed", `Could not read diff for ${branch}: ${msg}`);
