@@ -17,10 +17,15 @@ progress on an OBS overlay.
                                                                  claim · build · report · finish
 ```
 
-| Streamer dashboard | OBS overlay (transparent, 1920 × 1080) |
+| Streamer Studio (Light Theme & 3D Workshop Preview) | Pop-out Showcase (3D Floating Acropolis) |
 |---|---|
-| ![Dashboard during the vote](docs/screenshots/dashboard-voting.png) | ![Overlay ballot](docs/screenshots/overlay-voting.png) |
-| ![Dashboard while Codex builds via MCP](docs/screenshots/dashboard-executing.png) | ![Overlay build progress](docs/screenshots/overlay-executing.png) |
+| ![Streamer Studio Light Theme](docs/screenshots/dashboard-idle.jpg) | ![Pop-out Showcase 3D Floating Acropolis](docs/screenshots/popout-showcase.jpg) |
+| ![Pop-out Card Mode](docs/screenshots/popout-card.jpg) | ![Pop-out Green Chroma Key Mode](docs/screenshots/popout-green-chroma.png) |
+
+| Streamer dashboard (voting & live MCP execution) | OBS overlay (transparent, 1920 × 1080) |
+|---|---|
+| ![Dashboard during the vote](docs/screenshots/dashboard-voting.jpg) | ![Overlay ballot](docs/screenshots/overlay-voting.png) |
+| ![Dashboard while Codex builds via MCP](docs/screenshots/dashboard-executing.jpg) | ![Overlay build progress](docs/screenshots/overlay-executing.png) |
 
 The one thing it proves: **viewers propose → the community decides → Aria
 organises the work → the streamer approves → an agent builds it → viewers see the
