@@ -19,7 +19,18 @@ const TWITCH_LABEL: Record<Connection["state"], string> = {
 export function Logo() {
   return (
     <span className="logo">
-      <img className="logo__icon" src="/aria-icon-dark.png" width={32} height={32} alt="" aria-hidden="true" />
+      <img
+        className="logo__icon"
+        src="/aria-live-studio-icon.svg"
+        onError={(e) => {
+          e.currentTarget.onerror = null;
+          e.currentTarget.src = "/aria-icon-dark.png";
+        }}
+        width={32}
+        height={32}
+        alt=""
+        aria-hidden="true"
+      />
       <span className="logo__stack">
         <span className="logo__word">
           Aria <strong>Live Studio</strong>

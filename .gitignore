@@ -7,3 +7,4 @@ data/
 *.log
 .DS_Store
 coverage/
+packages/web/public/aria-live-studio-icon.svg
