@@ -12,6 +12,7 @@ import {
   type AgentSnippet,
 } from "../lib/agents";
 import { Btn, Spinner, useActions } from "./actions";
+import { ClientIcon } from "./ClientIcons";
 import { copyText } from "./Drawer";
 
 export function AgentPanel({
@@ -32,6 +33,7 @@ export function AgentPanel({
   const [error, setError] = useState<string | null>(null);
   const [reveal, setReveal] = useState(false);
   const [tab, setTab] = useState<"local" | "remote">("local");
+  const [selectedId, setSelectedId] = useState<AgentSnippet["id"]>("claude-code");
   const [pingMs, setPingMs] = useState<number | null>(null);
   const [testing, setTesting] = useState(false);
   const [rotating, setRotating] = useState(false);
@@ -67,64 +69,81 @@ export function AgentPanel({
     tab === "remote" && remote ? remoteSnippets(token, remote.agentUrl) : agentSnippets({ ...conn, token });
   const real = build(conn.token);
   const shown = reveal ? real : build(maskToken(conn.token));
+  const activeIndex = Math.max(0, shown.findIndex((s) => s.id === selectedId));
+  const activeShown = shown[activeIndex] ?? shown[0]!;
+  const activeReal = real[activeIndex] ?? real[0]!;
 
   return (
     <div className="agent-panel">
       <p className="lede">
-        Let Codex, Claude Code or Aria Code pick up approved tasks through the Aria Live MCP bridge.
+        Connect your IDE, CLI, or chat app via MCP. Agents only run tasks you approve on the dashboard.
       </p>
-      <p className="callout callout--info">
-        The agent can claim <strong>approved</strong> tasks and report progress; it can never approve, reject or vote.
-      </p>
+
       <div className="agent-panel__meta">
-        <Btn size="sm" variant={tab === "local" ? "primary" : "ghost"} onClick={() => setTab("local")}>
-          Local (stdio)
-        </Btn>
-        {remote && (
-          <Btn size="sm" variant={tab === "remote" ? "primary" : "ghost"} onClick={() => setTab("remote")}>
-            Remote (URL)
+        <div className="agent-panel__tabs" role="tablist" aria-label="Connection mode">
+          <Btn size="sm" variant={tab === "local" ? "primary" : "ghost"} onClick={() => setTab("local")}>
+            Local (stdio)
           </Btn>
-        )}
-      </div>
-      <div className="agent-panel__meta">
+          {remote && (
+            <Btn size="sm" variant={tab === "remote" ? "primary" : "ghost"} onClick={() => setTab("remote")}>
+              Remote (URL)
+            </Btn>
+          )}
+        </div>
         <span className={`pill pill--${agentConnected ? "good" : "warn"}`}>
           {agentConnected && agentStatus
-            ? `Connected: ${agentStatus.name} (${timeAgo(agentStatus.lastSeenAt, Date.now())})`
+            ? `${agentStatus.name} · ${timeAgo(agentStatus.lastSeenAt, Date.now())}`
             : agentConnected
               ? "Agent connected"
-              : "Waiting for agent poll"}
+              : "Waiting for agent"}
         </span>
-        {pingMs !== null && <span className="muted num">Bridge {pingMs} ms</span>}
-        {activeLease && (
-          <span className={`pill pill--${Date.now() > activeLease.expiresAt ? "warn" : "info"}`}>
-            {Date.now() > activeLease.expiresAt
-              ? `Lease expired (${activeLease.client}) — cancel or retry`
-              : `Lease: ${activeLease.client} · ${timeAgo(activeLease.claimedAt, Date.now())}`}
-          </span>
-        )}
       </div>
-      {connectedAgents && connectedAgents.length > 1 && (
-        <div className="agent-panel__meta">
-          <span className="muted">Active agents:</span>
-          {connectedAgents.map((a) => (
-            <span key={a.name} className="pill">
-              {a.name} · {timeAgo(a.lastSeenAt, Date.now())}
-            </span>
-          ))}
-        </div>
-      )}
-      {preflight && (
-        <div className="agent-panel__meta">
-          <span className={`pill pill--${preflight.planner.apiKeyConfigured ? "good" : "warn"}`}>
-            Planner: {preflight.planner.model ?? preflight.planner.kind}
-          </span>
-          <span className={`pill pill--${preflight.executor.ok ? "good" : "warn"}`} title={preflight.executor.reason ?? undefined}>
-            Executor: {preflight.executor.kind}
-            {preflight.executor.targetRepoConfigured ? " · Repo bound" : " · MCP-only"}
-          </span>
-        </div>
-      )}
-      <div className="agent-panel__meta">
+
+      <div className="client-grid" role="listbox" aria-label="Select client">
+        {shown.map((s) => {
+          const isSelected = s.id === activeShown.id;
+          return (
+            <button
+              key={s.id}
+              type="button"
+              role="option"
+              aria-selected={isSelected}
+              className={`client-chip${isSelected ? " client-chip--active" : ""}`}
+              onClick={() => setSelectedId(s.id)}
+            >
+              <ClientIcon id={s.id} size={18} />
+              <span>{s.client}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <section className="snippet">
+        <header className="snippet__head">
+          <h3>
+            <ClientIcon id={activeShown.id} size={18} />
+            {activeShown.client}
+          </h3>
+          <span className="muted">{activeShown.where}</span>
+          <Btn
+            size="sm"
+            variant="secondary"
+            className="push-right"
+            onClick={async () => {
+              const ok = await copyText(activeReal.text);
+              toast(ok ? "success" : "error", ok ? `${activeShown.client} config copied (with token)` : "Copy failed");
+            }}
+          >
+            Copy
+          </Btn>
+        </header>
+        <pre className="snippet__code">
+          <code>{activeShown.text}</code>
+        </pre>
+        {activeShown.note && <p className="muted snippet__note">{activeShown.note}</p>}
+      </section>
+
+      <div className="agent-panel__toolbar">
         <Btn
           size="sm"
           variant="ghost"
@@ -145,7 +164,7 @@ export function AgentPanel({
             }
           }}
         >
-          Test Connection
+          Test
         </Btn>
         <Btn
           size="sm"
@@ -166,7 +185,7 @@ export function AgentPanel({
               2,
             );
             const ok = await copyText(mcpJson);
-            toast(ok ? "success" : "error", ok ? "MCP JSON config copied (with token)" : "Copy failed");
+            toast(ok ? "success" : "error", ok ? "MCP JSON copied (with token)" : "Copy failed");
           }}
         >
           Copy MCP JSON
@@ -190,79 +209,83 @@ export function AgentPanel({
         >
           Rotate keys
         </Btn>
-      </div>
-      <div className="agent-panel__meta">
-        <span>
-          {tab === "remote" && remote ? "MCP endpoint" : "Server URL"} <code>{tab === "remote" && remote ? remote.agentUrl : conn.mcpUrl}</code>
-        </span>
         <label className="switch">
           <input type="checkbox" checked={reveal} onChange={(e) => setReveal(e.target.checked)} />
           <span>Reveal token</span>
         </label>
       </div>
-      {shown.map((s, i) => (
-        <section key={s.id} className="snippet">
-          <header className="snippet__head">
-            <h3>{s.client}</h3>
-            <span className="muted">{s.where}</span>
-            <Btn
-              size="sm"
-              variant="secondary"
-              className="push-right"
-              onClick={async () => {
-                const ok = await copyText(real[i]!.text);
-                toast(ok ? "success" : "error", ok ? `${s.client} command copied (with token)` : "Copy failed");
-              }}
-            >
-              Copy
-            </Btn>
-          </header>
-          <pre className="snippet__code">
-            <code>{s.text}</code>
-          </pre>
-          {s.note && <p className="muted snippet__note">{s.note}</p>}
-        </section>
-      ))}
+
       {tab === "remote" && remote && (
         <>
-          <p className="muted">
-            The Claude Code progress hook (plugin) posts "Edited …" / "Ran tests" lines automatically; Codex and Aria Code
-            report progress through the live_report_progress tool.
-          </p>
-          <h3 className="agent-panel__sub">Chat apps (ChatGPT / Claude)</h3>
-          <p className="muted">
-            Add one of these URLs as a custom connector. Each URL is a password: anyone who has it gets that role.
-          </p>
+          <h3 className="agent-panel__sub">
+            <ClientIcon id="chatgpt" size={16} />
+            <ClientIcon id="claude" size={16} />
+            Desktop &amp; Mobile Chat Apps
+          </h3>
           <ConnectorUrl
-            title="Co-host"
-            role="Read-only: reads the round, ideas, history and activity. Cannot change anything."
+            title="Co-host (Read-only)"
+            role="Reads round, ideas, history & activity. Cannot change anything."
             url={remote.cohostUrl}
             reveal={reveal}
             onCopied={(ok) => toast(ok ? "success" : "error", ok ? "Co-host URL copied (secret)" : "Copy failed")}
           />
           {remote.streamerUrl && (
             <ConnectorUrl
-              title="Streamer"
-              role="Co-host tools plus round control: open a round, start, extend and close the vote, hide ideas, have Aria plan the winner. It can never approve, reject, run or cancel: approval happens here on the dashboard."
+              title="Streamer (Remote control)"
+              role="Open/close rounds & votes, hide ideas, plan winner. Can never approve, reject, run or cancel."
               url={remote.streamerUrl}
               reveal={reveal}
               onCopied={(ok) => toast(ok ? "success" : "error", ok ? "Streamer URL copied (secret)" : "Copy failed")}
             />
           )}
           <p className="muted snippet__note">
-            ChatGPT: Settings → Apps &amp; Connectors → Advanced settings → Developer mode, then Create → paste the URL, no
-            authentication.
-            <br />
-            Claude: Settings → Connectors → Add custom connector → paste the URL.
-          </p>
-          <p className="muted snippet__note">
-            The URL must be public HTTPS: e.g. run <code>cloudflared tunnel --url http://localhost:3000</code> and set{" "}
-            <code>PUBLIC_URL</code> to the tunnel URL, then restart (README: Hosting for ChatGPT and Claude). Idea texts and
-            author names are visible to the app, so keep both URLs off stream.
+            Requires public HTTPS (<code>PUBLIC_URL</code>, e.g. <code>cloudflared tunnel --url http://localhost:3000</code>). Keep URLs off stream.
           </p>
         </>
       )}
-      <p className="muted">Keep the token off stream — it lets an agent act on approved tasks.</p>
+
+      <details className="agent-panel__details">
+        <summary>
+          Server &amp; diagnostics
+          {pingMs !== null ? ` · Bridge ${pingMs} ms` : ""}
+        </summary>
+        <div className="agent-panel__details-body">
+          <div>
+            <span className="muted">{tab === "remote" && remote ? "MCP endpoint: " : "Server URL: "}</span>
+            <code>{tab === "remote" && remote ? remote.agentUrl : conn.mcpUrl}</code>
+          </div>
+          {preflight && (
+            <div className="agent-panel__meta">
+              <span className={`pill pill--${preflight.planner.apiKeyConfigured ? "good" : "warn"}`}>
+                Planner: {preflight.planner.model ?? preflight.planner.kind}
+              </span>
+              <span className={`pill pill--${preflight.executor.ok ? "good" : "warn"}`} title={preflight.executor.reason ?? undefined}>
+                Executor: {preflight.executor.kind}
+                {preflight.executor.targetRepoConfigured ? " · Repo bound" : " · MCP-only"}
+              </span>
+            </div>
+          )}
+          {activeLease && (
+            <div>
+              <span className={`pill pill--${Date.now() > activeLease.expiresAt ? "warn" : "info"}`}>
+                {Date.now() > activeLease.expiresAt
+                  ? `Lease expired (${activeLease.client}) — cancel or retry`
+                  : `Lease: ${activeLease.client} · ${timeAgo(activeLease.claimedAt, Date.now())}`}
+              </span>
+            </div>
+          )}
+          {connectedAgents && connectedAgents.length > 0 && (
+            <div className="agent-panel__meta">
+              <span className="muted">Active agents:</span>
+              {connectedAgents.map((a) => (
+                <span key={a.name} className="pill">
+                  {a.name} · {timeAgo(a.lastSeenAt, Date.now())}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      </details>
     </div>
   );
 }
@@ -284,7 +307,6 @@ function ConnectorUrl({
     <section className="snippet">
       <header className="snippet__head">
         <h3>{title}</h3>
-        <span className="muted">Connector URL, no auth</span>
         <Btn size="sm" variant="secondary" className="push-right" onClick={async () => onCopied(await copyText(url))}>
           Copy
         </Btn>
