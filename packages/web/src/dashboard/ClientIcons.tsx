@@ -52,11 +52,14 @@ export function ClientIcon({ id, size = 18 }: { id: ClientIconId; size?: number 
       );
     case "aria-code":
       return (
-        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" role="img" aria-hidden="true">
-          <rect width="24" height="24" rx="6" fill="#7C3AED" />
-          <path d="M12 5 18 8.5v7L12 19l-6-3.5v-7L12 5Z" stroke="#FFF" strokeWidth="1.7" strokeLinejoin="round" />
-          <path d="m9.5 13 2.5-4.5L14.5 13h-5Z" fill="#FFF" />
-        </svg>
+        <img
+          src="/aria-icon-dark.png"
+          width={size}
+          height={size}
+          alt=""
+          aria-hidden="true"
+          style={{ borderRadius: 4, flexShrink: 0, objectFit: "cover" }}
+        />
       );
   }
 }
