@@ -25,7 +25,7 @@ export interface AgentConnection {
 }
 
 export interface AgentSnippet {
-  id: "claude-code" | "codex" | "cursor" | "gemini-cli" | "aria-code";
+  id: "claude-code" | "claude-desktop" | "codex" | "cursor" | "gemini-cli" | "aria-code";
   client: string;
   where: string;
   note?: string;
@@ -80,6 +80,24 @@ export function agentSnippets({ token, mcpUrl, mcpCommand }: AgentConnection): A
       id: "cursor",
       client: "Cursor",
       where: "Add to .cursor/mcp.json in your project",
+      text: JSON.stringify(
+        {
+          mcpServers: {
+            [MCP_SERVER_NAME]: {
+              command: cmd.command,
+              args: cmd.args,
+              env: { ARIA_LIVE_URL: mcpUrl, ARIA_LIVE_TOKEN: token },
+            },
+          },
+        },
+        null,
+        2,
+      ),
+    },
+    {
+      id: "claude-desktop",
+      client: "Claude Desktop",
+      where: "Add to claude_desktop_config.json (macOS: ~/Library/Application Support/Claude/)",
       text: JSON.stringify(
         {
           mcpServers: {

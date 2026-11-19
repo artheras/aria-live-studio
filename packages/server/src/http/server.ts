@@ -24,7 +24,7 @@ import { createReadStream, existsSync, mkdirSync, statSync, writeFileSync } from
 import { extname, join, normalize, resolve, sep } from "node:path";
 import type { AddressInfo } from "node:net";
 import type { ApiError, ClientRole } from "@aria-live/shared";
-import { REPO_ROOT, type Config } from "../config.ts";
+import { REPO_ROOT, rotateAgentSecrets, type Config } from "../config.ts";
 import { assessDiffRisk } from "../executor/risk.ts";
 import { AGENT_EXECUTOR_PREFIX, AgentError } from "../live/agent.ts";
 import { choosePlanner } from "../planner/index.ts";
@@ -274,7 +274,7 @@ export function createApp(deps: AppDeps): App {
   route("GET /api/overlay-url", "session", () => ({
     url: `${config.publicUrl}/overlay?key=${encodeURIComponent(config.overlayKey)}`,
   }));
-  route("GET /api/agent-connection", "session", () => ({
+  const agentConnectionPayload = () => ({
     token: config.agentToken,
     mcpUrl: config.publicUrl,
     mcpCommand: { command: "node", args: [join(REPO_ROOT, "plugin/mcp/aria-live-mcp.mjs")] },
@@ -283,7 +283,12 @@ export function createApp(deps: AppDeps): App {
       cohostUrl: `${config.publicUrl}/mcp/cohost/${encodeURIComponent(config.cohostKey)}`,
       streamerUrl: `${config.publicUrl}/mcp/streamer/${encodeURIComponent(config.streamerKey)}`,
     },
-  }));
+  });
+  route("GET /api/agent-connection", "session", () => agentConnectionPayload());
+  route("POST /api/agent/rotate", "session", () => {
+    rotateAgentSecrets(config);
+    return agentConnectionPayload();
+  });
   route("PATCH /api/settings", "session", ({ body }) => engine.updateSettings(body));
   route("POST /api/round/open", "session", ({ body }) => {
     if (body.prompt !== undefined && typeof body.prompt !== "string") {

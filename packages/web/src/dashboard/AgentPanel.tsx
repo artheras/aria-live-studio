@@ -34,6 +34,7 @@ export function AgentPanel({
   const [tab, setTab] = useState<"local" | "remote">("local");
   const [pingMs, setPingMs] = useState<number | null>(null);
   const [testing, setTesting] = useState(false);
+  const [rotating, setRotating] = useState(false);
   const [preflight, setPreflight] = useState<PreflightStatus | null>(null);
 
   useEffect(() => {
@@ -169,6 +170,25 @@ export function AgentPanel({
           }}
         >
           Copy MCP JSON
+        </Btn>
+        <Btn
+          size="sm"
+          variant="ghost"
+          pending={rotating}
+          onClick={async () => {
+            setRotating(true);
+            try {
+              const fresh = await api.rotateAgentKeys();
+              setConn(fresh);
+              toast("success", "Rotated agent, co-host, and streamer keys");
+            } catch (e) {
+              toast("error", errorMessage(e));
+            } finally {
+              setRotating(false);
+            }
+          }}
+        >
+          Rotate keys
         </Btn>
       </div>
       <div className="agent-panel__meta">

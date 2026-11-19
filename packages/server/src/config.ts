@@ -194,3 +194,33 @@ export function loadConfig(env: Env = process.env): Config {
 export function twitchConfigured(config: Config): boolean {
   return Boolean(config.twitch.clientId && config.twitch.clientSecret);
 }
+
+/**
+ * Generate fresh agent/co-host/streamer secrets, update the live Config in
+ * place so leaked URLs or tokens stop working immediately, and persist them
+ * back to `dataDir/secrets.json` (0600).
+ */
+export function rotateAgentSecrets(config: Config): { agentToken: string; cohostKey: string; streamerKey: string } {
+  const file = join(config.dataDir, "secrets.json");
+  let stored: Secrets = {};
+  if (existsSync(file)) {
+    try {
+      stored = JSON.parse(readFileSync(file, "utf8")) as Secrets;
+    } catch {
+      stored = {};
+    }
+  }
+  const agentToken = randomBytes(SECRET_ENV.agentToken[1]).toString("base64url");
+  const cohostKey = randomBytes(SECRET_ENV.cohostKey[1]).toString("base64url");
+  const streamerKey = randomBytes(SECRET_ENV.streamerKey[1]).toString("base64url");
+  stored.agentToken = agentToken;
+  stored.cohostKey = cohostKey;
+  stored.streamerKey = streamerKey;
+  mkdirSync(config.dataDir, { recursive: true });
+  writeFileSync(file, JSON.stringify(stored, null, 2), { mode: 0o600 });
+  chmodSync(file, 0o600);
+  config.agentToken = agentToken;
+  config.cohostKey = cohostKey;
+  config.streamerKey = streamerKey;
+  return { agentToken, cohostKey, streamerKey };
+}

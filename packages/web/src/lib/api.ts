@@ -33,6 +33,32 @@ export class ApiRequestError extends Error implements ApiError {
 
 type Method = "GET" | "POST" | "PATCH";
 
+function parseAgentConnection(data: unknown): AgentConnection {
+  if (isRecord(data) && typeof data.token === "string" && typeof data.mcpUrl === "string") {
+    const conn: AgentConnection = {
+      token: data.token,
+      mcpUrl: data.mcpUrl.startsWith("/") ? window.location.origin + data.mcpUrl : data.mcpUrl,
+    };
+    const cmd = data.mcpCommand;
+    if (
+      isRecord(cmd) &&
+      typeof cmd.command === "string" &&
+      Array.isArray(cmd.args) &&
+      cmd.args.every((a) => typeof a === "string")
+    ) {
+      conn.mcpCommand = { command: cmd.command, args: cmd.args as string[] };
+    }
+    const remote = data.remote;
+    if (isRecord(remote) && typeof remote.agentUrl === "string" && typeof remote.cohostUrl === "string") {
+      const abs = (u: string) => (u.startsWith("/") ? window.location.origin + u : u);
+      conn.remote = { agentUrl: abs(remote.agentUrl), cohostUrl: abs(remote.cohostUrl) };
+      if (typeof remote.streamerUrl === "string") conn.remote.streamerUrl = abs(remote.streamerUrl);
+    }
+    return conn;
+  }
+  throw new ApiRequestError(200, "Server did not return agent connection details", "bad_response", data);
+}
+
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null;
 }
@@ -97,32 +123,10 @@ export function createApi(getCsrf: () => string | null) {
       if (!raw) throw new ApiRequestError(200, "Server did not return an overlay URL", "bad_response", data);
       return new URL(raw, window.location.origin).toString();
     },
-    agentConnection: async (): Promise<AgentConnection> => {
-      const data = await request<unknown>("GET", "/api/agent-connection");
-      if (isRecord(data) && typeof data.token === "string" && typeof data.mcpUrl === "string") {
-        const conn: AgentConnection = {
-          token: data.token,
-          mcpUrl: data.mcpUrl.startsWith("/") ? window.location.origin + data.mcpUrl : data.mcpUrl,
-        };
-        const cmd = data.mcpCommand;
-        if (
-          isRecord(cmd) &&
-          typeof cmd.command === "string" &&
-          Array.isArray(cmd.args) &&
-          cmd.args.every((a) => typeof a === "string")
-        ) {
-          conn.mcpCommand = { command: cmd.command, args: cmd.args as string[] };
-        }
-        const remote = data.remote;
-        if (isRecord(remote) && typeof remote.agentUrl === "string" && typeof remote.cohostUrl === "string") {
-          const abs = (u: string) => (u.startsWith("/") ? window.location.origin + u : u);
-          conn.remote = { agentUrl: abs(remote.agentUrl), cohostUrl: abs(remote.cohostUrl) };
-          if (typeof remote.streamerUrl === "string") conn.remote.streamerUrl = abs(remote.streamerUrl);
-        }
-        return conn;
-      }
-      throw new ApiRequestError(200, "Server did not return agent connection details", "bad_response", data);
-    },
+    agentConnection: async (): Promise<AgentConnection> =>
+      parseAgentConnection(await request<unknown>("GET", "/api/agent-connection")),
+    rotateAgentKeys: async (): Promise<AgentConnection> =>
+      parseAgentConnection(await post<unknown>("/api/agent/rotate")),
     settings: (patchBody: Partial<Settings>) => patch("/api/settings", patchBody),
     openRound: (prompt?: string, modifiers?: string[]) =>
       post("/api/round/open", {
