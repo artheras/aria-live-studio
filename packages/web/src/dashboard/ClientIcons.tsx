@@ -52,14 +52,36 @@ export function ClientIcon({ id, size = 18 }: { id: ClientIconId; size?: number 
       );
     case "aria-code":
       return (
-        <img
-          src="/aria-icon-dark.png"
-          width={size}
-          height={size}
-          alt=""
-          aria-hidden="true"
-          style={{ borderRadius: 4, flexShrink: 0, objectFit: "cover" }}
-        />
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" role="img" aria-hidden="true">
+          {/* Top face with hollow isometric cutout */}
+          <path
+            fillRule="evenodd"
+            clipRule="evenodd"
+            d="M12 1.5 21 6.7 12 12 3 6.7 12 1.5Zm0 2.9L7.3 7.1 12 9.8l4.7-2.7L12 4.4Z"
+            fill="#D4D4D8"
+            stroke="#52525B"
+            strokeWidth="0.6"
+            strokeLinejoin="round"
+          />
+          {/* Left face with hollow isometric cutout */}
+          <path
+            fillRule="evenodd"
+            clipRule="evenodd"
+            d="M3 6.7 12 12v10.5l-9-5.2V6.7Zm2.4 3.9v5.6l4.2 2.4V13l-4.2-2.4Z"
+            fill="#52525B"
+            stroke="#27272A"
+            strokeWidth="0.6"
+            strokeLinejoin="round"
+          />
+          {/* Right face with signature diagonal notch */}
+          <path
+            d="m12 12 9-5.3v7.2l-5.6-3.2-1.4.8 7 4.1v1.7l-9 5.2V12Z"
+            fill="#18181B"
+            stroke="#18181B"
+            strokeWidth="0.6"
+            strokeLinejoin="round"
+          />
+        </svg>
       );
   }
 }
