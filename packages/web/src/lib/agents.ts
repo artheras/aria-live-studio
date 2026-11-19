@@ -15,6 +15,13 @@ export const MCP_LAUNCH = {
 
 export const MCP_SERVER_NAME = "aria-live";
 
+export interface TunnelStatus {
+  available: boolean;
+  running: boolean;
+  url: string | null;
+  error: string | null;
+}
+
 export interface AgentConnection {
   token: string;
   mcpUrl: string;
@@ -22,6 +29,8 @@ export interface AgentConnection {
   mcpCommand?: { command: string; args: string[] };
   /** Remote MCP (Streamable HTTP) endpoints on this server. */
   remote?: { agentUrl: string; cohostUrl: string; streamerUrl?: string };
+  /** Optional quick-tunnel status for public HTTPS access. */
+  tunnel?: TunnelStatus;
 }
 
 export interface AgentSnippet {

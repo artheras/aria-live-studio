@@ -1228,6 +1228,29 @@ input[type="checkbox"] {
 }
 .snippet__head h3 { margin: 0; font-size: 13.5px; display: flex; align-items: center; gap: 8px; }
 .snippet__head .muted { font-size: 12px; }
+.snippet__actions { display: flex; align-items: center; gap: 6px; }
+.snippet__qr {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 12px;
+}
+.snippet__qr img { border-radius: 6px; background: #fff; padding: 4px; }
+.agent-panel__tunnel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  margin: 8px 0 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  font-size: 12.5px;
+}
 .snippet__code {
   margin: 0;
   padding: 12px;

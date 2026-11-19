@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ELIGIBILITY_LABEL, FEATURE_SCOPE, type Eligibility, type Settings } from "@aria-live/shared";
-import type { AriaApi, Me } from "../lib/api";
+import { errorMessage, type AriaApi, type Me } from "../lib/api";
 import { getThemePref, setThemePref, subscribeTheme, type ThemePref } from "../lib/theme";
 import { playCue } from "../lib/sound";
 import { Btn, useActions } from "./actions";
@@ -48,7 +48,7 @@ export function SettingsForm({
   /** Connection.missingScopes: features needing them are disabled until the streamer reconnects. */
   missingScopes?: string[];
 }) {
-  const { run, isPending } = useActions();
+  const { run, isPending, toast } = useActions();
   const [draft, setDraft] = useState<Settings>(settings);
   const [themePref, setThemePrefState] = useState<ThemePref>(() => getThemePref());
   useEffect(() => setDraft(settings), [settings]);
@@ -195,6 +195,68 @@ export function SettingsForm({
           <p className="callout callout--warn">
             {me.executor.kind}: unavailable{me.executor.reason ? ` — ${me.executor.reason}` : ""}
           </p>
+        )}
+      </div>
+      <div className="field">
+        <span>OBS WebSocket Scene Automation</span>
+        <label className="switch switch--row">
+          <input
+            type="checkbox"
+            checked={Boolean(draft.obsEnabled)}
+            onChange={(e) => setDraft({ ...draft, obsEnabled: e.target.checked })}
+          />
+          <span>Auto-switch OBS scenes on phase change</span>
+        </label>
+        {draft.obsEnabled && (
+          <div className="agent-panel__details-body">
+            <input
+              type="text"
+              placeholder="ws://127.0.0.1:4455"
+              value={draft.obsUrl ?? ""}
+              onChange={(e) => setDraft({ ...draft, obsUrl: e.target.value })}
+              aria-label="OBS WebSocket URL"
+            />
+            <input
+              type="password"
+              placeholder="OBS WebSocket password (optional)"
+              value={draft.obsPassword ?? ""}
+              onChange={(e) => setDraft({ ...draft, obsPassword: e.target.value })}
+              aria-label="OBS WebSocket password"
+            />
+            {(["collecting", "voting", "executing", "done"] as const).map((phaseKey) => (
+              <input
+                key={phaseKey}
+                type="text"
+                placeholder={`Scene for ${phaseKey} (optional)`}
+                value={draft.obsScenes?.[phaseKey] ?? ""}
+                onChange={(e) =>
+                  setDraft({
+                    ...draft,
+                    obsScenes: { ...(draft.obsScenes ?? {}), [phaseKey]: e.target.value },
+                  })
+                }
+                aria-label={`OBS scene for ${phaseKey}`}
+              />
+            ))}
+            <Btn
+              size="sm"
+              variant="secondary"
+              onClick={async () => {
+                try {
+                  const res = await api.testObs(draft.obsUrl, draft.obsPassword);
+                  if (res.ok) {
+                    toast("success", `OBS connected (${res.scenes.length} scenes: ${res.scenes.slice(0, 4).join(", ")})`);
+                  } else {
+                    toast("error", res.error || "Could not connect to OBS");
+                  }
+                } catch (err) {
+                  toast("error", errorMessage(err));
+                }
+              }}
+            >
+              Test OBS Connection
+            </Btn>
+          </div>
         )}
       </div>
       <div className="actions">

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import QRCode from "qrcode";
 import type { LiveState } from "@aria-live/shared";
 import type { AriaApi, PreflightStatus } from "../lib/api";
 import { errorMessage } from "../lib/api";
@@ -37,6 +38,7 @@ export function AgentPanel({
   const [pingMs, setPingMs] = useState<number | null>(null);
   const [testing, setTesting] = useState(false);
   const [rotating, setRotating] = useState(false);
+  const [togglingTunnel, setTogglingTunnel] = useState(false);
   const [preflight, setPreflight] = useState<PreflightStatus | null>(null);
 
   useEffect(() => {
@@ -217,6 +219,42 @@ export function AgentPanel({
 
       {tab === "remote" && remote && (
         <>
+          {conn.tunnel && (
+            <div className="agent-panel__tunnel">
+              <div>
+                <strong>HTTPS Tunnel</strong>{" "}
+                <span className="muted">
+                  {conn.tunnel.running && conn.tunnel.url
+                    ? conn.tunnel.url
+                    : conn.tunnel.available
+                      ? "Expose localhost over HTTPS for mobile/cloud apps"
+                      : "Install cloudflared for one-click HTTPS"}
+                </span>
+              </div>
+              {conn.tunnel.available && (
+                <Btn
+                  size="sm"
+                  variant={conn.tunnel.running ? "danger" : "secondary"}
+                  pending={togglingTunnel}
+                  onClick={async () => {
+                    setTogglingTunnel(true);
+                    try {
+                      const res = conn.tunnel?.running ? await api.stopTunnel() : await api.startTunnel();
+                      setConn(res.connection);
+                      if (res.error) toast("error", res.error);
+                      else toast("success", res.running ? `Tunnel active: ${res.url}` : "Tunnel stopped");
+                    } catch (e) {
+                      toast("error", errorMessage(e));
+                    } finally {
+                      setTogglingTunnel(false);
+                    }
+                  }}
+                >
+                  {conn.tunnel.running ? "Stop Tunnel" : "Start Tunnel"}
+                </Btn>
+              )}
+            </div>
+          )}
           <h3 className="agent-panel__sub">
             <ClientIcon id="chatgpt" size={16} />
             <ClientIcon id="claude" size={16} />
@@ -303,17 +341,42 @@ function ConnectorUrl({
   reveal: boolean;
   onCopied: (ok: boolean) => void;
 }) {
+  const [showQr, setShowQr] = useState(false);
+  const [qrSrc, setQrSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!showQr) return;
+    let alive = true;
+    QRCode.toDataURL(url, { width: 152, margin: 1 })
+      .then((src) => alive && setQrSrc(src))
+      .catch(() => alive && setQrSrc(null));
+    return () => {
+      alive = false;
+    };
+  }, [showQr, url]);
+
   return (
     <section className="snippet">
       <header className="snippet__head">
         <h3>{title}</h3>
-        <Btn size="sm" variant="secondary" className="push-right" onClick={async () => onCopied(await copyText(url))}>
-          Copy
-        </Btn>
+        <div className="push-right snippet__actions">
+          <Btn size="sm" variant="ghost" onClick={() => setShowQr((v) => !v)}>
+            {showQr ? "Hide QR" : "QR"}
+          </Btn>
+          <Btn size="sm" variant="secondary" onClick={async () => onCopied(await copyText(url))}>
+            Copy
+          </Btn>
+        </div>
       </header>
       <pre className="snippet__code">
         <code>{reveal ? url : maskCohostUrl(url)}</code>
       </pre>
+      {showQr && qrSrc && (
+        <div className="snippet__qr">
+          <img src={qrSrc} width={152} height={152} alt={`${title} QR code`} />
+          <span className="muted">Scan on mobile to open or copy this secret connector URL.</span>
+        </div>
+      )}
       <p className="muted snippet__note">{role}</p>
     </section>
   );

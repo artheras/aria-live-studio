@@ -32,6 +32,8 @@ import { EngineError } from "../live/engine.ts";
 import { ServiceError, type LiveService } from "../live/service.ts";
 import type { Store } from "../live/store.ts";
 import { createMcpHttp } from "../mcp/http.ts";
+import { testObsConnection } from "../live/obs.ts";
+import { TunnelManager } from "./tunnel.ts";
 import { AuthError, safeEqual, type Session, type TwitchAuth } from "../twitch/auth.ts";
 import { verifyExtensionJwt, type ExtensionJwtClaims } from "../twitch/extension.ts";
 import { overlaySnapshot } from "./redact.ts";
@@ -210,6 +212,7 @@ export function createApp(deps: AppDeps): App {
   const allowedOrigins = new Set([new URL(config.publicUrl).origin]);
   if (config.webDevUrl) allowedOrigins.add(new URL(config.webDevUrl).origin);
   const progressLimiter = new PerSecond(deps.agentProgressPerSec ?? 5);
+  const tunnel = new TunnelManager(config.port);
   const webDist = deps.webDist && existsSync(join(deps.webDist, "index.html")) ? resolve(deps.webDist) : null;
 
   const routes: Route[] = [];
@@ -274,20 +277,35 @@ export function createApp(deps: AppDeps): App {
   route("GET /api/overlay-url", "session", () => ({
     url: `${config.publicUrl}/overlay?key=${encodeURIComponent(config.overlayKey)}`,
   }));
-  const agentConnectionPayload = () => ({
-    token: config.agentToken,
-    mcpUrl: config.publicUrl,
-    mcpCommand: { command: "node", args: [join(REPO_ROOT, "plugin/mcp/aria-live-mcp.mjs")] },
-    remote: {
-      agentUrl: `${config.publicUrl}/mcp`,
-      cohostUrl: `${config.publicUrl}/mcp/cohost/${encodeURIComponent(config.cohostKey)}`,
-      streamerUrl: `${config.publicUrl}/mcp/streamer/${encodeURIComponent(config.streamerKey)}`,
-    },
-  });
+  const agentConnectionPayload = () => {
+    const t = tunnel.status();
+    const remoteBase = t.url ?? config.publicUrl;
+    return {
+      token: config.agentToken,
+      mcpUrl: config.publicUrl,
+      mcpCommand: { command: "node", args: [join(REPO_ROOT, "plugin/mcp/aria-live-mcp.mjs")] },
+      tunnel: t,
+      remote: {
+        agentUrl: `${remoteBase}/mcp`,
+        cohostUrl: `${remoteBase}/mcp/cohost/${encodeURIComponent(config.cohostKey)}`,
+        streamerUrl: `${remoteBase}/mcp/streamer/${encodeURIComponent(config.streamerKey)}`,
+      },
+    };
+  };
   route("GET /api/agent-connection", "session", () => agentConnectionPayload());
   route("POST /api/agent/rotate", "session", () => {
     rotateAgentSecrets(config);
     return agentConnectionPayload();
+  });
+  route("GET /api/agent/tunnel", "session", () => tunnel.status());
+  route("POST /api/agent/tunnel/start", "session", async () => {
+    const st = await tunnel.start();
+    if (st.url) allowedOrigins.add(new URL(st.url).origin);
+    return { ...st, connection: agentConnectionPayload() };
+  });
+  route("POST /api/agent/tunnel/stop", "session", () => {
+    const st = tunnel.stop();
+    return { ...st, connection: agentConnectionPayload() };
   });
   route("PATCH /api/settings", "session", ({ body }) => engine.updateSettings(body));
   route("POST /api/round/open", "session", ({ body }) => {
@@ -363,7 +381,22 @@ export function createApp(deps: AppDeps): App {
   });
   route("POST /api/task/plan", "session", () => service.planTask());
   route("PATCH /api/task", "session", ({ body }) => engine.editTask(body));
-  route("POST /api/task/approve", "session", ({ session }) => engine.approveTask(session!.user.login));
+  route("POST /api/task/approve", "session", ({ session, body }) => {
+    if (body.targetAgent !== undefined && body.targetAgent !== null && typeof body.targetAgent !== "string") {
+      throw new HttpError(400, "bad_input", "targetAgent must be a string");
+    }
+    return engine.approveTask(session!.user.login, (body.targetAgent as string | undefined) ?? null);
+  });
+  route("POST /api/task/feedback", "session", ({ session, body }) => {
+    if (typeof body.text !== "string") throw new HttpError(400, "bad_input", "text must be a string");
+    return { feedback: engine.addTaskFeedback(session!.user.login, body.text) };
+  });
+  route("POST /api/obs/test", "session", async ({ body }) => {
+    const st = engine.state.settings;
+    const url = typeof body.url === "string" && body.url.trim() ? body.url.trim() : st.obsUrl || "ws://127.0.0.1:4455";
+    const password = typeof body.password === "string" ? body.password : st.obsPassword;
+    return testObsConnection({ url, password });
+  });
   route("POST /api/task/reject", "session", ({ session, body }) => {
     if (body.note !== undefined && body.note !== null && typeof body.note !== "string") {
       throw new HttpError(400, "bad_input", "note must be a string");
@@ -725,6 +758,7 @@ export function createApp(deps: AppDeps): App {
     },
     async close() {
       offChange();
+      tunnel.stop();
       await mcp.close();
       hub.close();
       return new Promise<void>((ok) => {

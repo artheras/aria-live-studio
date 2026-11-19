@@ -22130,6 +22130,29 @@ function registerStreamerTools(server2, api) {
       }
     }
   );
+  if (api.sendFeedback) {
+    const sendFeedback = api.sendFeedback;
+    server2.registerTool(
+      "live_send_feedback",
+      {
+        title: "Send live feedback to the coding agent",
+        description: `Relays a short follow-up instruction from the streamer (via ChatGPT/Claude) to the coding agent currently building the approved task. ${APPROVAL_ON_DASHBOARD}`,
+        inputSchema: {
+          text: external_exports.string().trim().min(1).max(240).describe("Short instruction for the active coding agent")
+        },
+        annotations: CONTROL2,
+        _meta: meta("Sending feedback\u2026", "Feedback relayed")
+      },
+      async ({ text: text2 }) => {
+        try {
+          await sendFeedback(text2);
+          return after("Feedback relayed to the active coding agent.", await api.status());
+        } catch (error2) {
+          return failure(error2);
+        }
+      }
+    );
+  }
 }
 
 // src/server.ts

@@ -240,6 +240,7 @@ describe("remote MCP streamer role", () => {
       "live_ideas",
       "live_open_round",
       "live_plan_task",
+      "live_send_feedback",
       "live_start_vote",
       "live_status",
     ]);

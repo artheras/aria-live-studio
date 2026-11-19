@@ -22,6 +22,7 @@ import {
   type Idea,
   type LiveState,
   type Round,
+  type RoundPhase,
   type RoundSummary,
   type Settings,
   type StreamCelebration,
@@ -91,6 +92,7 @@ const BOOLEAN_SETTINGS = [
   "streamMarkers",
   "autoClip",
   "autoOpenOnStreamOnline",
+  "obsEnabled",
 ] as const;
 
 const ELIGIBILITIES: readonly Eligibility[] = ["everyone", "subscribers", "vip_mod"];
@@ -373,6 +375,25 @@ export class RoundEngine {
           throw new EngineError("bad_input", "overlayDensity must be standard or compact");
         }
         next.overlayDensity = v;
+      } else if (k === "obsUrl") {
+        if (typeof v !== "string" || (v.trim() && !/^wss?:\/\//i.test(v.trim()))) {
+          throw new EngineError("bad_input", "obsUrl must be a ws:// or wss:// URL");
+        }
+        next.obsUrl = v.trim() || undefined;
+      } else if (k === "obsPassword") {
+        if (typeof v !== "string") throw new EngineError("bad_input", "obsPassword must be a string");
+        next.obsPassword = v || undefined;
+      } else if (k === "obsScenes") {
+        if (!v || typeof v !== "object" || Array.isArray(v)) {
+          throw new EngineError("bad_input", "obsScenes must be an object");
+        }
+        const cleaned: Partial<Record<RoundPhase, string>> = {};
+        for (const [phase, scene] of Object.entries(v as Record<string, unknown>)) {
+          if (typeof scene === "string" && scene.trim()) {
+            cleaned[phase as RoundPhase] = streamSafeLine(scene, 80);
+          }
+        }
+        next.obsScenes = cleaned;
       } else {
         throw new EngineError("bad_input", `Unknown setting: ${k}`);
       }
@@ -814,17 +835,33 @@ export class RoundEngine {
     return next;
   }
 
-  approveTask(by: string): Task {
+  approveTask(by: string, targetAgent?: string | null): Task {
     const r = this.requirePhase("awaiting_approval");
     const t = r.task;
     if (!t || t.status !== "draft") throw new EngineError("wrong_phase", "No draft task to approve");
     t.status = "approved";
     t.decidedAt = this.deps.now();
     t.decidedBy = by;
-    this.activity("task", `Task approved by ${by}`);
+    t.targetAgent = targetAgent?.trim() ? streamSafeLine(targetAgent, 40) : null;
+    this.activity("task", `Task approved by ${by}${t.targetAgent ? ` (assigned to ${t.targetAgent})` : ""}`);
     this.changed();
     this.milestone({ kind: "task_approved", round: r, task: t });
     return t;
+  }
+
+  addTaskFeedback(by: string, text: string): Array<{ at: number; by: string; text: string }> {
+    const r = this.s.round;
+    if (!r || !r.execution || !["queued", "running"].includes(r.execution.status)) {
+      throw new EngineError("wrong_phase", "No active execution to receive feedback");
+    }
+    const clean = streamSafeLine(text, 240);
+    if (!clean) throw new EngineError("bad_input", "Feedback cannot be empty");
+    const list = r.execution.feedback ?? [];
+    list.push({ at: this.deps.now(), by: streamSafeLine(by, 40), text: clean });
+    r.execution.feedback = list.slice(-20);
+    this.activity("task", `Feedback from ${by}: ${clean}`);
+    this.changed();
+    return r.execution.feedback;
   }
 
   rejectTask(by: string, note?: string | null): Task {

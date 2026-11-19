@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@aria-live/shared": "0.1.0",
+    "@types/qrcode": "^1.5.6",
+    "qrcode": "^1.5.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "three": "^0.187.0"

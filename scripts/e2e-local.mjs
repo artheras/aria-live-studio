@@ -1229,7 +1229,7 @@ async function phaseBStreamer({ api, chat, waitState, conn }) {
   const st = await startRemoteMcp(conn.remote.streamerUrl, "claude-ai");
   const tools = (await st.client.listTools()).tools;
   const names = tools.map((t) => t.name).sort().join(",");
-  check(names === "live_activity_digest,live_close_vote,live_extend_vote,live_hide_idea,live_history,live_ideas,live_open_round,live_plan_task,live_start_vote,live_status", "streamer lists read tools + round control", names);
+  check(names === "live_activity_digest,live_close_vote,live_extend_vote,live_hide_idea,live_history,live_ideas,live_open_round,live_plan_task,live_send_feedback,live_start_vote,live_status", "streamer lists read tools + round control", names);
   check(!tools.some((t) => /approve|reject|cancel|claim|complete|run/.test(t.name)), "streamer has no approve / reject / run / cancel tool");
   check(tools.filter((t) => t.name.startsWith("live_") && !["live_status", "live_ideas", "live_history", "live_activity_digest"].includes(t.name)).every((t) => t.annotations?.readOnlyHint === false && t.annotations?.destructiveHint === false && /approval happens on the Aria Live dashboard/i.test(t.description ?? "")), "control tools: not read-only, not destructive, say approval is on the dashboard");
   const statusMeta = tools.find((t) => t.name === "live_status")?._meta ?? {};

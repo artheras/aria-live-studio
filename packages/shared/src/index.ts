@@ -132,6 +132,8 @@ export interface Task {
   decidedBy: string | null;
   /** Why the streamer rejected it, if they said. */
   note: string | null;
+  /** Optional preferred client name (e.g. "cursor", "claude-code") assigned on approval. */
+  targetAgent?: string | null;
 }
 
 // ── Execution (only after the streamer approves) ─────────────────────────
@@ -171,6 +173,8 @@ export interface Execution {
   /** Optional Agent-generated video/image URL rendered on the OBS overlay and Pop out window. */
   mediaUrl?: string | null;
   mediaKind?: "video" | "image" | null;
+  /** Live follow-up instructions relayed from dashboard or mobile/desktop streamer MCP. */
+  feedback?: Array<{ at: number; by: string; text: string }>;
 }
 
 // ── Connection and settings ──────────────────────────────────────────────
@@ -248,6 +252,11 @@ export interface Settings {
   autoOpenOnStreamOnline?: boolean;
   /** OBS Overlay density ("standard" | "compact"). */
   overlayDensity?: "standard" | "compact";
+  /** Automatic OBS WebSocket v5 scene switching on round phase transitions. */
+  obsEnabled?: boolean;
+  obsUrl?: string;
+  obsPassword?: string;
+  obsScenes?: Partial<Record<RoundPhase, string>>;
 }
 
 // ── Activity feed (what scrolls on the dashboard) ────────────────────────
@@ -402,8 +411,8 @@ export interface AgentStatus {
   prompt: string | null;
   ballot: { number: number; text: string; votes: number }[];
   winner: { number: number; text: string; votes: number } | null;
-  task: { id: string; title: string; status: TaskStatus } | null;
-  execution: { status: ExecutionStatus; executor: string } | null;
+  task: { id: string; title: string; status: TaskStatus; targetAgent?: string | null } | null;
+  execution: { status: ExecutionStatus; executor: string; feedback?: Array<{ at: number; by: string; text: string }> } | null;
 }
 
 /** An approved task as handed to a coding agent. Viewer text is untrusted. */

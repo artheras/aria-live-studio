@@ -6,6 +6,7 @@ export const OVERLAY_STEP_LIMIT = 8;
 export function overlaySnapshot(state: LiveState): LiveState {
   const s = structuredClone(state);
   s.activity = [];
+  if (s.settings.obsPassword) s.settings = { ...s.settings, obsPassword: undefined };
   s.connection = {
     ...s.connection,
     sessionId: null,

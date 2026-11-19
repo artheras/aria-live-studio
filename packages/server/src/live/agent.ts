@@ -90,8 +90,14 @@ export class AgentBridge {
       prompt: r?.prompt ?? null,
       ballot,
       winner: w ? { number: wt?.number ?? w.number, text: w.text, votes: wt?.votes ?? 0 } : null,
-      task: r?.task ? { id: r.task.id, title: r.task.title, status: r.task.status } : null,
-      execution: r?.execution ? { status: r.execution.status, executor: r.execution.executor } : null,
+      task: r?.task ? { id: r.task.id, title: r.task.title, status: r.task.status, targetAgent: r.task.targetAgent ?? null } : null,
+      execution: r?.execution
+        ? {
+            status: r.execution.status,
+            executor: r.execution.executor,
+            feedback: r.execution.feedback ?? [],
+          }
+        : null,
     };
   }
 
@@ -136,6 +142,9 @@ export class AgentBridge {
     }
     try {
       const clientName = sanitizeClient(client);
+      if (task.targetAgent && clientName.toLowerCase() !== task.targetAgent.toLowerCase()) {
+        throw new AgentError(409, "wrong_agent", `Task is assigned to ${task.targetAgent}`);
+      }
       this.engine.touchAgent(clientName);
       this.engine.beginExecution(`${AGENT_EXECUTOR_PREFIX}${clientName}`);
       this.engine.setAgentLease(clientName, taskId);

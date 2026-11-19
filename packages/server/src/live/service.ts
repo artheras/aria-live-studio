@@ -14,6 +14,7 @@ import { parseChatMessage, REPLY_PREFIX, type ChatMessageEvent, type ModAction, 
 import { EngineError, RoundEngine, type Actor, type EngineDeps } from "./engine.ts";
 import type { Store } from "./store.ts";
 import { TwitchExtras, type TwitchExtrasDeps } from "./twitch-extras.ts";
+import { switchObsScene } from "./obs.ts";
 
 export const VIEWER_HELP =
   "Propose with !idea <your idea>, +1 an idea with !idea +<n> (or !+1 <n>), vote with !vote <number> once voting opens, !ideas lists them. The streamer approves what gets built.";
@@ -86,6 +87,7 @@ export class LiveService {
   readonly extras: TwitchExtras;
   /** History appends in archive order (each waits for its round's Twitch extras). */
   private historyWrites: Promise<void> = Promise.resolve();
+  private lastObsPhase: string | null = null;
   private eventsub: EventSubClient | null = null;
   private planAbort: AbortController | null = null;
   private execAbort: AbortController | null = null;
@@ -110,8 +112,20 @@ export class LiveService {
       ...deps.twitchExtras,
     });
     this.engine.on((e) => {
-      if (e.type === "change") deps.store.scheduleSave(() => this.engine.snapshot());
-      else if (e.type === "milestone") {
+      if (e.type === "change") {
+        deps.store.scheduleSave(() => this.engine.snapshot());
+        const phase = this.engine.round?.phase ?? "idle";
+        if (phase !== this.lastObsPhase) {
+          this.lastObsPhase = phase;
+          const st = this.engine.state.settings;
+          const scene = st.obsEnabled ? st.obsScenes?.[phase] : undefined;
+          if (scene) {
+            void switchObsScene({ url: st.obsUrl || "ws://127.0.0.1:4455", password: st.obsPassword }, scene).catch(
+              (err) => console.warn(`[obs] scene switch failed: ${(err as Error).message}`),
+            );
+          }
+        }
+      } else if (e.type === "milestone") {
         this.extras.handle(e.milestone);
         this.emitWebhook(e.milestone);
       } else {

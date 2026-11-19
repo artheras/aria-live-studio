@@ -75,6 +75,7 @@ function DashboardInner({ state, live, me, api, clockOffset = 0, onLogout }: Das
             me={me}
             api={api}
             clockOffset={clockOffset}
+            connectedAgents={state.connectedAgents}
             onConnectAgent={() => setDrawer("agent")}
           />
           <StatsStrip stats={state.stats} />

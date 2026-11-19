@@ -185,5 +185,6 @@ export function streamerApi(service: LiveService, store: Store): StreamerApi {
           status: t.status,
         };
       }),
+    sendFeedback: (text) => wrap(() => void engine.addTaskFeedback("Chat app", text)),
   };
 }

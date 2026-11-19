@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { Eligibility, Execution, Round, Settings } from "@aria-live/shared";
+import type { Eligibility, Execution, LiveState, Round, Settings } from "@aria-live/shared";
 import type { AriaApi, Me } from "../lib/api";
 import { ApiRequestError } from "../lib/api";
 import { PHASE_LABEL, STEPS, ballotNumber, isExecutionActive, stepIndex, totalVotes, winnerIdea } from "../lib/round";
@@ -282,16 +282,28 @@ export interface RoundControlProps {
   me: Me;
   api: AriaApi;
   clockOffset: number;
+  connectedAgents?: LiveState["connectedAgents"];
   onConnectAgent?: () => void;
 }
 
-export function RoundControl({ round, settings, me, api, clockOffset, onConnectAgent }: RoundControlProps) {
+export function RoundControl({
+  round,
+  settings,
+  me,
+  api,
+  clockOffset,
+  connectedAgents = [],
+  onConnectAgent,
+}: RoundControlProps) {
   const { run, isPending } = useActions();
   const pending = isPending(KEY);
   const [editing, setEditing] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   const [note, setNote] = useState("");
+  const [targetAgent, setTargetAgent] = useState("");
+  const [feedbackText, setFeedbackText] = useState("");
   const [diffText, setDiffText] = useState<string | null>(null);
+  const [diffRisks, setDiffRisks] = useState<Array<{ file: string; category: string; reason: string }>>([]);
   const [sfx, setSfx] = useState(() => isSfxEnabled());
   const now = useNow(1000) + clockOffset;
 
@@ -466,6 +478,41 @@ export function RoundControl({ round, settings, me, api, clockOffset, onConnectA
           </Btn>
         </div>
         <StepLog execution={execution} />
+        {execution.feedback && execution.feedback.length > 0 && (
+          <div className="callout callout--info" role="status">
+            <strong>Relayed feedback:</strong>
+            <ul>
+              {execution.feedback.map((f, i) => (
+                <li key={`${f.at}-${i}`}>
+                  <strong>{f.by}:</strong> {f.text}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        <form
+          className="inline-form"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const msg = feedbackText.trim();
+            if (!msg) return;
+            void act(async () => {
+              await api.sendTaskFeedback(msg);
+              setFeedbackText("");
+            }, "Feedback sent to coding agent");
+          }}
+        >
+          <input
+            value={feedbackText}
+            onChange={(e) => setFeedbackText(e.target.value)}
+            placeholder="Send live feedback to the coding agent…"
+            maxLength={240}
+            aria-label="Send live feedback to the coding agent"
+          />
+          <Btn type="submit" size="sm" variant="secondary" disabled={pending || !feedbackText.trim()}>
+            Send
+          </Btn>
+        </form>
         {task && <TaskCard task={task} compact />}
       </>
     );
@@ -504,13 +551,28 @@ export function RoundControl({ round, settings, me, api, clockOffset, onConnectA
           </form>
         ) : (
           <div className="actions">
+            {connectedAgents && connectedAgents.length > 0 && (
+              <select
+                aria-label="Assign to agent"
+                value={targetAgent}
+                onChange={(e) => setTargetAgent(e.target.value)}
+                disabled={pending}
+              >
+                <option value="">Any agent</option>
+                {connectedAgents.map((a) => (
+                  <option key={a.name} value={a.name}>
+                    Assign: {a.name}
+                  </option>
+                ))}
+              </select>
+            )}
             <Btn
               variant="success"
               size="lg"
               pending={pending}
               onClick={() => {
                 playCue("approve");
-                void act(() => api.approveTask());
+                void act(() => api.approveTask(targetAgent || null));
               }}
             >
               Approve
@@ -602,11 +664,13 @@ export function RoundControl({ round, settings, me, api, clockOffset, onConnectA
                 onClick={() => {
                   if (diffText !== null) {
                     setDiffText(null);
+                    setDiffRisks([]);
                     return;
                   }
                   act(async () => {
                     const res = await api.roundDiff();
                     setDiffText(res.diff || res.stat || "No changes");
+                    setDiffRisks(res.risks ?? []);
                   });
                 }}
               >
@@ -621,6 +685,18 @@ export function RoundControl({ round, settings, me, api, clockOffset, onConnectA
                 Revert round ({execution.branch})
               </Btn>
             </div>
+            {diffText !== null && diffRisks.length > 0 && (
+              <div className="callout callout--warn" role="alert">
+                <strong>Sensitive file changes detected:</strong>
+                <ul>
+                  {diffRisks.map((r) => (
+                    <li key={`${r.category}:${r.file}`}>
+                      <code>{r.file}</code> — {r.reason}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             {diffText !== null && <pre className="diff-preview">{diffText}</pre>}
           </div>
         )}

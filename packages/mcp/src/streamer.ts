@@ -58,6 +58,8 @@ export interface StreamerApi extends CohostApi {
   /** By submission number (#n in live_ideas). */
   hideIdea(number: number, hidden: boolean): Promise<void>;
   planTask(): Promise<StreamerPlan>;
+  /** Relay live follow-up instructions to the active coding agent. */
+  sendFeedback?(text: string): Promise<void>;
 }
 
 const CONTROL: ToolAnnotations = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
@@ -228,4 +230,29 @@ export function registerStreamerTools(server: McpServer, api: StreamerApi): void
       }
     },
   );
+
+  if (api.sendFeedback) {
+    const sendFeedback = api.sendFeedback;
+    server.registerTool(
+      "live_send_feedback",
+      {
+        title: "Send live feedback to the coding agent",
+        description:
+          `Relays a short follow-up instruction from the streamer (via ChatGPT/Claude) to the coding agent currently building the approved task. ${APPROVAL_ON_DASHBOARD}`,
+        inputSchema: {
+          text: z.string().trim().min(1).max(240).describe("Short instruction for the active coding agent"),
+        },
+        annotations: CONTROL,
+        _meta: meta("Sending feedback…", "Feedback relayed"),
+      },
+      async ({ text }) => {
+        try {
+          await sendFeedback(text);
+          return after("Feedback relayed to the active coding agent.", await api.status());
+        } catch (error) {
+          return failure(error);
+        }
+      },
+    );
+  }
 }

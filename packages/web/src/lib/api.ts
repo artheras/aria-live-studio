@@ -54,6 +54,15 @@ function parseAgentConnection(data: unknown): AgentConnection {
       conn.remote = { agentUrl: abs(remote.agentUrl), cohostUrl: abs(remote.cohostUrl) };
       if (typeof remote.streamerUrl === "string") conn.remote.streamerUrl = abs(remote.streamerUrl);
     }
+    const tunnel = data.tunnel;
+    if (isRecord(tunnel) && typeof tunnel.available === "boolean" && typeof tunnel.running === "boolean") {
+      conn.tunnel = {
+        available: tunnel.available,
+        running: tunnel.running,
+        url: typeof tunnel.url === "string" ? tunnel.url : null,
+        error: typeof tunnel.error === "string" ? tunnel.error : null,
+      };
+    }
     return conn;
   }
   throw new ApiRequestError(200, "Server did not return agent connection details", "bad_response", data);
@@ -127,6 +136,18 @@ export function createApi(getCsrf: () => string | null) {
       parseAgentConnection(await request<unknown>("GET", "/api/agent-connection")),
     rotateAgentKeys: async (): Promise<AgentConnection> =>
       parseAgentConnection(await post<unknown>("/api/agent/rotate")),
+    startTunnel: async (): Promise<{ available: boolean; running: boolean; url: string | null; error: string | null; connection: AgentConnection }> => {
+      const data = await post<{ available: boolean; running: boolean; url: string | null; error: string | null; connection: unknown }>(
+        "/api/agent/tunnel/start",
+      );
+      return { ...data, connection: parseAgentConnection(data.connection) };
+    },
+    stopTunnel: async (): Promise<{ available: boolean; running: boolean; url: string | null; error: string | null; connection: AgentConnection }> => {
+      const data = await post<{ available: boolean; running: boolean; url: string | null; error: string | null; connection: unknown }>(
+        "/api/agent/tunnel/stop",
+      );
+      return { ...data, connection: parseAgentConnection(data.connection) };
+    },
     settings: (patchBody: Partial<Settings>) => patch("/api/settings", patchBody),
     openRound: (prompt?: string, modifiers?: string[]) =>
       post("/api/round/open", {
@@ -138,11 +159,24 @@ export function createApi(getCsrf: () => string | null) {
     resetRound: () => post("/api/round/reset"),
     revertRound: () => post<{ reverted: boolean; branch: string }>("/api/round/revert"),
     mergeRound: () => post<{ merged: boolean; branch: string }>("/api/round/merge"),
-    roundDiff: () => request<{ branch: string; stat: string; diff: string }>("GET", "/api/round/diff"),
+    roundDiff: () =>
+      request<{
+        branch: string;
+        stat: string;
+        diff: string;
+        risks?: Array<{ file: string; category: string; reason: string }>;
+      }>("GET", "/api/round/diff"),
     hideIdea: (id: string, hidden: boolean) => post(`/api/ideas/${encodeURIComponent(id)}/hide`, { hidden }),
     planTask: () => post("/api/task/plan"),
     editTask: (edit: TaskEdit) => patch("/api/task", edit),
-    approveTask: () => post("/api/task/approve"),
+    approveTask: (targetAgent?: string | null) =>
+      post("/api/task/approve", targetAgent ? { targetAgent } : {}),
+    sendTaskFeedback: (text: string) => post<{ feedback: Array<{ at: number; by: string; text: string }> }>("/api/task/feedback", { text }),
+    testObs: (url?: string, password?: string) =>
+      post<{ ok: boolean; scenes: string[]; currentScene: string | null; error?: string }>("/api/obs/test", {
+        ...(url ? { url } : {}),
+        ...(password !== undefined ? { password } : {}),
+      }),
     rejectTask: (note?: string) => post("/api/task/reject", note ? { note } : {}),
     startExecution: () => post("/api/execution/start"),
     cancelExecution: () => post("/api/execution/cancel"),
