@@ -17,10 +17,10 @@ progress on an OBS overlay.
                                                                  claim · build · report · finish
 ```
 
-| Streamer Studio (Light Theme & 3D Workshop Preview) | Pop-out Showcase (3D Floating Acropolis) |
+| Streamer Studio (Light Theme & 3D Workshop Preview) | Multi-Client MCP Connector (IDE / CLI / Chat Apps) |
 |---|---|
-| ![Streamer Studio Light Theme](docs/screenshots/dashboard-idle.jpg) | ![Pop-out Showcase 3D Floating Acropolis](docs/screenshots/popout-showcase.jpg) |
-| ![Pop-out Card Mode](docs/screenshots/popout-card.jpg) | ![Pop-out Green Chroma Key Mode](docs/screenshots/popout-green-chroma.png) |
+| ![Streamer Studio Light Theme](docs/screenshots/dashboard-idle.jpg) | ![Connect a coding agent via MCP](docs/screenshots/dashboard-connect-agent.png) |
+| ![Pop-out Showcase 3D Floating Acropolis](docs/screenshots/popout-showcase.jpg) | ![Pop-out Green Chroma Key Mode](docs/screenshots/popout-green-chroma.png) |
 
 | Streamer dashboard (voting & live MCP execution) | OBS overlay (transparent, 1920 × 1080) |
 |---|---|
